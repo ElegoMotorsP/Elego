@@ -1,0 +1,18 @@
+<odoo>
+<template id="report_saleorder_document" inherit_id="sale.report_saleorder_document">
+    <xpath expr="//div[@name='so_total_summary']" position="after">
+            In Words : <span t-field="doc.number_to_words"/>
+    </xpath>
+    </template>
+<template id="report_invoice_document" inherit_id="account.report_invoice_document">
+    <xpath expr="//table[@name='invoice_line_table']" position="after">
+            In Words : <span t-field="o.number_to_words"/>
+    </xpath>
+    </template>
+<template id="report_purchasequotation_document" inherit_id="purchase.report_purchasequotation_document">
+    <xpath expr="//p[@t-field='o.notes']" position="after">
+            In Words : <span t-field="o.number_to_words"/>
+    </xpath>
+    </template>
+
+</odoo>
