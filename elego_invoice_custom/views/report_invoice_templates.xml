@@ -108,11 +108,16 @@
                                 <td name="td_vehicle_details">
                                     <t t-if="is_vehicle_line">
                                         <t t-foreach="vehicle_details" t-as="details">
-                                            <t t-set="detail_string" t-value="''"/>
-                                            <t t-foreach="details.items()" t-as="item">
-                                                <t t-set="detail_string" t-value="detail_string + item[0] + ': ' + item[1] + ', '"/>
+                                            <t t-if="isinstance(details, dict)">
+                                                <t t-set="detail_string" t-value="''"/>
+                                                <t t-foreach="details.items()" t-as="item">
+                                                    <t t-set="detail_string" t-value="detail_string + item[0] + ': ' + item[1] + ', '"/>
+                                                </t>
+                                                <div><span t-esc="detail_string[:-2]"/></div>
                                             </t>
-                                            <div><span t-esc="detail_string[:-2]"/></div>
+                                            <t t-else="">
+                                                <div><span t-esc="details"/></div>
+                                            </t>
                                         </t>
                                     </t>
                                     <t t-elif="line.product_id.tracking == 'serial' and not is_vehicle_line">
@@ -125,7 +130,7 @@
                                     <t t-else="">
                                         <span></span>
                                     </t>
-                                </td>
+                                </td>  
                                 
                                 <td name="td_gst_percent" class="text-right">
                                     <t t-if="line.tax_ids">
@@ -136,7 +141,7 @@
                                     </t>
                                 </td>
                                 
-                                <td name="td_hsn_code" class="text-center"><span t-field="line.product_id.l10n_in_hsn_code"/></td>
+                                <td name="td_hsn_code" class="text-center"><span t-field="line.product_id"/></td>
                                 <td name="td_quantity" class="text-right"><span t-field="line.quantity"/></td>
                                 <td name="td_priceunit" class="text-right"><span t-field="line.price_unit" t-options='{"widget": "monetary", "display_currency": o.currency_id}'/></td>
                                 <td name="td_discount" class="text-right" groups="product.group_discount_per_unit"><span t-field="line.discount"/></td>

@@ -97,8 +97,8 @@ class VehicleTrackingXlsReport(models.TransientModel):
 
             # --- Iterate ---
             for chassis in chassis_lots:
-                mo_move = self.env['stock.move'].search([
-                    ('lot_ids', 'in', chassis.id),
+                mo_move = self.env['stock.move.line'].search([
+                    ('lot_id', '=', chassis.id),
                     ('product_id', '=', chassis.product_id.id),
                     ('state', '=', 'done'),
                     ('production_id', '!=', False)
@@ -170,8 +170,11 @@ class VehicleTrackingXlsReport(models.TransientModel):
                 sheet.write(
                     row, 2, chassis.product_id.default_code or '', fmt_text)
                 sheet.write(row, 3, color, fmt_text)
-                sheet.write(row, 4, chassis.name or '', fmt_text)
-
+                # sheet.write(row, 4, chassis.name or '', fmt_text)
+                if 'elego' in (chassis.product_id.name or '').lower():
+                    sheet.write(row, 4, chassis.name or '', fmt_text)
+                else:
+                    sheet.write(row, 4, '', fmt_text)
                 sheet.write(row, 5, components.get('Motor No', ''), fmt_text)
                 sheet.write(row, 6, components.get('Battery No', ''), fmt_text)
                 sheet.write(row, 7, components.get('Controller', ''), fmt_text)

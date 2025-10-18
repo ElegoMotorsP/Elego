@@ -63,8 +63,13 @@ class AccountMoveLine(models.Model):
             component_serials = self._get_components_from_chassis_lot(chassis_lot.id)
 
             # Rebuild the dictionary with 'Chassis No' first
-            ordered_details = {'Chassis No': chassis_lot.name}
-            ordered_details.update(component_serials)
+            # ordered_details = {'Chassis No': chassis_lot.name}
+            # ordered_details.update(component_serials)
+            if 'elego' in chassis_lot.product_id.name.lower():
+                ordered_details = {'Chassis No': chassis_lot.name}
+                ordered_details.update(component_serials)
+            else:
+                ordered_details = chassis_lot.name  # Just the lot number string
 
             # Append the full set of details for this one sold unit
             vehicle_details_list.append(ordered_details)
