@@ -1,0 +1,11 @@
+<odoo>
+  <template id="report_invoice_document_inherit_serials" inherit_id="account.report_invoice_document">
+    <xpath expr="//t[@t-foreach='o.line_ids' and @t-as='line']" position="inside">
+      <!-- Assign variable for serials stored on the invoice line -->
+      <t t-set="_inv_line_serials" t-value="line.lot_ids or []"/>
+      <t t-if="_inv_line_serials">
+        <div class="mt-1"><small>Serials: <t t-foreach="_inv_line_serials" t-as="sl"><t t-esc="sl.name"/><t t-if="not loop.last">, </t></t></small></div>
+      </t>
+    </xpath>
+  </template>
+</odoo>
