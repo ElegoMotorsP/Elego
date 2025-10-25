@@ -1,4 +1,0 @@
-id,name,model_id:id,group_id:id,perm_read,perm_write,perm_create,perm_unlink
-access_serial_mandatory_product_template,access_serial_mandatory_product_template,model_product_template,base.group_user,1,0,0,0
-access_serial_mandatory_stock_move_line,access_serial_mandatory_stock_move_line,model_stock_move_line,base.group_user,1,0,0,0
-access_serial_mandatory_account_move_line_lots,access_serial_mandatory_account_move_line_lots,model_account_move_line,base.group_user,1,1,1,0
