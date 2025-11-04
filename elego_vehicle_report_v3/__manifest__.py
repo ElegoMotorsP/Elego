@@ -1,8 +1,8 @@
 {
-    "name": "Elego Vehicle Tracking Report",
+    "name": "Elego Vehicle Tracking Report (V3)",
     "version": "1.0",
     "category": "Reporting",
-    "summary": "Vehicle tracking report with filters (customer, invoice, item, location)",
+    "summary": "Vehicle tracking XLSX report with synchronized filters (customer, invoice, item, location)",
     "author": "LNSInfusion",
     "depends": [
         "account",
