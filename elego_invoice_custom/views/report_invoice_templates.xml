@@ -2,50 +2,50 @@
     <data>
         <template id="report_invoice_document_elego_custom" inherit_id="account.report_invoice_document">
 
+            <!-- ===== HEADER INFORMATION ===== -->
             <xpath expr="//div[@id='informations']" position="replace">
-                <div id="informations" class="row">
-                    <div class="col-6">
-                        <div class="o_label">
-                            <strong>Invoice No.:</strong> <span t-field="o.name"/>
+                <div id="informations" style="border:2px solid black; padding:8px; margin-bottom:6px; font-size:12px;">
+                    <div class="row">
+                        <div class="col-6" style="border-right:1px solid black;">
+                            <p><strong>Invoice No.:</strong> <span t-field="o.name"/></p>
+                            <p><strong>Invoice Date:</strong>
+                                <span t-field="o.invoice_date" t-options='{"widget": "date", "format": "dd-MMM-yyyy"}'/>
+                            </p>
+                            <p><strong>Cust PO No. &amp; Date:</strong>
+                                <span t-field="o.partner_id.ref"/> &amp;
+                                <span t-field="o.invoice_date" t-options='{"widget": "date", "format": "dd-MMM-yyyy"}'/>
+                            </p>
                         </div>
-                        <div class="o_label">
-                            <strong>Invoice Date:</strong> <span t-field="o.invoice_date" t-options='{"widget": "date", "format": "dd-MMM-yyyy"}'/>
-                        </div>
-                        <div class="o_label">
-                            <strong>Cust PO No. &amp; Date:</strong> <span t-field="o.partner_id.ref"/> &amp; <span t-field="o.invoice_date" t-options='{"widget": "date", "format": "dd-MMM-yyyy"}'/>
-                        </div>
-                    </div>
-                    <div class="col-6">
-                        <div class="o_label">
-                            <strong>SO No.:</strong> <span t-field="o.invoice_origin"/>
-                        </div>
-                        <div class="o_label">
-                            <strong>SO Date:</strong> <span t-field="o.invoice_date" t-options='{"widget": "date", "format": "dd-MMM-yyyy"}'/>
-                        </div>
-                        <div class="o_label">
-                            <strong>State:</strong> <span t-field="o.partner_id.state_id.name"/>
-                        </div>
-                        <div class="o_label">
-                            <strong>State Code:</strong> <span t-field="o.partner_id.state_id.code"/>
+                        <div class="col-6">
+                            <p><strong>SO No.:</strong> <span t-field="o.invoice_origin"/></p>
+                            <p><strong>SO Date:</strong>
+                                <span t-field="o.invoice_date" t-options='{"widget": "date", "format": "dd-MMM-yyyy"}'/>
+                            </p>
+                            <p><strong>State:</strong> <span t-field="o.partner_id.state_id.name"/></p>
+                            <p><strong>State Code:</strong> <span t-field="o.partner_id.state_id.code"/></p>
                         </div>
                     </div>
                 </div>
             </xpath>
+
+            <!-- ===== BILL TO / SHIP TO ===== -->
             <xpath expr="//div[@id='informations']/following-sibling::div[1]" position="replace">
-            <!-- <xpath expr="//div[hasclass('address_format')]/parent::div" position="replace"> -->
-                <div class="row">
-                    <div class="col-6">
-                        <strong>Details of Receiver | Billed to:</strong>
-                        <address t-field="o.partner_id" t-options='{"widget": "contact", "fields": ["name", "address"], "no_marker": True}' style="white-space: pre-line;"/>
+                <div class="row" style="border:2px solid black; padding:8px; margin-bottom:6px; font-size:12px;">
+                    <div class="col-6" style="border-right:1px solid black;">
+                        <strong>Details of Receiver | Billed To:</strong>
+                        <address t-field="o.partner_id"
+                                 t-options='{"widget":"contact","fields":["name","address"],"no_marker":True}'
+                                 style="white-space: pre-line; margin-bottom:4px;"/>
                         <p><strong>GST No:</strong> <span t-field="o.partner_id.vat"/></p>
                         <p><strong>PAN No:</strong> <span t-field="o.partner_id.vat"/></p>
                         <p><strong>State:</strong> <span t-field="o.partner_id.state_id.name"/></p>
                         <p><strong>State Code:</strong> <span t-field="o.partner_id.state_id.code"/></p>
                     </div>
-
                     <div class="col-6">
-                        <strong>Details of Consignee | Shipped to:</strong>
-                        <address t-field="o.partner_shipping_id" t-options='{"widget": "contact", "fields": ["name", "address"], "no_marker": True}' style="white-space: pre-line;"/>
+                        <strong>Details of Consignee | Shipped To:</strong>
+                        <address t-field="o.partner_shipping_id"
+                                 t-options='{"widget":"contact","fields":["name","address"],"no_marker":True}'
+                                 style="white-space: pre-line; margin-bottom:4px;"/>
                         <p><strong>GST No:</strong> <span t-field="o.partner_shipping_id.vat"/></p>
                         <p><strong>PAN No:</strong> <span t-field="o.partner_shipping_id.vat"/></p>
                         <p><strong>State:</strong> <span t-field="o.partner_shipping_id.state_id.name"/></p>
@@ -54,154 +54,162 @@
                 </div>
             </xpath>
 
+            <!-- ===== TRANSPORT DETAILS ===== -->
             <xpath expr="//table[hasclass('o_main_table')]" position="before">
-                <div id="transport_details" class="row mb-4" style="border: 1px solid black; padding: 10px;">
-                    <div class="col-12 mb-2">
-                        <strong>Transportation Details:</strong>
-                    </div>
-                    <div class="col-4">
-                        <p><strong>Transportation Mode:</strong> <span t-field="o.transport_mode_custom"/></p>
-                        <p><strong>Transportation Name:</strong> <span t-field="o.transport_name_custom"/></p>
-                    </div>
-                    <div class="col-4">
-                        <p><strong>LR No. &amp; Date:</strong> <span t-field="o.lr_no_custom"/> &amp; <span t-field="o.lr_date_custom" t-options='{"widget": "date", "format": "dd-MMM-yyyy"}'/></p>
-                        <p><strong>Vehicle Number:</strong> <span t-field="o.vehicle_number_custom"/></p>
-                    </div>
-                    <div class="col-4">
-                        <p><strong>Date of Supply:</strong> <span t-field="o.invoice_date" t-options='{"widget": "date", "format": "dd-MMM-yyyy"}'/></p>
-                        <p><strong>Place of Supply:</strong> <span t-field="o.partner_shipping_id.state_id.name"/></p>
-                        <p><strong>E-Way No. &amp; Date:</strong> <span t-field="o.eway_no_custom"/></p>
+                <div id="transport_details" style="border:2px solid black; padding:8px; margin-bottom:6px; font-size:12px;">
+                    <div><strong>Transportation Details:</strong></div>
+                    <div class="row mt-1">
+                        <div class="col-4">
+                            <p><strong>Transportation Mode:</strong> <span t-field="o.transport_mode_custom"/></p>
+                            <p><strong>Transportation Name:</strong> <span t-field="o.transport_name_custom"/></p>
+                        </div>
+                        <div class="col-4">
+                            <p><strong>LR No. &amp; Date:</strong>
+                                <span t-field="o.lr_no_custom"/> &amp;
+                                <span t-field="o.lr_date_custom" t-options='{"widget": "date", "format": "dd-MMM-yyyy"}'/>
+                            </p>
+                            <p><strong>Vehicle Number:</strong> <span t-field="o.vehicle_number_custom"/></p>
+                        </div>
+                        <div class="col-4">
+                            <p><strong>Date of Supply:</strong>
+                                <span t-field="o.invoice_date" t-options='{"widget": "date", "format": "dd-MMM-yyyy"}'/>
+                            </p>
+                            <p><strong>Place of Supply:</strong> <span t-field="o.partner_shipping_id.state_id.name"/></p>
+                            <p><strong>E-Way No. &amp; Date:</strong> <span t-field="o.eway_no_custom"/></p>
+                        </div>
                     </div>
                 </div>
-                </xpath>
+            </xpath>
 
-
+            <!-- ===== INVOICE LINES TABLE (FIXED) ===== -->
             <xpath expr="//table[hasclass('o_main_table')]" position="replace">
-                <table class="table table-sm o_main_table" name="invoice_line_table">
-                    <thead>
+                <table class="table table-sm o_main_table" style="border:2px solid black; border-collapse:collapse; font-size:12px;">
+                    <thead style="background-color:#f0f0f0;">
                         <tr>
-                            <th name="th_sr_no" class="text-center"><span>Sr.No.</span></th>
-                            <th name="th_description"><span>Description Of Goods</span></th>
-                            <th name="th_vehicle_details"><span>Vehicle Details</span></th>
-                            <th name="th_gst_percent" class="text-right"><span>GST(%)</span></th>
-                            <th name="th_hsn_code" class="text-center"><span>HSN Code</span></th>
-                            <th name="th_quantity" class="text-right"><span>Quantity</span></th>
-                            <th name="th_priceunit" class="text-right"><span>Rate</span></th>
-                            <th name="th_discount" class="text-right" groups="product.group_discount_per_unit">
-                                <span>Disc(%)</span>
-                            </th>
-                            <th name="th_subtotal" class="text-right"><span>Total Amount (Rs.)</span></th>
+                            <th style="border:1px solid black;">Sr.No.</th>
+                            <th style="border:1px solid black;">Description Of Goods</th>
+                            <th style="border:1px solid black;">Vehicle Details</th>
+                            <th style="border:1px solid black;">GST(%)</th>
+                            <th style="border:1px solid black;">HSN Code</th>
+                            <th style="border:1px solid black;">Quantity</th>
+                            <th style="border:1px solid black;">Rate</th>
+                            <th style="border:1px solid black;">Disc(%)</th>
+                            <th style="border:1px solid black;">Total Amount (Rs.)</th>
                         </tr>
                     </thead>
-                    <tbody class="invoice_tbody">
+                    <tbody>
                         <t t-set="current_sr_no" t-value="0"/>
-                        <t t-foreach="o.invoice_line_ids" t-as="line"> 
+                        <t t-foreach="o.invoice_line_ids" t-as="line">
                             <t t-set="current_sr_no" t-value="current_sr_no + 1"/>
-                            <t t-set="vehicle_details" t-value="line.get_vehicle_details()"/>
-                            <t t-set="is_vehicle_line" t-value="bool(vehicle_details)"/>
-                            
-                            <tr t-att-class="'bg-200 font-weight-bold o_line_section' if line.display_type == 'line_section' else 'o_line_note' if line.display_type == 'line_note' else ''">
-                                
-                                <td name="td_sr_no" class="text-center"><span t-esc="current_sr_no"/></td>
-                                <td name="td_description"><span t-field="line.name"/></td>
-                                
-                                <td name="td_vehicle_details">
-                                    <t t-if="is_vehicle_line">
-                                        <t t-foreach="vehicle_details" t-as="details">
-                                            <t t-if="isinstance(details, dict)">
-                                                <t t-set="detail_string" t-value="''"/>
-                                                <t t-foreach="details.items()" t-as="item">
-                                                    <t t-set="detail_string" t-value="detail_string + item[0] + ': ' + item[1] + ', '"/>
-                                                </t>
-                                                <div><span t-esc="detail_string[:-2]"/></div>
-                                            </t>
-                                            <t t-else="">
-                                                <div><span t-esc="details"/></div>
-                                            </t>
-                                        </t>
-                                    </t>
-                                    <t t-elif="line.product_id.tracking == 'serial' and not is_vehicle_line">
-                                        <t t-if="line.lot_ids">
-                                            <t t-foreach="line.lot_ids.sorted(key=lambda r: r.name)" t-as="lot">
-                                                <div><span t-esc="lot.name"/></div>
-                                            </t>
+                            <tr>
+                                <td style="border:1px solid black; text-align:center;">
+                                    <span t-esc="current_sr_no"/>
+                                </td>
+                                <td style="border:1px solid black;">
+                                    <span t-field="line.name"/>
+                                </td>
+
+                                <!-- ✅ FIXED VEHICLE DETAILS COLUMN -->
+                                <td style="border:1px solid black;">
+                                    <t t-if="line._get_vehicle_details()">
+                                        <t t-foreach="line._get_vehicle_details()" t-as="details">
+                                            <div><span t-esc="details"/></div>
                                         </t>
                                     </t>
                                     <t t-else="">
-                                        <span></span>
+                                        <span>-</span>
                                     </t>
-                                </td>  
-                                
-                                <td name="td_gst_percent" class="text-right">
+                                </td>
+
+                                <td style="border:1px solid black; text-align:right;">
                                     <t t-if="line.tax_ids">
                                         <span t-esc="'%.2f' % (line.tax_ids.amount)"/>
                                     </t>
-                                    <t t-else="">
-                                        <span>0.00</span>
-                                    </t>
+                                    <t t-else="">0.00</t>
                                 </td>
-                                
-                                <td name="td_hsn_code" class="text-center"><span t-field="line.product_id"/></td>
-                                <td name="td_quantity" class="text-right"><span t-field="line.quantity"/></td>
-                                <td name="td_priceunit" class="text-right"><span t-field="line.price_unit" t-options='{"widget": "monetary", "display_currency": o.currency_id}'/></td>
-                                <td name="td_discount" class="text-right" groups="product.group_discount_per_unit"><span t-field="line.discount"/></td>
-                                <td name="td_subtotal" class="text-right o_price_total"><span t-field="line.price_subtotal" t-options='{"widget": "monetary", "display_currency": o.currency_id}'/></td>
+
+                                <td style="border:1px solid black; text-align:center;">
+                                    <span t-field="line.product_id.hs_code"/>
+                                </td>
+
+                                <td style="border:1px solid black; text-align:right;">
+                                    <span t-field="line.quantity"/>
+                                </td>
+
+                                <td style="border:1px solid black; text-align:right;">
+                                    <span t-field="line.price_unit"
+                                        t-options='{"widget":"monetary","display_currency":o.currency_id}'/>
+                                </td>
+
+                                <td style="border:1px solid black; text-align:right;">
+                                    <span t-field="line.discount"/>
+                                </td>
+
+                                <td style="border:1px solid black; text-align:right;">
+                                    <span t-field="line.price_subtotal"
+                                        t-options='{"widget":"monetary","display_currency":o.currency_id}'/>
+                                </td>
                             </tr>
                         </t>
                     </tbody>
                 </table>
             </xpath>
-            
+
+            <!-- ===== TOTAL SECTION ===== -->
             <xpath expr="//div[@id='total']" position="replace">
-                <div id="total" class="row justify-content-end mt-4">
-                    <div class="col-6">
-                        <p class="mb-2">
-                            <strong>Gross Value:</strong> <span t-field="o.amount_total" t-options='{"widget": "monetary", "display_currency": o.currency_id}'/>
-                        </p>
-                        <p class="mb-2">
-                            <strong>Amount in Words:</strong> <span t-field="o.amount_total_text"/> Only
-                        </p>
-                        <div class="mt-5 pt-5 text-center">
-                            <strong><p>For, <span t-field="o.company_id.name"/></p></strong>
-                            <p>Authorised Signatory</p>
+                <div id="total" style="border:2px solid black; padding:8px; margin-top:6px; font-size:12px;">
+                    <div class="row">
+                        <div class="col-6" style="border-right:1px solid black;">
+                            <p><strong>Gross Value:</strong>
+                                <span t-field="o.amount_total" t-options='{"widget":"monetary","display_currency":o.currency_id}'/>
+                            </p>
+                            <p><strong>Amount in Words:</strong>
+                                <span t-field="o.amount_total_text"/> Only
+                            </p>
+                            <br/><br/>
+                            <div style="text-align:center; margin-top:25px;">
+                                <strong>For, <span t-field="o.company_id.name"/></strong><br/>
+                                <i>Authorised Signatory</i>
+                            </div>
                         </div>
-                    </div>
-                    
-                    <div class="col-6">
-                        <table class="table table-sm" style="width: 100%;">
-                            <tr class="border-black o_total">
-                                <td><strong>Net Value:</strong></td>
-                                <td class="text-right">
-                                    <span t-field="o.amount_untaxed" t-options='{"widget": "monetary", "display_currency": o.currency_id}'/>
-                                </td>
-                            </tr>
-                            <t t-foreach="o.tax_totals.get('groups_by_subtotal', {}).get(o.tax_totals['subtotals'][0]['name'], [])" t-as="amount_by_group">
+
+                        <div class="col-6">
+                            <table style="width:100%; border:1px solid black; border-collapse:collapse;">
                                 <tr>
-                                    <td><strong><span t-out="amount_by_group['tax_group_name']"/>:</strong></td>
-                                    <td class="text-right">
-                                        <span t-out="amount_by_group['tax_group_amount']" t-options='{"widget": "monetary", "display_currency": o.currency_id}'/>
+                                    <td style="border:1px solid black;"><strong>Net Value:</strong></td>
+                                    <td style="text-align:right; border:1px solid black;">
+                                        <span t-field="o.amount_untaxed" t-options='{"widget":"monetary","display_currency":o.currency_id}'/>
                                     </td>
                                 </tr>
-                            </t>
-                            <t t-set="round_off" t-value="o.amount_total - o.amount_untaxed - o.amount_tax"/>
-                            <t t-if="abs(round_off) &gt; 0.005">
-                                <tr>
-                                    <td><strong>Round Off:</strong></td>
-                                    <td class="text-right">
-                                        <span t-esc="round_off" t-options='{"widget": "monetary", "display_currency": o.currency_id}'/>
+                                <t t-foreach="o.tax_totals.get('groups_by_subtotal', {}).get(o.tax_totals['subtotals'][0]['name'], [])" t-as="amount_by_group">
+                                    <tr>
+                                        <td style="border:1px solid black;"><strong><span t-out="amount_by_group['tax_group_name']"/>:</strong></td>
+                                        <td style="text-align:right; border:1px solid black;">
+                                            <span t-out="amount_by_group['tax_group_amount']" t-options='{"widget":"monetary","display_currency":o.currency_id}'/>
+                                        </td>
+                                    </tr>
+                                </t>
+                                <t t-set="round_off" t-value="o.amount_total - o.amount_untaxed - o.amount_tax"/>
+                                <t t-if="abs(round_off) &gt; 0.005">
+                                    <tr>
+                                        <td style="border:1px solid black;"><strong>Round Off:</strong></td>
+                                        <td style="text-align:right; border:1px solid black;">
+                                            <span t-esc="round_off" t-options='{"widget":"monetary","display_currency":o.currency_id}'/>
+                                        </td>
+                                    </tr>
+                                </t>
+                                <tr style="background-color:#f0f0f0;">
+                                    <td style="border:1px solid black;"><strong>Grand Total:</strong></td>
+                                    <td style="text-align:right; border:1px solid black;">
+                                        <span t-field="o.amount_total" t-options='{"widget":"monetary","display_currency":o.currency_id}'/>
                                     </td>
                                 </tr>
-                            </t>
-                            <tr class="border-black o_total o_total_with_tax font-weight-bolder">
-                                <td><strong>Grand Total:</strong></td>
-                                <td class="text-right">
-                                    <span t-field="o.amount_total" t-options='{"widget": "monetary", "display_currency": o.currency_id}'/>
-                                </td>
-                            </tr>
-                        </table>
+                            </table>
+                        </div>
                     </div>
                 </div>
             </xpath>
+
         </template>
     </data>
 </odoo>

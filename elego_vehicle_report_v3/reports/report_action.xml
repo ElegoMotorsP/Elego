@@ -1,0 +1,11 @@
+<odoo>
+  <data>
+    <!-- Register a placeholder report action for XLSX controller usage -->
+    <record id="veh_tracking_xlsx_report_action" model="ir.actions.report">
+      <field name="name">Vehicle Tracking Register V3 (XLSX)</field>
+      <field name="model">vtr.xls.report</field>
+      <field name="report_type">qweb-html</field>
+      <field name="report_name">elego_vehicle_report_v3.veh_tracking_xlsx</field>
+    </record>
+  </data>
+</odoo>
