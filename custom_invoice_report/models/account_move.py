@@ -23,7 +23,7 @@ class AccountMove(models.Model):
             'controller': 'Controller',
         }
 
-        for line in self.invoice_line_ids.filtered(lambda l: l.product_id.tracking != 'none' and l.display_type == 'product'):
+        for line in self.invoice_line_ids.filtered(lambda l: l.display_type == 'product'):
             product = line.product_id
             line_serials = []
 
