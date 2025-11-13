@@ -3,6 +3,11 @@ from odoo import models
 
 class AccountMove(models.Model):
     _inherit = 'account.move'
+    number_to_words = fields.Char(string="Amount in words",compute="_compute_number_to_words")
+
+    def _compute_number_to_words(self):
+         for order in self:
+              order.number_to_words = order.currency_id.amount_to_text(order.amount_total)
 
     def _get_component_serials_by_line(self):
         """
