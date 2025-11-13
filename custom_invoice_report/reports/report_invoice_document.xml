@@ -165,7 +165,13 @@
                     <strong>Gross Value (In Words):</strong>
                     <br/>
                     <strong style="text-transform: capitalize;">
-                        <span t-field="invoice_data.amount_total_text" t-options='{"replace_label": [("Dollars", "Rupees"), ("Cents", "")]}'/> Only
+                          <!-- <span t-field="invoice_data.amount_total_text" t-options='{"replace_label": [("Dollars", "Rupees"), ("Cents", "")]}'/> Only -->
+                        <t t-if="invoice_data.amount_total_text">
+    <span t-field="invoice_data.amount_total_text"/>
+</t>
+<t t-else="">
+    <span t-field="invoice_data.amount_total"/>
+</t>
                     </strong>
                     
                     <br/><br/>
