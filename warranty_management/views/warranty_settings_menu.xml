@@ -1,0 +1,22 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+
+    <menuitem id="menu_warranty_root"
+              name="Warranty"
+              parent="stock.menu_stock_configuration"
+              sequence="80"/>
+
+    <menuitem id="menu_warranty_settings"
+              name="Warranty Settings"
+              parent="menu_warranty_root"
+              action="action_warranty_settings"/>
+
+    <!-- Action linking to res.config.settings -->
+    <record id="action_warranty_settings" model="ir.actions.act_window">
+        <field name="name">Warranty Settings</field>
+        <field name="res_model">res.config.settings</field>
+        <field name="view_mode">form</field>
+        <field name="target">inline"</field>
+    </record>
+
+</odoo>

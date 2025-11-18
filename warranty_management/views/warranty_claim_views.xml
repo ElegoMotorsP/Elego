@@ -1,0 +1,74 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+
+    <!-- FORM VIEW -->
+    <record id="view_warranty_claim_form" model="ir.ui.view">
+        <field name="name">warranty.claim.form</field>
+        <field name="model">warranty.claim</field>
+        <field name="arch" type="xml">
+
+            <form string="Warranty Claim">
+
+                <!-- ✅ HEADER BUTTONS (Supported in Odoo 18) -->
+        <header>
+    <button string="Check Warranty"
+            type="object"
+            name="action_check_warranty"
+            class="oe_highlight"
+            invisible="state == 'closed'"/>
+
+
+    <button string="Replace"
+            type="object"
+            name="action_replace"
+            class="btn-secondary"
+            invisible="state != 'in_warranty'"/>
+
+    <button string="Repair"
+            type="object"
+            name="action_repair"
+            class="btn-info"
+            invisible="state != 'out_of_warranty'"/>
+
+    <button string="Close"
+            type="object"
+            name="action_close"
+            class="btn-danger"
+            invisible="state == 'closed'"/>
+</header>
+
+
+
+                <sheet>
+                    <group>
+                        <field name="name" readonly="1"/>
+                        <field name="partner_id"/>
+                        <field name="product_id"/>
+                        <field name="serial_id"/>         
+                        <field name="warranty_id"/>
+                        <!-- <field name="serial_number" readonly="1"/>    -->
+                        <!-- <field name="serial_number"/> -->
+                        <field name="claim_reason"/>
+                        <field name="state" readonly="1"/>
+                    </group>
+                </sheet>
+
+            </form>
+
+        </field>
+    </record>
+
+    <!-- WINDOW ACTION -->
+    <record id="action_warranty_claim" model="ir.actions.act_window">
+        <field name="name">Warranty Claims</field>
+        <field name="res_model">warranty.claim</field>
+        <field name="view_mode">list,form</field>
+        <field name="target">current</field>
+        <field name="help" type="html">
+            <p class="o_view_nocontent_smiling_face">
+                Create your first warranty claim.
+            </p>
+        </field>
+    </record>
+
+</odoo>

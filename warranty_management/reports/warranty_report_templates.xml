@@ -1,0 +1,29 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+  <data>
+    <template id="report_warranty_list">
+      <t t-call="web.external_layout">
+        <div class="page">
+          <h2>Warranties</h2>
+          <table class="table table-sm">
+            <thead>
+              <tr><th>Ref</th><th>Product</th><th>Serial</th><th>Customer</th><th>Start</th><th>End</th></tr>
+            </thead>
+            <tbody>
+              <t t-foreach="docs" t-as="o">
+                <tr>
+                  <td><t t-esc="o.name"/></td>
+                  <td><t t-esc="o.product_id.display_name"/></td>
+                  <td><t t-esc="o.serial_number"/></td>
+                  <td><t t-esc="o.partner_id.name"/></td>
+                  <td><t t-esc="o.start_date"/></td>
+                  <td><t t-esc="o.end_date"/></td>
+                </tr>
+              </t>
+            </tbody>
+          </table>
+        </div>
+      </t>
+    </template>
+  </data>
+</odoo>

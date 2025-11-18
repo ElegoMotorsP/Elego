@@ -1,0 +1,32 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+
+    <record id="view_product_template_form_inherit_warranty" model="ir.ui.view">
+        <field name="name">product.template.form.warranty.inherit</field>
+        <field name="model">product.template</field>
+        <field name="inherit_id" ref="product.product_template_only_form_view"/>
+        <field name="arch" type="xml">
+
+            <!-- Smart button -->
+            <xpath expr="//header" position="inside">
+                <button type="object"
+                        name="action_open_product_warranties_new"
+                        class="oe_stat_button">
+                    <span>Warranties</span>
+                </button>
+            </xpath>
+
+            <!-- Warranty Tab -->
+            <xpath expr="//sheet/notebook" position="inside">
+                <page name="warranty_page" string="Warranty">
+                    <group name="warranty_group" string="Warranty">
+                        <field name="warranty_duration_months"/>
+                        <field name="warranty_terms"/>
+                    </group>
+                </page>
+            </xpath>
+
+        </field>
+    </record>
+
+</odoo>

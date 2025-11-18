@@ -1,0 +1,15 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+  <record id="seq_product_warranty" model="ir.sequence">
+    <field name="name">Product Warranty</field>
+    <field name="code">product.warranty</field>
+    <field name="prefix">WAR/</field>
+    <field name="padding">5</field>
+  </record>
+  <record id="seq_warranty_claim" model="ir.sequence">
+    <field name="name">Warranty Claim</field>
+    <field name="code">warranty.claim</field>
+    <field name="prefix">CLM/</field>
+    <field name="padding">5</field>
+  </record>
+</odoo>

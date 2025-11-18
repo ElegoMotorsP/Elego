@@ -1,0 +1,25 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+  <data>
+
+    <!-- Safe inheritance of stock picking form (Odoo 18 OWL) -->
+    <record id="view_picking_form_inherit_warranty" model="ir.ui.view">
+      <field name="name">stock.picking.form.warranty.inherit</field>
+      <field name="model">stock.picking</field>
+      <field name="inherit_id" ref="stock.view_picking_form"/>
+
+      <field name="arch" type="xml">
+
+        <!-- OPTIONAL: If you want to show linked warranties (READ-ONLY info)
+             Added as a panel inside the form. No broken actions -->
+        <xpath expr="//sheet" position="after">
+          <div class="oe_title" name="warranty_panel">
+            <h3>Warranty Information</h3>
+          </div>
+        </xpath>
+
+      </field>
+    </record>
+
+  </data>
+</odoo>

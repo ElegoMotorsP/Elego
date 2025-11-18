@@ -1,0 +1,9 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+
+  <data>
+    <menuitem id="menu_warranty_root" name="Warranty Management" sequence="50"/>
+    <menuitem id="menu_warranty_records" parent="menu_warranty_root" name="Warranties" action="action_open_product_warranties" sequence="10"/>
+    <menuitem id="menu_warranty_claims" parent="menu_warranty_root" name="Claims" action="action_warranty_claim" sequence="20"/>
+  </data>
+</odoo>

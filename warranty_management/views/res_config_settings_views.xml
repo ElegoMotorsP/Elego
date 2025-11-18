@@ -1,0 +1,24 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+
+    <record id="view_res_config_settings_warranty" model="ir.ui.view">
+        <field name="name">res.config.settings.warranty</field>
+        <field name="model">res.config.settings</field>
+        <field name="inherit_id" ref="base_setup.res_config_settings_view_form"/>
+        <field name="arch" type="xml">
+
+            <!-- 100% SAFE TARGET: last block before </app> -->
+            <xpath expr="//app[@name='general_settings']" position="inside">
+
+                <block title="Warranty Settings" name="warranty_setting_container">
+                    <setting id="warranty_trigger_setting" string="Warranty Start Trigger">
+                        <field name="warranty_generation_trigger"/>
+                    </setting>
+                </block>
+
+            </xpath>
+
+        </field>
+    </record>
+
+</odoo>
