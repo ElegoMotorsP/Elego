@@ -1,0 +1,14 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+  <data noupdate="1">
+
+    <!-- Inherit the backend asset bundle and inject our JS -->
+    <template id="vehicle_stock_dynamic_report_final_assets" inherit_id="web.assets_backend">
+      <xpath expr="." position="inside">
+        <!-- Use a closing tag for script element -->
+        <script type="text/javascript" src="/vehicle_stock_dynamic_report_final/static/src/js/export_current_domain.js"></script>
+      </xpath>
+    </template>
+
+  </data>
+</odoo>

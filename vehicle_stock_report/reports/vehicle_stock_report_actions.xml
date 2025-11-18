@@ -1,0 +1,12 @@
+<?xml version='1.0' encoding='utf-8'?>
+<odoo>
+  <data>
+    <record id='report_vehicle_stock' model='ir.actions.report'>
+      <field name='name'>Vehicle Stock Report</field>
+      <field name='model'>vehicle.stock.report</field>
+      <field name='report_type'>qweb-pdf</field>
+      <field name='report_name'>vehicle_stock.report_qweb</field>
+      <field name='binding_model_id' ref='model_vehicle_stock_report'/>
+    </record>
+  </data>
+</odoo>

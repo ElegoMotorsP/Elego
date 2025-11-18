@@ -1,0 +1,36 @@
+<?xml version='1.0' encoding='utf-8'?>
+<odoo>
+  <data>
+    <template id="vehicle_stock_report_qweb">
+      <t t-call="web.external_layout">
+        <div class="page">
+          <h2>Vehicle Stock Report</h2>
+          <table class="table table-sm">
+            <thead>
+              <tr>
+                <th>Item</th><th>Model</th><th>Part No</th><th>Chassis No</th><th>Motor No</th><th>Battery</th><th>Controller</th><th>Charger</th><th>Convertor</th><th>Sales Invoice</th><th>Customer</th>
+              </tr>
+            </thead>
+            <tbody>
+              <t t-foreach="docs" t-as="o">
+                <tr>
+                  <td><t t-esc="o.item"/></td>
+                  <td><t t-esc="o.model_name"/></td>
+                  <td><t t-esc="o.part_no"/></td>
+                  <td><t t-esc="o.chassis_no"/></td>
+                  <td><t t-esc="o.motor_no"/></td>
+                  <td><t t-esc="o.battery"/></td>
+                  <td><t t-esc="o.controller"/></td>
+                  <td><t t-esc="o.charger"/></td>
+                  <td><t t-esc="o.convertor"/></td>
+                  <td><t t-esc="o.sales_invoice_no"/></td>
+                  <td><t t-esc="o.customer_name"/></td>
+                </tr>
+              </t>
+            </tbody>
+          </table>
+        </div>
+      </t>
+    </template>
+  </data>
+</odoo>

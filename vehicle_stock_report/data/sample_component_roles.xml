@@ -1,0 +1,18 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+  <data noupdate="1">
+    <!-- These references are examples; change or remove as needed in your DB -->
+    <record id="sample_component_motor" model="vehicle.component.role">
+      <field name="product_tmpl_id" ref="product.product_product_4_product_template" />
+      <field name="role">motor</field>
+    </record>
+    <record id="sample_component_battery" model="vehicle.component.role">
+      <field name="product_tmpl_id" ref="product.product_product_8_product_template" />
+      <field name="role">battery</field>
+    </record>
+    <record id="sample_component_controller" model="vehicle.component.role">
+      <field name="product_tmpl_id" ref="product.product_product_10_product_template" />
+      <field name="role">controller</field>
+    </record>
+  </data>
+</odoo>

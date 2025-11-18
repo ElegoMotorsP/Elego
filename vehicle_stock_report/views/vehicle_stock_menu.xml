@@ -1,0 +1,15 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+  <data>
+     <record id="action_vehicle_component_roles" model="ir.actions.act_window">
+            <field name="name">Component Roles</field>
+            <field name="res_model">vehicle.component.role</field>
+            <field name="view_mode">list,form</field>
+      </record>
+
+    <menuitem id="menu_inventory_root" name="Inventory" sequence="10"/>
+    <menuitem id="menu_inventory_reports" name="Reports" parent="menu_inventory_root" sequence="20"/>
+    <menuitem id="menu_vehicle_stock_report" name="Vehicle Stock Report" parent="menu_inventory_reports" action="action_vehicle_stock_report" sequence="30"/>
+    <menuitem id="menu_vehicle_component_roles" name="Component Roles" parent="menu_vehicle_stock_report" action="action_vehicle_component_roles" sequence="40"/>
+  </data>
+</odoo>

@@ -1,0 +1,4 @@
+id,name,model_id:id,group_id:id,perm_read,perm_write,perm_create,perm_unlink
+access_vehicle_stock_report,vehicle.stock.report,model_vehicle_stock_report,base.group_user,1,0,0,0
+access_vehicle_stock_export_wizard,vehicle.stock.export.wizard,model_vehicle_stock_export_wizard,base.group_user,1,1,1,1
+access_vehicle_component_role,vehicle.component.role,model_vehicle_component_role,base.group_user,1,1,1,1

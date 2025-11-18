@@ -1,0 +1,61 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+  <data>
+    <record id="view_vehicle_stock_report_list" model="ir.ui.view">
+      <field name="name">vehicle.stock.report.list</field>
+      <field name="model">vehicle.stock.report</field>
+      <field name="arch" type="xml">
+        <list string="Vehicle Stock Report" >
+        <field name="item"/>
+          <field name="model_name"/>
+          <field name="part_no"/>
+          <field name="color"/>
+          <field name="chassis_no"/>
+          <field name="motor_no"/>
+          <field name="battery"/>
+          <field name="controller"/>
+          <field name="charger"/>
+          <field name="convertor"/>
+          <field name="qafg_date"/>
+          <field name="qafg_no"/>
+          <field name="picking_slip_date"/>
+          <field name="picking_slip_no"/>
+          <field name="sales_invoice_date"/>
+          <field name="sales_invoice_no"/>
+          <field name="customer_name"/>
+          <field name="customer_location"/>
+        </list>
+      </field>
+    </record>
+
+    <record id="view_vehicle_stock_report_form" model="ir.ui.view">
+      <field name="name">vehicle.stock.report.form</field>
+      <field name="model">vehicle.stock.report</field>
+      <field name="arch" type="xml">
+        <form string="Vehicle Stock">
+          <sheet>
+            <group>
+              <field name="item"/><field name="model_name"/><field name="part_no"/><field name="color"/><field name="chassis_no"/>
+            </group>
+            <group>
+              <field name="motor_no"/><field name="battery"/><field name="controller"/><field name="charger"/><field name="convertor"/>
+            </group>
+            <group>
+              <field name="qafg_date"/><field name="qafg_no"/><field name="picking_slip_date"/><field name="picking_slip_no"/>
+            </group>
+            <group>
+              <field name="sales_invoice_date"/><field name="sales_invoice_no"/><field name="customer_name"/><field name="customer_location"/>
+            </group>
+          </sheet>
+        </form>
+      </field>
+    </record>
+
+    <record id="action_vehicle_stock_report" model="ir.actions.act_window">
+      <field name="name">Vehicle Stock Report</field>
+      <field name="res_model">vehicle.stock.report</field>
+      <field name="view_mode">list,form</field>
+      <field name="context">{'search_default_group_by_model': 1}</field>
+    </record>
+  </data>
+</odoo>

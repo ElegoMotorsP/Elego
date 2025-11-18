@@ -1,0 +1,22 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+  <data>
+    <record id="view_vehicle_stock_report_search" model="ir.ui.view">
+      <field name="name">vehicle.stock.report.search</field>
+      <field name="model">vehicle.stock.report</field>
+      <field name="arch" type="xml">
+        <search string="Search Vehicle Stock">
+          <field name="item"/>
+          <field name="model_name"/>
+          <field name="chassis_no"/>
+          <field name="customer_name"/>
+          <group expand="1" string="Group By">
+            <filter string="Model" icon="fa-bar-chart" name="group_by_model" context="{'group_by':'model_name'}"/>
+            <filter string="Customer" icon="fa-bar-chart" name="group_by_customer" context="{'group_by':'customer_name'}"/>
+            <filter string="Sales Date" name="filter_sales_date" domain="[]" context="{}"/>
+          </group>
+        </search>
+      </field>
+    </record>
+  </data>
+</odoo>
