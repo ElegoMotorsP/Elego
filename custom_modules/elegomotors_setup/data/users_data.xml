@@ -1,0 +1,260 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+    <!--
+        ElegoMotors Department Users — Production Data
+
+        Seven department users with least-privilege group assignments.
+        noupdate="1" — passwords and group memberships are NOT overwritten
+        on module upgrade once the users have been created in the database.
+
+        SECURITY NOTE: Passwords provided here are temporary first-login
+        credentials. Each user should change their password immediately
+        after first login via Settings → My Profile.
+
+        Department  | User            | Login                            | Temp Password
+        ============|=================|==================================|===============
+        Admin       | Manohar Kalbhor | manohar.kalbhor@elegomotors.com  | manohar@123
+        Store Mgr   | Amit Kale       | storeelegomotors@gmail.com       | amitkale@123
+        Purchase    | Prashant Khedkar| NPD@elegomotors.com              | prashant@123
+        Accounts    | Rajshri Kadam   | elegoac@gmail.com                | rajshri@123
+        HR          | Srushti Gund    | hrelegomotors@gmail.com          | srusti@123
+        Quality/WTY | Pratik Gund     | quality.elego23@gmail.com        | pratik@123
+        Sales/CRM   | Tushar Gaikwad  | leads@elegomotors.com            | tushar@123
+    -->
+    <data noupdate="1">
+
+        <!-- ============================================================
+             1. ADMIN / APPROVALS — Manohar Kalbhor
+             Responsibilities: PO approval (2-step), item/vendor approval,
+                               dealer creation, MIS reports across all depts.
+             Groups:
+               • ERP Manager       — access to Settings + all installed apps
+               • Purchase Manager  — PO 2-step approval authority
+               • Sales Manager     — sales pipeline + SO oversight
+               • Stock Manager     — warehouse creation, inventory config
+               • MRP User          — production + BOM oversight
+               • Accounting User   — financial reports, journals, P&L
+             ============================================================ -->
+        <record id="user_ego_manohar" model="res.users">
+            <field name="name">Manohar Kalbhor</field>
+            <field name="login">manohar.kalbhor@elegomotors.com</field>
+            <field name="email">manohar.kalbhor@elegomotors.com</field>
+            <field name="phone">7264829045</field>
+            <field name="password">manohar@123</field>
+            <field name="notification_type">inbox</field>
+            <field name="company_id" ref="base.main_company"/>
+            <field name="groups_id" eval="[
+                (4, ref('base.group_user')),
+                (4, ref('base.group_erp_manager')),
+                (4, ref('purchase.group_purchase_manager')),
+                (4, ref('sales_team.group_sale_manager')),
+                (4, ref('stock.group_stock_manager')),
+                (4, ref('mrp.group_mrp_user')),
+                (4, ref('mrp.group_mrp_routings')),
+                (4, ref('account.group_account_user')),
+            ]"/>
+        </record>
+
+        <!-- ============================================================
+             2. STORE MANAGER — Amit Kale
+             Responsibilities: Inward/outward stock movement, warehouse
+                               configuration, Gate Entry, QC Inward,
+                               Picking Slips, Production Issue, Inventory
+                               management, received qty validation.
+                               Also creates/views customer invoices and
+                               vendor bills (Billing access; no payments).
+             Views: PO, Production, Sales Orders, all stock reports,
+                    Customer Invoices, Vendor Bills.
+             Groups:
+               • Stock Manager     — full warehouse + transfer management,
+                                     location/route config, inventory adjust
+               • Purchase User     — view and receive against POs
+               • MRP User          — view MOs, issue materials to production
+               • MRP Routings      — see Work Orders tab on MOs
+               • Sale Salesman     — view SOs to cross-ref delivery demand
+               • Billing User      — create/edit customer invoices + vendor
+                                     bills; NO payment or journal access
+             ============================================================ -->
+        <record id="user_ego_amit" model="res.users">
+            <field name="name">Amit Kale</field>
+            <field name="login">storeelegomotors@gmail.com</field>
+            <field name="email">storeelegomotors@gmail.com</field>
+            <field name="phone">7758825757</field>
+            <field name="password">amitkale@123</field>
+            <field name="notification_type">inbox</field>
+            <field name="company_id" ref="base.main_company"/>
+            <field name="groups_id" eval="[
+                (4, ref('base.group_user')),
+                (4, ref('stock.group_stock_manager')),
+                (4, ref('purchase.group_purchase_user')),
+                (4, ref('mrp.group_mrp_user')),
+                (4, ref('mrp.group_mrp_routings')),
+                (4, ref('sales_team.group_sale_salesman')),
+                (4, ref('account.group_account_invoice')),
+            ]"/>
+        </record>
+
+        <!-- ============================================================
+             3. PURCHASE — Prashant Khedkar
+             Responsibilities: PO creation, item/vendor/HSN creation,
+                               terms & conditions, purchase pricing,
+                               rejection/return to vendor, BOM creation.
+             Views: Inventory reports, production reports.
+             Groups:
+               • Purchase User     — PO creation and management
+               • MRP User          — BOM creation + production view
+                                     (BOM access requires MRP module)
+               • Stock User        — inventory reports, current stock view
+             ============================================================ -->
+        <record id="user_ego_prashant" model="res.users">
+            <field name="name">Prashant Khedkar</field>
+            <field name="login">NPD@elegomotors.com</field>
+            <field name="email">NPD@elegomotors.com</field>
+            <field name="phone">7387364457</field>
+            <field name="password">prashant@123</field>
+            <field name="notification_type">inbox</field>
+            <field name="company_id" ref="base.main_company"/>
+            <field name="groups_id" eval="[
+                (4, ref('base.group_user')),
+                (4, ref('purchase.group_purchase_user')),
+                (4, ref('mrp.group_mrp_user')),
+                (4, ref('stock.group_stock_user')),
+            ]"/>
+        </record>
+
+        <!-- ============================================================
+             4. ACCOUNTS — Rajshri Kadam
+             Responsibilities: Payments (send/receive — EXCLUSIVE), SO
+                               approval (2-step alongside Manohar),
+                               customer/dealer creation, sales returns,
+                               JV entries, purchase bill booking, all
+                               account reports.
+             Views: PO, Production, Sales Orders, all stock + acct reports.
+             Groups:
+               • Accounting User   — full double-entry accounting, journals,
+                                     reconciliation, JV, payments, reports
+               • Purchase User     — view POs for 3-way matching
+               • Sales Manager     — SO 2-step approval authority; implies
+                                     Sale Salesman (view SOs for invoice
+                                     matching); replaces explicit salesman
+               • MRP User          — production cost visibility
+               • Stock User        — stock valuation reports
+             ============================================================ -->
+        <record id="user_ego_rajshri" model="res.users">
+            <field name="name">Rajshri Kadam</field>
+            <field name="login">elegoac@gmail.com</field>
+            <field name="email">elegoac@gmail.com</field>
+            <field name="phone">8766793409</field>
+            <field name="password">rajshri@123</field>
+            <field name="notification_type">inbox</field>
+            <field name="company_id" ref="base.main_company"/>
+            <field name="groups_id" eval="[
+                (4, ref('base.group_user')),
+                (4, ref('account.group_account_user')),
+                (4, ref('purchase.group_purchase_user')),
+                (4, ref('sales_team.group_sale_manager')),
+                (4, ref('mrp.group_mrp_user')),
+                (4, ref('stock.group_stock_user')),
+            ]"/>
+        </record>
+
+        <!-- ============================================================
+             5. HR — Srushti Gund
+             Responsibilities: Employee records, attendance, payroll,
+                               leave management, HR reporting.
+             Views: HR module only (no ERP cross-module access required).
+             Groups:
+               • HR Manager             — full employee management, contracts,
+                                          org chart, all employee data
+               • Attendance Manager     — view + manage attendance for all
+                                          employees, generate attendance reports
+               • Time Off Responsible   — approve/refuse leave requests,
+                                          manage leave allocations
+             NOTE: hr_payroll is Odoo Enterprise only. When the EE license
+             is activated, add hr_payroll.group_hr_payroll_user here.
+             ============================================================ -->
+        <record id="user_ego_srushti" model="res.users">
+            <field name="name">Srushti Gund</field>
+            <field name="login">hrelegomotors@gmail.com</field>
+            <field name="email">hrelegomotors@gmail.com</field>
+            <field name="phone">9529261357</field>
+            <field name="password">srusti@123</field>
+            <field name="notification_type">inbox</field>
+            <field name="company_id" ref="base.main_company"/>
+            <field name="groups_id" eval="[
+                (4, ref('base.group_user')),
+                (4, ref('hr.group_hr_manager')),
+                (4, ref('hr_attendance.group_hr_attendance_manager')),
+                (4, ref('hr_holidays.group_hr_holidays_responsible')),
+            ]"/>
+        </record>
+
+        <!-- ============================================================
+             6. QUALITY & WARRANTY — Pratik Gund
+             Responsibilities: QC checkpoints (inward + production),
+                               in-process production quality, QC hold/reject,
+                               warranty inward/outward, quality approvals.
+             Views: Items, Sales Orders (for warranty claims).
+             Groups:
+               • MRP User          — production in-process quality, work order
+                                     steps, WIP/Hold operations, scrap
+               • MRP Routings      — Work Orders tab visible on MOs so Pratik
+                                     can manage QC at each work centre step
+               • Stock User        — inward QC moves (QC Inward → Store or
+                                     QC Inward → Quarantine), warranty
+                                     inward/outward stock moves
+               • Stock Manager     — ability to create scrap orders and
+                                     validate quality rejection transfers
+             NOTE: quality_control module is Odoo Enterprise only.
+             In Community, QC workflow is managed via:
+               - MRP Work Order quality steps (mrp.group_mrp_routings)
+               - Scrap orders for rejected material
+               - Stock moves: QC Pass → Store / QC Fail → Quarantine
+             When EE license is activated, add:
+               quality_control.group_quality_manager
+             ============================================================ -->
+        <record id="user_ego_pratik" model="res.users">
+            <field name="name">Pratik Gund</field>
+            <field name="login">quality.elego23@gmail.com</field>
+            <field name="email">quality.elego23@gmail.com</field>
+            <field name="phone">9223003686</field>
+            <field name="password">pratik@123</field>
+            <field name="notification_type">inbox</field>
+            <field name="company_id" ref="base.main_company"/>
+            <field name="groups_id" eval="[
+                (4, ref('base.group_user')),
+                (4, ref('mrp.group_mrp_user')),
+                (4, ref('mrp.group_mrp_routings')),
+                (4, ref('stock.group_stock_manager')),
+            ]"/>
+        </record>
+
+        <!-- ============================================================
+             7. SALES & MARKETING / CRM — Tushar Gaikwad
+             Responsibilities: Sales Order creation, Quotation creation
+                               and confirmation, CRM pipeline management,
+                               FG stock availability check before committing.
+             Views: FG items stock report (read-only).
+             Groups:
+               • Sale Salesman     — Quotation + SO creation/confirmation,
+                                     own CRM leads/opportunities, own SO only
+               • Stock User        — read access to FG inventory for
+                                     availability check before quoting
+             ============================================================ -->
+        <record id="user_ego_tushar" model="res.users">
+            <field name="name">Tushar Gaikwad</field>
+            <field name="login">leads@elegomotors.com</field>
+            <field name="email">leads@elegomotors.com</field>
+            <field name="phone">8265091207</field>
+            <field name="password">tushar@123</field>
+            <field name="notification_type">inbox</field>
+            <field name="company_id" ref="base.main_company"/>
+            <field name="groups_id" eval="[
+                (4, ref('base.group_user')),
+                (4, ref('sales_team.group_sale_salesman')),
+                (4, ref('stock.group_stock_user')),
+            ]"/>
+        </record>
+
+    </data>
+</odoo>

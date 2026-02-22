@@ -1,0 +1,430 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+    <!--
+        ElegoMotors EV Scooter EGO-S1 — Sample Bill of Materials
+
+        Finished Product : ElegoMotors EV Scooter EGO-S1
+        Components       : 16 raw-material / sub-assembly items
+        Routing          : 7 work-center operations
+
+        Product type uses 'storable' (Odoo 18 value for trackable inventory items).
+        Components are created as product.product so they can be referenced
+        directly in mrp.bom.line (which requires product.product, not template).
+    -->
+    <data noupdate="1">
+
+        <!-- ============================================================
+             FINISHED PRODUCT
+             ============================================================ -->
+
+        <record id="tmpl_ego_scooter" model="product.template">
+            <field name="name">ElegoMotors EV Scooter EGO-S1</field>
+            <field name="is_storable" eval="True"/>
+            <field name="sale_ok" eval="True"/>
+            <field name="purchase_ok" eval="False"/>
+            <field name="categ_id" ref="product.product_category_all"/>
+            <field name="uom_id" ref="uom.product_uom_unit"/>
+            <field name="uom_po_id" ref="uom.product_uom_unit"/>
+            <field name="standard_price">45000.0</field>
+            <field name="list_price">65000.0</field>
+            <field name="description_sale">ElegoMotors EGO-S1 Electric Scooter — 250W BLDC Hub Motor, 48V 20Ah Li-ion, Range 80 km.</field>
+            <!-- Manufacture + MTO routes -->
+            <field name="route_ids" eval="[(4, ref('mrp.route_warehouse0_manufacture'))]"/>
+        </record>
+
+        <!-- ============================================================
+             COMPONENT PRODUCTS  (product.product → auto-creates template)
+             These are purchased raw materials / sub-assemblies.
+             ============================================================ -->
+
+        <record id="comp_steel_frame" model="product.product">
+            <field name="name">Steel Frame Assembly (EGO-S1)</field>
+            <field name="is_storable" eval="True"/>
+            <field name="purchase_ok" eval="True"/>
+            <field name="sale_ok" eval="False"/>
+            <field name="categ_id" ref="product.product_category_all"/>
+            <field name="uom_id" ref="uom.product_uom_unit"/>
+            <field name="uom_po_id" ref="uom.product_uom_unit"/>
+            <field name="standard_price">4500.0</field>
+        </record>
+
+        <record id="comp_hub_motor" model="product.product">
+            <field name="name">Hub Motor 250W BLDC</field>
+            <field name="is_storable" eval="True"/>
+            <field name="purchase_ok" eval="True"/>
+            <field name="sale_ok" eval="False"/>
+            <field name="categ_id" ref="product.product_category_all"/>
+            <field name="uom_id" ref="uom.product_uom_unit"/>
+            <field name="uom_po_id" ref="uom.product_uom_unit"/>
+            <field name="standard_price">6000.0</field>
+        </record>
+
+        <record id="comp_battery_pack" model="product.product">
+            <field name="name">Li-ion Battery Pack 48V 20Ah</field>
+            <field name="is_storable" eval="True"/>
+            <field name="purchase_ok" eval="True"/>
+            <field name="sale_ok" eval="False"/>
+            <field name="categ_id" ref="product.product_category_all"/>
+            <field name="uom_id" ref="uom.product_uom_unit"/>
+            <field name="uom_po_id" ref="uom.product_uom_unit"/>
+            <field name="standard_price">12000.0</field>
+        </record>
+
+        <record id="comp_controller" model="product.product">
+            <field name="name">Motor Controller BLDC 48V</field>
+            <field name="is_storable" eval="True"/>
+            <field name="purchase_ok" eval="True"/>
+            <field name="sale_ok" eval="False"/>
+            <field name="categ_id" ref="product.product_category_all"/>
+            <field name="uom_id" ref="uom.product_uom_unit"/>
+            <field name="uom_po_id" ref="uom.product_uom_unit"/>
+            <field name="standard_price">2500.0</field>
+        </record>
+
+        <record id="comp_wiring_harness" model="product.product">
+            <field name="name">Wiring Harness Kit</field>
+            <field name="is_storable" eval="True"/>
+            <field name="purchase_ok" eval="True"/>
+            <field name="sale_ok" eval="False"/>
+            <field name="categ_id" ref="product.product_category_all"/>
+            <field name="uom_id" ref="uom.product_uom_unit"/>
+            <field name="uom_po_id" ref="uom.product_uom_unit"/>
+            <field name="standard_price">800.0</field>
+        </record>
+
+        <record id="comp_front_wheel" model="product.product">
+            <field name="name">Front Wheel Assembly (Tyre + Rim)</field>
+            <field name="is_storable" eval="True"/>
+            <field name="purchase_ok" eval="True"/>
+            <field name="sale_ok" eval="False"/>
+            <field name="categ_id" ref="product.product_category_all"/>
+            <field name="uom_id" ref="uom.product_uom_unit"/>
+            <field name="uom_po_id" ref="uom.product_uom_unit"/>
+            <field name="standard_price">1200.0</field>
+        </record>
+
+        <record id="comp_rear_wheel" model="product.product">
+            <field name="name">Rear Wheel Assembly (Tyre + Rim)</field>
+            <field name="is_storable" eval="True"/>
+            <field name="purchase_ok" eval="True"/>
+            <field name="sale_ok" eval="False"/>
+            <field name="categ_id" ref="product.product_category_all"/>
+            <field name="uom_id" ref="uom.product_uom_unit"/>
+            <field name="uom_po_id" ref="uom.product_uom_unit"/>
+            <field name="standard_price">1500.0</field>
+        </record>
+
+        <record id="comp_front_fork" model="product.product">
+            <field name="name">Front Fork &amp; Suspension Assembly</field>
+            <field name="is_storable" eval="True"/>
+            <field name="purchase_ok" eval="True"/>
+            <field name="sale_ok" eval="False"/>
+            <field name="categ_id" ref="product.product_category_all"/>
+            <field name="uom_id" ref="uom.product_uom_unit"/>
+            <field name="uom_po_id" ref="uom.product_uom_unit"/>
+            <field name="standard_price">1800.0</field>
+        </record>
+
+        <record id="comp_brake_kit" model="product.product">
+            <field name="name">Hydraulic Brake Kit (Front + Rear)</field>
+            <field name="is_storable" eval="True"/>
+            <field name="purchase_ok" eval="True"/>
+            <field name="sale_ok" eval="False"/>
+            <field name="categ_id" ref="product.product_category_all"/>
+            <field name="uom_id" ref="uom.product_uom_unit"/>
+            <field name="uom_po_id" ref="uom.product_uom_unit"/>
+            <field name="standard_price">900.0</field>
+        </record>
+
+        <record id="comp_headlight" model="product.product">
+            <field name="name">LED Headlight Assembly</field>
+            <field name="is_storable" eval="True"/>
+            <field name="purchase_ok" eval="True"/>
+            <field name="sale_ok" eval="False"/>
+            <field name="categ_id" ref="product.product_category_all"/>
+            <field name="uom_id" ref="uom.product_uom_unit"/>
+            <field name="uom_po_id" ref="uom.product_uom_unit"/>
+            <field name="standard_price">600.0</field>
+        </record>
+
+        <record id="comp_taillight" model="product.product">
+            <field name="name">LED Taillight &amp; Indicator Set</field>
+            <field name="is_storable" eval="True"/>
+            <field name="purchase_ok" eval="True"/>
+            <field name="sale_ok" eval="False"/>
+            <field name="categ_id" ref="product.product_category_all"/>
+            <field name="uom_id" ref="uom.product_uom_unit"/>
+            <field name="uom_po_id" ref="uom.product_uom_unit"/>
+            <field name="standard_price">400.0</field>
+        </record>
+
+        <record id="comp_instrument_cluster" model="product.product">
+            <field name="name">Digital Instrument Cluster</field>
+            <field name="is_storable" eval="True"/>
+            <field name="purchase_ok" eval="True"/>
+            <field name="sale_ok" eval="False"/>
+            <field name="categ_id" ref="product.product_category_all"/>
+            <field name="uom_id" ref="uom.product_uom_unit"/>
+            <field name="uom_po_id" ref="uom.product_uom_unit"/>
+            <field name="standard_price">1500.0</field>
+        </record>
+
+        <record id="comp_seat" model="product.product">
+            <field name="name">Seat Assembly (with latch)</field>
+            <field name="is_storable" eval="True"/>
+            <field name="purchase_ok" eval="True"/>
+            <field name="sale_ok" eval="False"/>
+            <field name="categ_id" ref="product.product_category_all"/>
+            <field name="uom_id" ref="uom.product_uom_unit"/>
+            <field name="uom_po_id" ref="uom.product_uom_unit"/>
+            <field name="standard_price">700.0</field>
+        </record>
+
+        <record id="comp_body_panels" model="product.product">
+            <field name="name">ABS Body Panel Set</field>
+            <field name="is_storable" eval="True"/>
+            <field name="purchase_ok" eval="True"/>
+            <field name="sale_ok" eval="False"/>
+            <field name="categ_id" ref="product.product_category_all"/>
+            <field name="uom_id" ref="uom.product_uom_unit"/>
+            <field name="uom_po_id" ref="uom.product_uom_unit"/>
+            <field name="standard_price">2200.0</field>
+        </record>
+
+        <record id="comp_fasteners" model="product.product">
+            <field name="name">Fasteners &amp; Hardware Kit</field>
+            <field name="is_storable" eval="True"/>
+            <field name="purchase_ok" eval="True"/>
+            <field name="sale_ok" eval="False"/>
+            <field name="categ_id" ref="product.product_category_all"/>
+            <field name="uom_id" ref="uom.product_uom_unit"/>
+            <field name="uom_po_id" ref="uom.product_uom_unit"/>
+            <field name="standard_price">300.0</field>
+        </record>
+
+        <record id="comp_packaging" model="product.product">
+            <field name="name">Packaging Box &amp; Material</field>
+            <field name="is_storable" eval="True"/>
+            <field name="purchase_ok" eval="True"/>
+            <field name="sale_ok" eval="False"/>
+            <field name="categ_id" ref="product.product_category_all"/>
+            <field name="uom_id" ref="uom.product_uom_unit"/>
+            <field name="uom_po_id" ref="uom.product_uom_unit"/>
+            <field name="standard_price">250.0</field>
+        </record>
+
+        <!-- ============================================================
+             BILL OF MATERIALS HEADER
+             ============================================================ -->
+
+        <record id="bom_ego_s1" model="mrp.bom">
+            <field name="product_tmpl_id" ref="elegomotors_setup.tmpl_ego_scooter"/>
+            <field name="product_qty">1.0</field>
+            <field name="product_uom_id" ref="uom.product_uom_unit"/>
+            <field name="type">normal</field>
+            <field name="produce_delay">7</field>
+            <field name="sequence">1</field>
+        </record>
+
+        <!-- ============================================================
+             BILL OF MATERIALS LINES (components)
+             ============================================================ -->
+
+        <record id="bom_line_frame" model="mrp.bom.line">
+            <field name="bom_id" ref="bom_ego_s1"/>
+            <field name="product_id" ref="elegomotors_setup.comp_steel_frame"/>
+            <field name="product_qty">1.0</field>
+            <field name="product_uom_id" ref="uom.product_uom_unit"/>
+            <field name="sequence">10</field>
+        </record>
+
+        <record id="bom_line_motor" model="mrp.bom.line">
+            <field name="bom_id" ref="bom_ego_s1"/>
+            <field name="product_id" ref="elegomotors_setup.comp_hub_motor"/>
+            <field name="product_qty">1.0</field>
+            <field name="product_uom_id" ref="uom.product_uom_unit"/>
+            <field name="sequence">20</field>
+        </record>
+
+        <record id="bom_line_battery" model="mrp.bom.line">
+            <field name="bom_id" ref="bom_ego_s1"/>
+            <field name="product_id" ref="elegomotors_setup.comp_battery_pack"/>
+            <field name="product_qty">1.0</field>
+            <field name="product_uom_id" ref="uom.product_uom_unit"/>
+            <field name="sequence">30</field>
+        </record>
+
+        <record id="bom_line_controller" model="mrp.bom.line">
+            <field name="bom_id" ref="bom_ego_s1"/>
+            <field name="product_id" ref="elegomotors_setup.comp_controller"/>
+            <field name="product_qty">1.0</field>
+            <field name="product_uom_id" ref="uom.product_uom_unit"/>
+            <field name="sequence">40</field>
+        </record>
+
+        <record id="bom_line_wiring" model="mrp.bom.line">
+            <field name="bom_id" ref="bom_ego_s1"/>
+            <field name="product_id" ref="elegomotors_setup.comp_wiring_harness"/>
+            <field name="product_qty">1.0</field>
+            <field name="product_uom_id" ref="uom.product_uom_unit"/>
+            <field name="sequence">50</field>
+        </record>
+
+        <record id="bom_line_front_wheel" model="mrp.bom.line">
+            <field name="bom_id" ref="bom_ego_s1"/>
+            <field name="product_id" ref="elegomotors_setup.comp_front_wheel"/>
+            <field name="product_qty">1.0</field>
+            <field name="product_uom_id" ref="uom.product_uom_unit"/>
+            <field name="sequence">60</field>
+        </record>
+
+        <record id="bom_line_rear_wheel" model="mrp.bom.line">
+            <field name="bom_id" ref="bom_ego_s1"/>
+            <field name="product_id" ref="elegomotors_setup.comp_rear_wheel"/>
+            <field name="product_qty">1.0</field>
+            <field name="product_uom_id" ref="uom.product_uom_unit"/>
+            <field name="sequence">70</field>
+        </record>
+
+        <record id="bom_line_fork" model="mrp.bom.line">
+            <field name="bom_id" ref="bom_ego_s1"/>
+            <field name="product_id" ref="elegomotors_setup.comp_front_fork"/>
+            <field name="product_qty">1.0</field>
+            <field name="product_uom_id" ref="uom.product_uom_unit"/>
+            <field name="sequence">80</field>
+        </record>
+
+        <record id="bom_line_brakes" model="mrp.bom.line">
+            <field name="bom_id" ref="bom_ego_s1"/>
+            <field name="product_id" ref="elegomotors_setup.comp_brake_kit"/>
+            <field name="product_qty">1.0</field>
+            <field name="product_uom_id" ref="uom.product_uom_unit"/>
+            <field name="sequence">90</field>
+        </record>
+
+        <record id="bom_line_headlight" model="mrp.bom.line">
+            <field name="bom_id" ref="bom_ego_s1"/>
+            <field name="product_id" ref="elegomotors_setup.comp_headlight"/>
+            <field name="product_qty">1.0</field>
+            <field name="product_uom_id" ref="uom.product_uom_unit"/>
+            <field name="sequence">100</field>
+        </record>
+
+        <record id="bom_line_taillight" model="mrp.bom.line">
+            <field name="bom_id" ref="bom_ego_s1"/>
+            <field name="product_id" ref="elegomotors_setup.comp_taillight"/>
+            <field name="product_qty">1.0</field>
+            <field name="product_uom_id" ref="uom.product_uom_unit"/>
+            <field name="sequence">110</field>
+        </record>
+
+        <record id="bom_line_cluster" model="mrp.bom.line">
+            <field name="bom_id" ref="bom_ego_s1"/>
+            <field name="product_id" ref="elegomotors_setup.comp_instrument_cluster"/>
+            <field name="product_qty">1.0</field>
+            <field name="product_uom_id" ref="uom.product_uom_unit"/>
+            <field name="sequence">120</field>
+        </record>
+
+        <record id="bom_line_seat" model="mrp.bom.line">
+            <field name="bom_id" ref="bom_ego_s1"/>
+            <field name="product_id" ref="elegomotors_setup.comp_seat"/>
+            <field name="product_qty">1.0</field>
+            <field name="product_uom_id" ref="uom.product_uom_unit"/>
+            <field name="sequence">130</field>
+        </record>
+
+        <record id="bom_line_panels" model="mrp.bom.line">
+            <field name="bom_id" ref="bom_ego_s1"/>
+            <field name="product_id" ref="elegomotors_setup.comp_body_panels"/>
+            <field name="product_qty">1.0</field>
+            <field name="product_uom_id" ref="uom.product_uom_unit"/>
+            <field name="sequence">140</field>
+        </record>
+
+        <record id="bom_line_fasteners" model="mrp.bom.line">
+            <field name="bom_id" ref="bom_ego_s1"/>
+            <field name="product_id" ref="elegomotors_setup.comp_fasteners"/>
+            <field name="product_qty">1.0</field>
+            <field name="product_uom_id" ref="uom.product_uom_unit"/>
+            <field name="sequence">150</field>
+        </record>
+
+        <record id="bom_line_packaging" model="mrp.bom.line">
+            <field name="bom_id" ref="bom_ego_s1"/>
+            <field name="product_id" ref="elegomotors_setup.comp_packaging"/>
+            <field name="product_qty">1.0</field>
+            <field name="product_uom_id" ref="uom.product_uom_unit"/>
+            <field name="sequence">160</field>
+        </record>
+
+        <!-- ============================================================
+             ROUTING OPERATIONS (mrp.routing.workcenter)
+             time_cycle_manual = duration in minutes (mode: manual)
+             ============================================================ -->
+
+        <record id="op_frame_assembly" model="mrp.routing.workcenter">
+            <field name="bom_id" ref="bom_ego_s1"/>
+            <field name="name">Frame Welding &amp; Assembly</field>
+            <field name="workcenter_id" ref="elegomotors_setup.wc_frame_assembly"/>
+            <field name="sequence">10</field>
+            <field name="time_mode">manual</field>
+            <field name="time_cycle_manual">120.0</field>
+        </record>
+
+        <record id="op_motor_install" model="mrp.routing.workcenter">
+            <field name="bom_id" ref="bom_ego_s1"/>
+            <field name="name">Motor &amp; Drivetrain Installation</field>
+            <field name="workcenter_id" ref="elegomotors_setup.wc_motor_installation"/>
+            <field name="sequence">20</field>
+            <field name="time_mode">manual</field>
+            <field name="time_cycle_manual">60.0</field>
+        </record>
+
+        <record id="op_battery_integration" model="mrp.routing.workcenter">
+            <field name="bom_id" ref="bom_ego_s1"/>
+            <field name="name">Battery Pack Integration</field>
+            <field name="workcenter_id" ref="elegomotors_setup.wc_battery_assembly"/>
+            <field name="sequence">30</field>
+            <field name="time_mode">manual</field>
+            <field name="time_cycle_manual">90.0</field>
+        </record>
+
+        <record id="op_electronics" model="mrp.routing.workcenter">
+            <field name="bom_id" ref="bom_ego_s1"/>
+            <field name="name">Electronics &amp; Wiring Harness</field>
+            <field name="workcenter_id" ref="elegomotors_setup.wc_electronics"/>
+            <field name="sequence">40</field>
+            <field name="time_mode">manual</field>
+            <field name="time_cycle_manual">60.0</field>
+        </record>
+
+        <record id="op_final_assembly" model="mrp.routing.workcenter">
+            <field name="bom_id" ref="bom_ego_s1"/>
+            <field name="name">Final Assembly &amp; Fitment</field>
+            <field name="workcenter_id" ref="elegomotors_setup.wc_final_assembly"/>
+            <field name="sequence">50</field>
+            <field name="time_mode">manual</field>
+            <field name="time_cycle_manual">120.0</field>
+        </record>
+
+        <record id="op_qc_testing" model="mrp.routing.workcenter">
+            <field name="bom_id" ref="bom_ego_s1"/>
+            <field name="name">QC Testing &amp; Safety Inspection</field>
+            <field name="workcenter_id" ref="elegomotors_setup.wc_qc_testing"/>
+            <field name="sequence">60</field>
+            <field name="time_mode">manual</field>
+            <field name="time_cycle_manual">60.0</field>
+        </record>
+
+        <record id="op_packaging" model="mrp.routing.workcenter">
+            <field name="bom_id" ref="bom_ego_s1"/>
+            <field name="name">Packaging &amp; Pre-dispatch Check</field>
+            <field name="workcenter_id" ref="elegomotors_setup.wc_packaging"/>
+            <field name="sequence">70</field>
+            <field name="time_mode">manual</field>
+            <field name="time_cycle_manual">30.0</field>
+        </record>
+
+    </data>
+</odoo>

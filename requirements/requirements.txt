@@ -1,0 +1,47 @@
+# Odoo 18.0 Python dependencies
+# Install from the cloned Odoo 18 repo first:
+#   pip install -r C:\Users\kalbh\repos\odoo18\requirements.txt
+#
+# Additional Windows-compatible packages:
+psycopg2-binary
+pywin32
+
+# Core packages (aligned with Odoo 18.0)
+Babel==2.9.1
+chardet==4.0.0
+cryptography==41.0.7
+decorator==5.1.1
+docutils==0.17.1
+ebaysdk==2.1.5
+freezegun==1.4.0
+gevent==23.9.1
+greenlet==3.0.3
+html2text==2020.1.16
+Jinja2==3.1.4
+libsass==0.23.0
+lxml==5.2.1
+MarkupSafe==2.1.5
+num2words==0.5.13
+ofxparse==0.21
+Pillow==10.3.0
+polib==1.2.0
+psutil==5.9.8
+pyOpenSSL==24.1.0
+PyPDF2==3.0.1
+python-dateutil==2.9.0
+python-slugify==8.0.4
+python-stdnum==1.19
+pytz
+pyusb==1.2.1
+qrcode==7.4.2
+reportlab==4.2.2
+requests==2.32.2
+rjsmin==1.2.2
+setuptools==70.2.0
+urllib3==2.2.2
+vobject==0.9.6.1
+Werkzeug==3.0.3
+xlrd==2.0.1
+XlsxWriter==3.2.0
+xlwt==1.3.0
+zeep==4.2.1

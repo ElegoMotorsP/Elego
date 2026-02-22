@@ -1,0 +1,140 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+    <!--
+        ElegoMotors Manufacturing Work Centers
+
+        Production flow:
+        1. Frame Assembly     → weld/assemble chassis
+        2. Motor Installation → hub motor + drivetrain
+        3. Battery Assembly   → Li-ion pack build & BMS
+        4. Electronics        → controller, wiring, sensors
+        5. Final Assembly     → full vehicle assembly
+        6. QC Testing         → performance & safety tests
+        7. Packaging          → wrap, label, dispatch prep
+    -->
+    <data noupdate="1">
+
+        <record id="wc_frame_assembly" model="mrp.workcenter">
+            <field name="name">Frame Assembly</field>
+            <field name="code">WC-FRAME</field>
+            <field name="sequence">10</field>
+            <field name="default_capacity">2.0</field>
+            <field name="costs_hour">500.0</field>
+            <field name="time_start">15.0</field>
+            <field name="time_stop">10.0</field>
+            <field name="color">3</field>
+            <field name="oee_target">85.0</field>
+            <field name="resource_calendar_id" ref="resource.resource_calendar_std"/>
+        </record>
+
+        <record id="wc_motor_installation" model="mrp.workcenter">
+            <field name="name">Motor Installation</field>
+            <field name="code">WC-MOTOR</field>
+            <field name="sequence">20</field>
+            <field name="default_capacity">1.0</field>
+            <field name="costs_hour">750.0</field>
+            <field name="time_start">20.0</field>
+            <field name="time_stop">10.0</field>
+            <field name="color">5</field>
+            <field name="oee_target">90.0</field>
+            <field name="resource_calendar_id" ref="resource.resource_calendar_std"/>
+        </record>
+
+        <record id="wc_battery_assembly" model="mrp.workcenter">
+            <field name="name">Battery Pack Assembly</field>
+            <field name="code">WC-BATT</field>
+            <field name="sequence">30</field>
+            <field name="default_capacity">1.0</field>
+            <field name="costs_hour">1000.0</field>
+            <field name="time_start">30.0</field>
+            <field name="time_stop">15.0</field>
+            <field name="color">2</field>
+            <field name="oee_target">90.0</field>
+            <field name="resource_calendar_id" ref="resource.resource_calendar_std"/>
+        </record>
+
+        <record id="wc_electronics" model="mrp.workcenter">
+            <field name="name">Electronics &amp; Wiring</field>
+            <field name="code">WC-ELEC</field>
+            <field name="sequence">40</field>
+            <field name="default_capacity">2.0</field>
+            <field name="costs_hour">600.0</field>
+            <field name="time_start">15.0</field>
+            <field name="time_stop">10.0</field>
+            <field name="color">7</field>
+            <field name="oee_target">88.0</field>
+            <field name="resource_calendar_id" ref="resource.resource_calendar_std"/>
+        </record>
+
+        <record id="wc_final_assembly" model="mrp.workcenter">
+            <field name="name">Final Assembly</field>
+            <field name="code">WC-FINAL</field>
+            <field name="sequence">50</field>
+            <field name="default_capacity">2.0</field>
+            <field name="costs_hour">500.0</field>
+            <field name="time_start">20.0</field>
+            <field name="time_stop">15.0</field>
+            <field name="color">6</field>
+            <field name="oee_target">85.0</field>
+            <field name="resource_calendar_id" ref="resource.resource_calendar_std"/>
+        </record>
+
+        <record id="wc_qc_testing" model="mrp.workcenter">
+            <field name="name">QC Testing Station</field>
+            <field name="code">WC-QC</field>
+            <field name="sequence">60</field>
+            <field name="default_capacity">1.0</field>
+            <field name="costs_hour">550.0</field>
+            <field name="time_start">10.0</field>
+            <field name="time_stop">10.0</field>
+            <field name="color">4</field>
+            <field name="oee_target">95.0</field>
+            <field name="resource_calendar_id" ref="resource.resource_calendar_std"/>
+        </record>
+
+        <record id="wc_packaging" model="mrp.workcenter">
+            <field name="name">Packaging &amp; Dispatch</field>
+            <field name="code">WC-PACK</field>
+            <field name="sequence">70</field>
+            <field name="default_capacity">3.0</field>
+            <field name="costs_hour">350.0</field>
+            <field name="time_start">10.0</field>
+            <field name="time_stop">5.0</field>
+            <field name="color">9</field>
+            <field name="oee_target">92.0</field>
+            <field name="resource_calendar_id" ref="resource.resource_calendar_std"/>
+        </record>
+
+        <!--
+            Workcenter Productivity Loss Reasons (shown in OEE reporting)
+        -->
+        <record id="loss_material_shortage" model="mrp.workcenter.productivity.loss">
+            <field name="name">Material Shortage</field>
+            <field name="loss_type">availability</field>
+            <field name="sequence">1</field>
+            <field name="manual">True</field>
+        </record>
+
+        <record id="loss_rework" model="mrp.workcenter.productivity.loss">
+            <field name="name">Rework / Quality Fail</field>
+            <field name="loss_type">quality</field>
+            <field name="sequence">2</field>
+            <field name="manual">True</field>
+        </record>
+
+        <record id="loss_breakdown" model="mrp.workcenter.productivity.loss">
+            <field name="name">Equipment Breakdown</field>
+            <field name="loss_type">availability</field>
+            <field name="sequence">3</field>
+            <field name="manual">True</field>
+        </record>
+
+        <record id="loss_pdi_hold" model="mrp.workcenter.productivity.loss">
+            <field name="name">PDI Hold</field>
+            <field name="loss_type">quality</field>
+            <field name="sequence">4</field>
+            <field name="manual">True</field>
+        </record>
+
+    </data>
+</odoo>

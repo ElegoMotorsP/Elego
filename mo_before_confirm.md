@@ -1,0 +1,309 @@
+- generic [ref=e1]:
+  - banner [ref=e2]:
+    - navigation [ref=e3]:
+      - button "" [ref=e5] [cursor=pointer]:
+        - generic [ref=e6]: 
+      - menuitem "Manufacturing" [ref=e130] [cursor=pointer]
+      - menu [ref=e22]:
+        - button "Operations" [ref=e131] [cursor=pointer]:
+          - generic [ref=e132]: Operations
+        - button "Products" [ref=e133] [cursor=pointer]:
+          - generic [ref=e134]: Products
+        - button "Reporting" [ref=e135] [cursor=pointer]:
+          - generic [ref=e136]: Reporting
+        - button "Configuration" [ref=e137] [cursor=pointer]:
+          - generic [ref=e138]: Configuration
+      - menu [ref=e7]:
+        - button "Messages 4" [ref=e25] [cursor=pointer]:
+          - img "Messages" [ref=e10]: 
+          - generic [ref=e11]: "4"
+        - button "Activities" [ref=e12] [cursor=pointer]:
+          - img "Activities" [ref=e13]: 
+        - button "ElegoMotors" [disabled] [ref=e15]:
+          - text: 
+          - generic [ref=e16]: ElegoMotors
+        - button "User" [ref=e18] [cursor=pointer]:
+          - img "User" [ref=e19]
+          - text: 
+  - generic [ref=e338]:
+    - generic [ref=e340]:
+      - generic [ref=e341]:
+        - button "New" [ref=e344] [cursor=pointer]
+        - generic [ref=e345]:
+          - list [ref=e346]:
+            - listitem [ref=e347]:
+              - link "Manufacturing Orders" [ref=e348] [cursor=pointer]:
+                - /url: /odoo/manufacturing
+          - generic [ref=e349]:
+            - generic [ref=e351]: New
+            - button "" [ref=e355] [cursor=pointer]:
+              - generic [ref=e356]: 
+        - generic [ref=e358]:
+          - button "Save manually" [ref=e359] [cursor=pointer]:
+            - generic [ref=e360]: 
+          - button "Discard all changes" [ref=e361] [cursor=pointer]:
+            - generic [ref=e362]: 
+      - button " Overview" [ref=e365] [cursor=pointer]:
+        - generic [ref=e366]: 
+        - generic [ref=e368]: Overview
+    - generic [ref=e370]:
+      - generic [ref=e371]:
+        - generic [ref=e372]:
+          - button "Confirm" [ref=e374] [cursor=pointer]
+          - radiogroup "Statusbar" [ref=e376]:
+            - radio "Done" [disabled]
+            - radio "Confirmed" [disabled]
+            - radio "Draft" [checked] [disabled]
+        - generic [ref=e377]:
+          - heading "Priority New" [level=1] [ref=e379]:
+            - radiogroup "Priority" [ref=e381]:
+              - radio "Urgent" [ref=e382] [cursor=pointer]: 
+            - generic [ref=e383]: New
+          - generic [ref=e384]:
+            - generic [ref=e385]:
+              - generic [ref=e386]:
+                - generic [ref=e388]: Product
+                - combobox "Product" [ref=e394]: ElegoMotors EV Scooter EGO-S1
+              - generic [ref=e395]:
+                - generic [ref=e397]: Quantity
+                - generic [ref=e399]:
+                  - textbox "Quantity" [ref=e401]: "1.00"
+                  - generic [ref=e402]: To Produce
+                  - button "" [ref=e403] [cursor=pointer]:
+                    - generic [ref=e404]: 
+              - generic [ref=e405]:
+                - generic [ref=e407]:
+                  - text: Bill of Material
+                  - superscript [ref=e408]: "?"
+                - combobox "Bill of Material?" [ref=e415]: ElegoMotors EV Scooter EGO-S1
+            - generic [ref=e416]:
+              - generic [ref=e417]:
+                - generic [ref=e419]:
+                  - text: Scheduled Date
+                  - superscript [ref=e420]: "?"
+                - textbox "Scheduled Date?" [ref=e425] [cursor=pointer]: 02/19/2026 23:42:06
+              - generic [ref=e426]:
+                - generic [ref=e428]: Responsible
+                - generic [ref=e431]:
+                  - img [ref=e433]
+                  - combobox "Responsible" [ref=e437]: Administrator
+          - generic [ref=e438]:
+            - list [ref=e440]:
+              - listitem [ref=e441] [cursor=pointer]:
+                - tab "Components" [ref=e442]
+              - listitem [ref=e443] [cursor=pointer]:
+                - tab "Work Orders" [active] [ref=e444]
+              - listitem [ref=e445] [cursor=pointer]:
+                - tab "Miscellaneous" [ref=e446]
+            - table [ref=e581]:
+              - rowgroup [ref=e582]:
+                - row "Operation  Work Center  Product  Quantity Remaining Expected Duration  Real Duration  " [ref=e583]:
+                  - columnheader [ref=e584] [cursor=pointer]
+                  - columnheader "Operation " [ref=e585] [cursor=pointer]:
+                    - generic [ref=e586]:
+                      - generic [ref=e587]: Operation
+                      - generic [ref=e588]: 
+                  - columnheader "Work Center " [ref=e590] [cursor=pointer]:
+                    - generic [ref=e591]:
+                      - generic [ref=e592]: Work Center
+                      - generic [ref=e593]: 
+                  - columnheader "Product " [ref=e595] [cursor=pointer]:
+                    - generic [ref=e596]:
+                      - generic [ref=e597]: Product
+                      - generic [ref=e598]: 
+                  - columnheader "Quantity Remaining" [ref=e600]:
+                    - generic [ref=e601]:
+                      - generic [ref=e602]: Quantity Remaining
+                      - text: 
+                  - columnheader "Expected Duration " [ref=e604] [cursor=pointer]:
+                    - generic [ref=e605]:
+                      - generic [ref=e606]: Expected Duration
+                      - generic [ref=e607]: 
+                  - columnheader "Real Duration " [ref=e609] [cursor=pointer]:
+                    - generic [ref=e610]:
+                      - generic [ref=e611]: Real Duration
+                      - generic [ref=e612]: 
+                  - columnheader [ref=e614]
+                  - columnheader [ref=e615]
+                  - columnheader [ref=e616]
+                  - columnheader [ref=e617]:
+                    - generic: 
+                  - columnheader "" [ref=e619]:
+                    - button "" [ref=e621] [cursor=pointer]:
+                      - generic [ref=e622]: 
+              - rowgroup [ref=e623]:
+                - row " Frame Welding & Assembly Frame Assembly ElegoMotors EV Scooter EGO-S1 1.00 145:00  Delete row" [ref=e624]:
+                  - cell "" [ref=e625] [cursor=pointer]:
+                    - generic [ref=e627]: 
+                  - cell "Frame Welding & Assembly" [ref=e628] [cursor=pointer]
+                  - cell "Frame Assembly" [ref=e629] [cursor=pointer]
+                  - cell "ElegoMotors EV Scooter EGO-S1" [ref=e630] [cursor=pointer]
+                  - cell "1.00" [ref=e631] [cursor=pointer]
+                  - cell "145:00" [ref=e632] [cursor=pointer]:
+                    - generic [ref=e633]: 145:00
+                  - cell [ref=e634] [cursor=pointer]
+                  - cell [ref=e635] [cursor=pointer]
+                  - cell [ref=e636]
+                  - cell "" [ref=e638] [cursor=pointer]:
+                    - button "" [ref=e640]:
+                      - generic [ref=e641]: 
+                  - cell [ref=e642] [cursor=pointer]
+                  - cell "Delete row" [ref=e643]:
+                    - button "Delete row" [ref=e644] [cursor=pointer]: 
+                - row " Motor & Drivetrain Installation Motor Installation ElegoMotors EV Scooter EGO-S1 1.00 90:00  Delete row" [ref=e645]:
+                  - cell "" [ref=e646] [cursor=pointer]:
+                    - generic [ref=e648]: 
+                  - cell "Motor & Drivetrain Installation" [ref=e649] [cursor=pointer]
+                  - cell "Motor Installation" [ref=e650] [cursor=pointer]
+                  - cell "ElegoMotors EV Scooter EGO-S1" [ref=e651] [cursor=pointer]
+                  - cell "1.00" [ref=e652] [cursor=pointer]
+                  - cell "90:00" [ref=e653] [cursor=pointer]:
+                    - generic [ref=e654]: 90:00
+                  - cell [ref=e655] [cursor=pointer]
+                  - cell [ref=e656] [cursor=pointer]
+                  - cell [ref=e657]
+                  - cell "" [ref=e659] [cursor=pointer]:
+                    - button "" [ref=e661]:
+                      - generic [ref=e662]: 
+                  - cell [ref=e663] [cursor=pointer]
+                  - cell "Delete row" [ref=e664]:
+                    - button "Delete row" [ref=e665] [cursor=pointer]: 
+                - row " Battery Pack Integration Battery Pack Assembly ElegoMotors EV Scooter EGO-S1 1.00 135:00  Delete row" [ref=e666]:
+                  - cell "" [ref=e667] [cursor=pointer]:
+                    - generic [ref=e669]: 
+                  - cell "Battery Pack Integration" [ref=e670] [cursor=pointer]
+                  - cell "Battery Pack Assembly" [ref=e671] [cursor=pointer]
+                  - cell "ElegoMotors EV Scooter EGO-S1" [ref=e672] [cursor=pointer]
+                  - cell "1.00" [ref=e673] [cursor=pointer]
+                  - cell "135:00" [ref=e674] [cursor=pointer]:
+                    - generic [ref=e675]: 135:00
+                  - cell [ref=e676] [cursor=pointer]
+                  - cell [ref=e677] [cursor=pointer]
+                  - cell [ref=e678]
+                  - cell "" [ref=e680] [cursor=pointer]:
+                    - button "" [ref=e682]:
+                      - generic [ref=e683]: 
+                  - cell [ref=e684] [cursor=pointer]
+                  - cell "Delete row" [ref=e685]:
+                    - button "Delete row" [ref=e686] [cursor=pointer]: 
+                - row " Electronics & Wiring Harness Electronics & Wiring ElegoMotors EV Scooter EGO-S1 1.00 85:00  Delete row" [ref=e687]:
+                  - cell "" [ref=e688] [cursor=pointer]:
+                    - generic [ref=e690]: 
+                  - cell "Electronics & Wiring Harness" [ref=e691] [cursor=pointer]
+                  - cell "Electronics & Wiring" [ref=e692] [cursor=pointer]
+                  - cell "ElegoMotors EV Scooter EGO-S1" [ref=e693] [cursor=pointer]
+                  - cell "1.00" [ref=e694] [cursor=pointer]
+                  - cell "85:00" [ref=e695] [cursor=pointer]:
+                    - generic [ref=e696]: 85:00
+                  - cell [ref=e697] [cursor=pointer]
+                  - cell [ref=e698] [cursor=pointer]
+                  - cell [ref=e699]
+                  - cell "" [ref=e701] [cursor=pointer]:
+                    - button "" [ref=e703]:
+                      - generic [ref=e704]: 
+                  - cell [ref=e705] [cursor=pointer]
+                  - cell "Delete row" [ref=e706]:
+                    - button "Delete row" [ref=e707] [cursor=pointer]: 
+                - row " Final Assembly & Fitment Final Assembly ElegoMotors EV Scooter EGO-S1 1.00 155:00  Delete row" [ref=e708]:
+                  - cell "" [ref=e709] [cursor=pointer]:
+                    - generic [ref=e711]: 
+                  - cell "Final Assembly & Fitment" [ref=e712] [cursor=pointer]
+                  - cell "Final Assembly" [ref=e713] [cursor=pointer]
+                  - cell "ElegoMotors EV Scooter EGO-S1" [ref=e714] [cursor=pointer]
+                  - cell "1.00" [ref=e715] [cursor=pointer]
+                  - cell "155:00" [ref=e716] [cursor=pointer]:
+                    - generic [ref=e717]: 155:00
+                  - cell [ref=e718] [cursor=pointer]
+                  - cell [ref=e719] [cursor=pointer]
+                  - cell [ref=e720]
+                  - cell "" [ref=e722] [cursor=pointer]:
+                    - button "" [ref=e724]:
+                      - generic [ref=e725]: 
+                  - cell [ref=e726] [cursor=pointer]
+                  - cell "Delete row" [ref=e727]:
+                    - button "Delete row" [ref=e728] [cursor=pointer]: 
+                - row " QC Testing & Safety Inspection QC Testing Station ElegoMotors EV Scooter EGO-S1 1.00 80:00  Delete row" [ref=e729]:
+                  - cell "" [ref=e730] [cursor=pointer]:
+                    - generic [ref=e732]: 
+                  - cell "QC Testing & Safety Inspection" [ref=e733] [cursor=pointer]
+                  - cell "QC Testing Station" [ref=e734] [cursor=pointer]
+                  - cell "ElegoMotors EV Scooter EGO-S1" [ref=e735] [cursor=pointer]
+                  - cell "1.00" [ref=e736] [cursor=pointer]
+                  - cell "80:00" [ref=e737] [cursor=pointer]:
+                    - generic [ref=e738]: 80:00
+                  - cell [ref=e739] [cursor=pointer]
+                  - cell [ref=e740] [cursor=pointer]
+                  - cell [ref=e741]
+                  - cell "" [ref=e743] [cursor=pointer]:
+                    - button "" [ref=e745]:
+                      - generic [ref=e746]: 
+                  - cell [ref=e747] [cursor=pointer]
+                  - cell "Delete row" [ref=e748]:
+                    - button "Delete row" [ref=e749] [cursor=pointer]: 
+                - row " Packaging & Pre-dispatch Check Packaging & Dispatch ElegoMotors EV Scooter EGO-S1 1.00 45:00  Delete row" [ref=e750]:
+                  - cell "" [ref=e751] [cursor=pointer]:
+                    - generic [ref=e753]: 
+                  - cell "Packaging & Pre-dispatch Check" [ref=e754] [cursor=pointer]
+                  - cell "Packaging & Dispatch" [ref=e755] [cursor=pointer]
+                  - cell "ElegoMotors EV Scooter EGO-S1" [ref=e756] [cursor=pointer]
+                  - cell "1.00" [ref=e757] [cursor=pointer]
+                  - cell "45:00" [ref=e758] [cursor=pointer]:
+                    - generic [ref=e759]: 45:00
+                  - cell [ref=e760] [cursor=pointer]
+                  - cell [ref=e761] [cursor=pointer]
+                  - cell [ref=e762]
+                  - cell "" [ref=e764] [cursor=pointer]:
+                    - button "" [ref=e766]:
+                      - generic [ref=e767]: 
+                  - cell [ref=e768] [cursor=pointer]
+                  - cell "Delete row" [ref=e769]:
+                    - button "Delete row" [ref=e770] [cursor=pointer]: 
+                - row "Add a line" [ref=e771]:
+                  - cell [ref=e772]
+                  - cell "Add a line" [ref=e773]:
+                    - button "Add a line" [ref=e774] [cursor=pointer]
+              - rowgroup [ref=e775]:
+                - row "735:00 00:00" [ref=e776]:
+                  - cell [ref=e777]
+                  - cell [ref=e778]
+                  - cell [ref=e779]
+                  - cell [ref=e780]
+                  - cell [ref=e781]
+                  - cell "735:00" [ref=e782]
+                  - cell "00:00" [ref=e783]
+                  - cell [ref=e784]
+                  - cell [ref=e785]
+                  - cell [ref=e786]
+                  - cell [ref=e787]
+                  - cell [ref=e788]
+      - generic [ref=e488]:
+        - generic [ref=e490]:
+          - button "Send message" [ref=e491] [cursor=pointer]
+          - button "Log note" [ref=e492] [cursor=pointer]
+          - button "Activities" [ref=e493] [cursor=pointer]
+          - button "Search Messages" [ref=e495] [cursor=pointer]:
+            - img [ref=e496]: 
+          - generic [ref=e497]:
+            - button "Attach files" [disabled]:
+              - generic: 
+          - generic [ref=e498]:
+            - button "0" [disabled]:
+              - img: 
+              - superscript: "0"
+          - button "Follow" [ref=e499] [cursor=pointer]:
+            - generic [ref=e501]: Follow
+        - generic [ref=e504]:
+          - generic [ref=e506]:
+            - separator [ref=e507]
+            - generic [ref=e508]: Today
+            - separator [ref=e509]
+          - group "System notification" [ref=e510]:
+            - generic [ref=e511]:
+              - generic "Open card" [ref=e513] [cursor=pointer]:
+                - img [ref=e514]
+              - generic [ref=e515]:
+                - generic [ref=e516]:
+                  - generic "Open card" [ref=e517] [cursor=pointer]:
+                    - strong [ref=e518]: Administrator
+                  - generic "2/19/2026, 11:42:06 PM" [ref=e519]: Today at 11:42 PM
+                - generic [ref=e525]: Creating a new record...
