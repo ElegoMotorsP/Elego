@@ -22,6 +22,7 @@ From `custom_modules/elegomotors_setup/data/`: user rules, order access, order f
 
 - **Passwords**: Temporary first-login; users should change via Settings → My Profile.
 - **Data**: `noupdate="1"` on user records — passwords and groups are not overwritten on module upgrade after first creation.
+- **If login fails** (e.g. after deploy/restore where users already existed): run once from Odoo shell: `odoo-bin shell -d YOUR_DB` then `exec(open('set_elegomotors_passwords.py').read())` (from repo root). Passwords are also set by `post_init_hook` on first install.
 - **Notifications**: All use `notification_type="inbox"`.
 - **Company**: All users on `base.main_company` (ElegoMotors).
 
