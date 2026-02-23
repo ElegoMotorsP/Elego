@@ -18,7 +18,7 @@ odooCRM/
 
 - Python 3.8 or higher
 - PostgreSQL 12 or higher
-- Odoo 16.0
+- Odoo 18.0
 - Git
 
 ## Development Environment Setup
