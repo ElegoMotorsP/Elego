@@ -19,7 +19,6 @@
         'purchase',
         'account',
         'sale_management',
-        'sale_order_approval',  # Enterprise: res.company.sale_order_approval, sale_order_approval_min_amount
         'base_automation',      # base.automation — workflow notification rules
         'hr',                   # HR: employee records (Srushti)
         'hr_attendance',        # Attendance: officer/manager tracking (Srushti)

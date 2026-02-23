@@ -18,11 +18,7 @@
             <field name="po_double_validation">two_step</field>
             <field name="po_double_validation_amount">0.0</field>
             <field name="po_lock">lock</field>
-            <!-- SO approval: every SO confirmed by Tushar goes to 'to approve';
-                 a user with group_sale_manager (Rajshri or Manohar) must approve.
-                 sale_order_approval_min_amount = 0.0 means ALL orders need approval. -->
-            <field name="sale_order_approval" eval="True"/>
-            <field name="sale_order_approval_min_amount" eval="0.0"/>
+            <!-- SO approval (sale_order_approval): enable in Settings when Enterprise sale_order_approval is installed. -->
         </record>
 
         <!-- Enable manufacture-to-resupply on default warehouse -->
