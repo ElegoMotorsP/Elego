@@ -1,0 +1,76 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+    <!--
+        ElegoMotors Company & System Configuration
+
+        Settings applied to the main company:
+        - 2-level PO approval (manager must approve all POs)
+        - Lock POs after confirmation
+        - 2-step SO approval (Rajshri or Manohar must approve all SOs)
+        - Manufacturing resupply enabled on warehouse
+        - Company name updated to ElegoMotors
+    -->
+    <data noupdate="1">
+
+        <!-- Update company name and details -->
+        <record id="base.main_company" model="res.company">
+            <field name="name">ElegoMotors</field>
+            <field name="po_double_validation">two_step</field>
+            <field name="po_double_validation_amount">0.0</field>
+            <field name="po_lock">lock</field>
+            <!-- SO approval (sale_order_approval): enable in Settings when Enterprise sale_order_approval is installed. -->
+        </record>
+
+        <!-- Enable manufacture-to-resupply on default warehouse -->
+        <record id="stock.warehouse0" model="stock.warehouse">
+            <field name="name">ElegoMotors Warehouse</field>
+            <field name="code">EGO</field>
+            <field name="manufacture_to_resupply" eval="True"/>
+        </record>
+
+        <!-- Sequence: Sales Quotation — ElegoMotors prefix -->
+        <record id="seq_elegomotors_sale" model="ir.sequence">
+            <field name="name">ElegoMotors Sales Order</field>
+            <field name="code">sale.order</field>
+            <field name="prefix">EGO-SO-</field>
+            <field name="padding">5</field>
+            <field name="number_next">1</field>
+            <field name="number_increment">1</field>
+            <field name="company_id" ref="base.main_company"/>
+        </record>
+
+        <!-- Sequence: Purchase Order — ElegoMotors prefix -->
+        <record id="seq_elegomotors_po" model="ir.sequence">
+            <field name="name">ElegoMotors Purchase Order</field>
+            <field name="code">purchase.order</field>
+            <field name="prefix">EGO-PO-</field>
+            <field name="padding">5</field>
+            <field name="number_next">1</field>
+            <field name="number_increment">1</field>
+            <field name="company_id" ref="base.main_company"/>
+        </record>
+
+        <!-- Sequence: Manufacturing Order — ElegoMotors prefix -->
+        <record id="seq_elegomotors_mo" model="ir.sequence">
+            <field name="name">ElegoMotors Manufacturing Order</field>
+            <field name="code">mrp.production</field>
+            <field name="prefix">EGO-MO-</field>
+            <field name="padding">5</field>
+            <field name="number_next">1</field>
+            <field name="number_increment">1</field>
+            <field name="company_id" ref="base.main_company"/>
+        </record>
+
+    </data>
+
+    <!-- noupdate="0" — applied every upgrade so settings are always enforced -->
+    <data noupdate="0">
+
+        <!-- Enable Work Orders feature (Manufacturing → Configuration → Settings → Work Orders) -->
+        <!-- Without this, mrp.workorder.workcenter_id constraint fires when creating MOs -->
+        <record model="res.groups" id="base.group_user">
+            <field name="implied_ids" eval="[(4, ref('mrp.group_mrp_routings'))]"/>
+        </record>
+
+    </data>
+</odoo>

@@ -1,0 +1,54 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+    <!--
+        ElegoMotors Inventory Locations
+
+        Hierarchy under the default warehouse (WH):
+          WH/Stock (existing)
+            ├── EGO/Store          ← raw material store (internal)
+            ├── EGO/Finished Goods ← FG waiting dispatch (internal)
+            ├── EGO/QC Inward      ← inward material inspection (internal)
+            └── EGO/Production WIP ← material in production (internal)
+
+        Virtual locations (under stock.stock_location_locations_virtual):
+            └── EGO/Quarantine     ← hold/reject material (internal virtual)
+    -->
+    <data noupdate="1">
+
+        <!-- Raw Material Store — sub-location of default WH/Stock -->
+        <record id="location_ego_store" model="stock.location">
+            <field name="name">EGO/Store</field>
+            <field name="usage">internal</field>
+            <field name="location_id" ref="stock.stock_location_stock"/>
+        </record>
+
+        <!-- Finished Goods — sub-location of default WH/Stock -->
+        <record id="location_ego_fg" model="stock.location">
+            <field name="name">EGO/Finished Goods</field>
+            <field name="usage">internal</field>
+            <field name="location_id" ref="stock.stock_location_stock"/>
+        </record>
+
+        <!-- Inward QC — sub-location of default WH/Stock (used before accepting to Store) -->
+        <record id="location_ego_qc_inward" model="stock.location">
+            <field name="name">EGO/QC Inward</field>
+            <field name="usage">internal</field>
+            <field name="location_id" ref="stock.stock_location_stock"/>
+        </record>
+
+        <!-- Production WIP — sub-location of default WH/Stock -->
+        <record id="location_ego_production_wip" model="stock.location">
+            <field name="name">EGO/Production WIP</field>
+            <field name="usage">internal</field>
+            <field name="location_id" ref="stock.stock_location_stock"/>
+        </record>
+
+        <!-- Quarantine — virtual location for hold/reject material -->
+        <record id="location_ego_quarantine" model="stock.location">
+            <field name="name">EGO/Quarantine</field>
+            <field name="usage">internal</field>
+            <field name="location_id" ref="stock.stock_location_locations_virtual"/>
+        </record>
+
+    </data>
+</odoo>

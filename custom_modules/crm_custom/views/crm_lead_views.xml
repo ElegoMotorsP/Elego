@@ -1,0 +1,53 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+    <!-- Form View Extension -->
+    <record id="crm_lead_view_form_inherit_custom" model="ir.ui.view">
+        <field name="name">crm.lead.form.inherit.custom</field>
+        <field name="model">crm.lead</field>
+        <field name="inherit_id" ref="crm.crm_lead_view_form"/>
+        <field name="arch" type="xml">
+            <xpath expr="//notebook" position="inside">
+                <page string="Custom Information" name="custom_info">
+                    <group>
+                        <group>
+                            <field name="custom_score"/>
+                            <field name="lead_source"/>
+                        </group>
+                    </group>
+                </page>
+            </xpath>
+        </field>
+    </record>
+
+    <!-- Tree View Extension (opportunities list) -->
+    <record id="crm_lead_view_tree_inherit_custom" model="ir.ui.view">
+        <field name="name">crm.lead.tree.inherit.custom</field>
+        <field name="model">crm.lead</field>
+        <field name="inherit_id" ref="crm.crm_case_tree_view_oppor"/>
+        <field name="arch" type="xml">
+            <field name="name" position="after">
+                <field name="custom_score"/>
+                <field name="lead_source"/>
+            </field>
+        </field>
+    </record>
+
+    <!-- Search View Extension -->
+    <record id="crm_lead_view_search_inherit_custom" model="ir.ui.view">
+        <field name="name">crm.lead.search.inherit.custom</field>
+        <field name="model">crm.lead</field>
+        <field name="inherit_id" ref="crm.view_crm_case_leads_filter"/>
+        <field name="arch" type="xml">
+            <field name="name" position="after">
+                <field name="custom_score"/>
+                <field name="lead_source"/>
+            </field>
+            <filter name="lost" position="after">
+                <filter string="High Score" name="high_score" domain="[('custom_score', '>=', 50)]"/>
+            </filter>
+            <filter name="inactive" position="after">
+                <filter string="Lead Source" name="lead_source" context="{'group_by': 'lead_source'}"/>
+            </filter>
+        </field>
+    </record>
+</odoo>

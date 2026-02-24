@@ -1,0 +1,50 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+    <!--
+        ElegoMotors CRM Pipeline Stages
+        Workflow: Inquiry → Quotation Sent → Sales Order Confirmed → Won
+        noupdate="1" means these records won't be overwritten on module upgrade
+        once created.
+    -->
+    <data noupdate="1">
+
+        <record id="stage_inquiry" model="crm.stage">
+            <field name="name">Inquiry</field>
+            <field name="sequence">1</field>
+            <field name="requirements">New customer inquiry for EV 2-wheeler. Capture requirements: model, quantity, delivery location.</field>
+        </record>
+
+        <record id="stage_quotation_sent" model="crm.stage">
+            <field name="name">Quotation Sent</field>
+            <field name="sequence">2</field>
+            <field name="requirements">Quotation prepared and sent to customer. Awaiting approval or negotiation.</field>
+        </record>
+
+        <record id="stage_negotiation" model="crm.stage">
+            <field name="name">Negotiation</field>
+            <field name="sequence">3</field>
+            <field name="requirements">Price/terms negotiation in progress. Update expected revenue accordingly.</field>
+        </record>
+
+        <record id="stage_sales_order" model="crm.stage">
+            <field name="name">Sales Order Confirmed</field>
+            <field name="sequence">4</field>
+            <field name="requirements">Customer confirmed the order. Sales Order created in system. Check FG availability.</field>
+        </record>
+
+        <record id="stage_won" model="crm.stage">
+            <field name="name">Won</field>
+            <field name="sequence">70</field>
+            <field name="is_won" eval="True"/>
+            <field name="requirements">Vehicle delivered and invoiced. Deal closed successfully.</field>
+        </record>
+
+        <record id="stage_lost" model="crm.stage">
+            <field name="name">Lost</field>
+            <field name="sequence">90</field>
+            <field name="fold" eval="True"/>
+            <field name="requirements">Opportunity lost. Record reason for analysis.</field>
+        </record>
+
+    </data>
+</odoo>

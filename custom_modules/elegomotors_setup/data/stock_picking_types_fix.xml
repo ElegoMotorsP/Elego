@@ -1,0 +1,56 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+    <!--
+        ElegoMotors Stock Operation Types — FIXES
+
+        This file fixes the operation types to properly handle:
+        1. Vendor returns (when inward QC fails or material needs replacement)
+        2. Customer returns (when delivered products come back)
+        3. Warehouse configuration to use Gate Entry as primary receipt
+
+        Applied with noupdate="0" so changes are always enforced on upgrade.
+    -->
+    <data noupdate="0">
+
+        <!-- Add Vendor Returns operation type (for returning goods to suppliers) -->
+        <record id="picking_type_vendor_returns" model="stock.picking.type">
+            <field name="name">Returns to Vendors</field>
+            <field name="code">outgoing</field>
+            <field name="sequence_code">RTV</field>
+            <field name="warehouse_id" ref="stock.warehouse0"/>
+            <field name="default_location_src_id" ref="elegomotors_setup.location_ego_quarantine"/>
+            <field name="default_location_dest_id" ref="stock.stock_location_suppliers"/>
+            <field name="color">1</field>
+            <field name="sequence">22</field>
+        </record>
+
+        <!-- Update Gate Entry to have return type pointing to Vendor Returns -->
+        <record id="elegomotors_setup.picking_type_gate_entry" model="stock.picking.type">
+            <field name="return_picking_type_id" ref="picking_type_vendor_returns"/>
+        </record>
+
+        <!-- Update Delivery to have return type pointing to Gate Entry (customer returns come in as receipts) -->
+        <record id="elegomotors_setup.picking_type_delivery" model="stock.picking.type">
+            <field name="return_picking_type_id" ref="elegomotors_setup.picking_type_gate_entry"/>
+        </record>
+
+        <!-- Update default warehouse to use Gate Entry as primary receipt operation -->
+        <record id="stock.warehouse0" model="stock.warehouse">
+            <field name="in_type_id" ref="elegomotors_setup.picking_type_gate_entry"/>
+            <field name="out_type_id" ref="elegomotors_setup.picking_type_delivery"/>
+        </record>
+
+        <!-- Update default Receipts operation to point to our Gate Entry location (fallback) -->
+        <record id="stock.picking_type_in" model="stock.picking.type">
+            <field name="default_location_dest_id" ref="elegomotors_setup.location_ego_qc_inward"/>
+            <field name="return_picking_type_id" ref="picking_type_vendor_returns"/>
+        </record>
+
+        <!-- Update default Delivery operation to use our FG location (fallback) -->
+        <record id="stock.picking_type_out" model="stock.picking.type">
+            <field name="default_location_src_id" ref="elegomotors_setup.location_ego_fg"/>
+            <field name="return_picking_type_id" ref="elegomotors_setup.picking_type_gate_entry"/>
+        </record>
+
+    </data>
+</odoo>

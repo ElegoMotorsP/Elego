@@ -1,0 +1,94 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+    <!--
+        ElegoMotors Stock Operation Types
+
+        Workflow operation types:
+        1. Gate Entry Receipt    : Vendor → EGO/QC Inward       (incoming)
+        2. QC to Store Move      : EGO/QC Inward → EGO/Store    (internal)
+        3. Quarantine Move       : EGO/QC Inward → EGO/Quarantine (internal, for rejections)
+        4. Production Issue      : EGO/Store → Production        (internal, RM to floor)
+        5. FG Receipt            : Production → EGO/Finished Goods (internal)
+        6. Delivery (PDI + Dispatch): EGO/Finished Goods → Customer (outgoing)
+
+        NOTE: The default WH Receipts and Delivery types already exist.
+        We create ElegoMotors-specific types here for the gate-entry and
+        QC split flow. The standard types are updated below to point to
+        the right locations.
+    -->
+    <data noupdate="1">
+
+        <!-- 1. Gate Entry Receipt: Vendor → QC Inward (replaces standard WH Receipt) -->
+        <record id="picking_type_gate_entry" model="stock.picking.type">
+            <field name="name">Gate Entry (Inward)</field>
+            <field name="code">incoming</field>
+            <field name="sequence_code">GE</field>
+            <field name="warehouse_id" ref="stock.warehouse0"/>
+            <field name="default_location_src_id" ref="stock.stock_location_suppliers"/>
+            <field name="default_location_dest_id" ref="elegomotors_setup.location_ego_qc_inward"/>
+            <field name="color">3</field>
+            <field name="sequence">10</field>
+        </record>
+
+        <!-- 2. QC Pass → Store: QC Inward → Store (internal) -->
+        <record id="picking_type_qc_to_store" model="stock.picking.type">
+            <field name="name">QC Pass → Store</field>
+            <field name="code">internal</field>
+            <field name="sequence_code">QCS</field>
+            <field name="warehouse_id" ref="stock.warehouse0"/>
+            <field name="default_location_src_id" ref="elegomotors_setup.location_ego_qc_inward"/>
+            <field name="default_location_dest_id" ref="elegomotors_setup.location_ego_store"/>
+            <field name="color">10</field>
+            <field name="sequence">20</field>
+        </record>
+
+        <!-- 3. QC Fail → Quarantine: QC Inward → Quarantine (internal) -->
+        <record id="picking_type_qc_to_quarantine" model="stock.picking.type">
+            <field name="name">QC Fail → Quarantine</field>
+            <field name="code">internal</field>
+            <field name="sequence_code">QCQ</field>
+            <field name="warehouse_id" ref="stock.warehouse0"/>
+            <field name="default_location_src_id" ref="elegomotors_setup.location_ego_qc_inward"/>
+            <field name="default_location_dest_id" ref="elegomotors_setup.location_ego_quarantine"/>
+            <field name="color">1</field>
+            <field name="sequence">25</field>
+        </record>
+
+        <!-- 4. Material Issue to Production: Store → Production WIP (internal) -->
+        <record id="picking_type_production_issue" model="stock.picking.type">
+            <field name="name">Issue to Production</field>
+            <field name="code">internal</field>
+            <field name="sequence_code">PI</field>
+            <field name="warehouse_id" ref="stock.warehouse0"/>
+            <field name="default_location_src_id" ref="elegomotors_setup.location_ego_store"/>
+            <field name="default_location_dest_id" ref="elegomotors_setup.location_ego_production_wip"/>
+            <field name="color">4</field>
+            <field name="sequence">30</field>
+        </record>
+
+        <!-- 5. FG to Stock: Production → Finished Goods (internal) -->
+        <record id="picking_type_fg_to_stock" model="stock.picking.type">
+            <field name="name">FG to Finished Goods Store</field>
+            <field name="code">internal</field>
+            <field name="sequence_code">FGS</field>
+            <field name="warehouse_id" ref="stock.warehouse0"/>
+            <field name="default_location_src_id" ref="elegomotors_setup.location_ego_production_wip"/>
+            <field name="default_location_dest_id" ref="elegomotors_setup.location_ego_fg"/>
+            <field name="color">6</field>
+            <field name="sequence">40</field>
+        </record>
+
+        <!-- 6. Delivery (PDI + Dispatch): Finished Goods → Customer (outgoing) -->
+        <record id="picking_type_delivery" model="stock.picking.type">
+            <field name="name">Delivery (PDI + Dispatch)</field>
+            <field name="code">outgoing</field>
+            <field name="sequence_code">DEL</field>
+            <field name="warehouse_id" ref="stock.warehouse0"/>
+            <field name="default_location_src_id" ref="elegomotors_setup.location_ego_fg"/>
+            <field name="default_location_dest_id" ref="stock.stock_location_customers"/>
+            <field name="color">2</field>
+            <field name="sequence">50</field>
+        </record>
+
+    </data>
+</odoo>

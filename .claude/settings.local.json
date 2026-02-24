@@ -1,0 +1,33 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(powershell.exe:*)",
+      "Bash(\"C:\\\\Users\\\\kalbh\\\\repos\\\\odooCRM\\\\venv\\\\Scripts\\\\python.exe\" -m pip list)",
+      "Bash(dir:*)",
+      "Bash(test:*)",
+      "Bash(\"C:\\\\Users\\\\kalbh\\\\repos\\\\odooCRM\\\\venv\\\\Scripts\\\\python.exe\" \"C:\\\\Users\\\\kalbh\\\\repos\\\\odoo18\\\\odoo-bin\" -c \"C:\\\\Users\\\\kalbh\\\\repos\\\\odooCRM\\\\odoo.conf\" -i crm,sale_management,mrp,purchase,purchase_stock,stock,account,crm_custom --stop-after-init)",
+      "Bash(curl:*)",
+      "Bash(\"C:\\\\Users\\\\kalbh\\\\repos\\\\odooCRM\\\\venv\\\\Scripts\\\\python.exe\":*)",
+      "Bash(powershell:*)",
+      "mcp__playwright__browser_snapshot",
+      "mcp__playwright__browser_type",
+      "mcp__playwright__browser_click",
+      "mcp__playwright__browser_navigate",
+      "mcp__playwright__browser_take_screenshot",
+      "mcp__playwright__browser_close",
+      "Bash(\"/c/Users/kalbh/repos/odooCRM/venv/Scripts/python.exe\":*)",
+      "Bash(echo:*)",
+      "mcp__playwright__browser_fill_form",
+      "mcp__playwright__browser_evaluate",
+      "Bash(tail:*)",
+      "mcp__playwright__browser_run_code",
+      "Bash(cd /c/Users/kalbh/repos/odooCRM && python -m pytest --version 2>&1 || py -m pytest --version 2>&1 || python3 -m pytest --version 2>&1)",
+      "Bash(where pytest:*)",
+      "Bash(cd /c/Users/kalbh/repos/odooCRM && venv/Scripts/pytest tests/test_elegomotors_workflow.py::test_gate_entry_routes_to_qc_inward tests/test_elegomotors_workflow.py::test_delivery_routes_from_fg tests/test_elegomotors_workflow.py::test_warehouse_uses_gate_entry_as_receipt -v 2>&1)",
+      "Bash(cd /c/Users/kalbh/repos/odooCRM && venv/Scripts/pytest tests/test_elegomotors_workflow.py::test_stock_locations_exist tests/test_elegomotors_workflow.py::test_picking_types_exist tests/test_elegomotors_workflow.py::test_gate_entry_routes_to_qc_inward tests/test_elegomotors_workflow.py::test_delivery_routes_from_fg tests/test_elegomotors_workflow.py::test_warehouse_uses_gate_entry_as_receipt -v 2>&1)",
+      "Bash(cd /c/Users/kalbh/repos/odooCRM && venv/Scripts/pytest tests/test_elegomotors_workflow.py -v 2>&1)",
+      "Bash(tasklist:*)",
+      "Bash(head:*)"
+    ]
+  }
+}
