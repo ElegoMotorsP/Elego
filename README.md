@@ -70,6 +70,7 @@ python odoo-bin -c odoo.conf
 - Test database migrations
 - Verify UI changes
 
+
 ## Common Debugging Procedures
 
 1. Check logs in:
