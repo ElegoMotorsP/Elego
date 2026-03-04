@@ -49,8 +49,8 @@
         'data/company_config_data.xml',
         'data/bom_data.xml',
         'data/bom_data_fix.xml',         # deletes routing ops (noupdate=0, runs on upgrade)
-        'data/quality_data.xml',         # QC control points: gate entry + FG receipt
         'data/users_data.xml',           # department users (loaded after groups)
+        'data/quality_data.xml',         # QC control points: gate entry + FG receipt
         'data/notification_rules.xml',   # automated workflow notifications
         # View overrides (loaded last so base views exist)
         'views/mrp_production_views.xml',
