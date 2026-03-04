@@ -1,0 +1,42 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+    <!--
+        ElegoMotors Custom Security Groups
+
+        group_manufacturing_operator
+            Only Pratik (Quality & Manufacturing) holds this group.
+            It implies mrp.group_mrp_user so the holder gets the full MRP
+            menu, but the "Produce All" / "Produce" buttons in the MO form
+            are restricted to this group via view inheritance — meaning no
+            other mrp.group_mrp_user (e.g. Prashant) can click Produce.
+
+        group_store_billing
+            Amit (Store Manager) holds this group.
+            Purpose:
+              • record rule (record_rules.xml)  — restricts account.move access
+                to customer invoices only (move_type in out_invoice, out_refund)
+              • view override (account_move_views.xml) — makes price_unit and
+                discount fields read-only on the invoice form
+            Amit keeps account.group_account_invoice so standard Odoo UI
+            ("Create Invoice" button on SO/Delivery) continues to work.
+            The record rule applies cleanly because account.group_account_invoice
+            has no group-level record rules on account.move in Community edition —
+            so Odoo's OR logic only evaluates the group_store_billing restriction.
+    -->
+
+    <!-- noupdate="0" — groups are refreshed on every upgrade -->
+    <data noupdate="0">
+
+        <!-- Manufacturing Operator — gates the Produce / Produce All buttons on MOs -->
+        <record id="group_manufacturing_operator" model="res.groups">
+            <field name="name">Manufacturing Operator</field>
+            <field name="implied_ids" eval="[(4, ref('mrp.group_mrp_user'))]"/>
+        </record>
+
+        <!-- Store Billing — Amit's restricted accounting group -->
+        <record id="group_store_billing" model="res.groups">
+            <field name="name">Store: Customer Invoices (Read-only Prices)</field>
+        </record>
+
+    </data>
+</odoo>

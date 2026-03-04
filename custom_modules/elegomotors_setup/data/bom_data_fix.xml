@@ -1,0 +1,30 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+    <!--
+        ElegoMotors BOM — Remove Routing Work Order Steps
+
+        Manufacturing at ElegoMotors is a SINGLE ASSEMBLY POINT.
+        The 7 multi-step routing operations (Frame → Motor → Battery →
+        Electronics → Final Assembly → QC Testing → Packaging) are removed.
+
+        Result: Manufacturing Orders will have a simple flow:
+          Draft → Confirm → Produce All → Done
+        No "Work Orders" tab, no per-operation timesheets.
+
+        The work center records (mrp_workcenters_data.xml) are kept for
+        OEE and cost reference purposes but are no longer linked to BOM ops.
+
+        noupdate="0" — ensures these deletes run on every module upgrade.
+    -->
+    <data noupdate="0">
+
+        <delete model="mrp.routing.workcenter" id="elegomotors_setup.op_frame_assembly"/>
+        <delete model="mrp.routing.workcenter" id="elegomotors_setup.op_motor_install"/>
+        <delete model="mrp.routing.workcenter" id="elegomotors_setup.op_battery_integration"/>
+        <delete model="mrp.routing.workcenter" id="elegomotors_setup.op_electronics"/>
+        <delete model="mrp.routing.workcenter" id="elegomotors_setup.op_final_assembly"/>
+        <delete model="mrp.routing.workcenter" id="elegomotors_setup.op_qc_testing"/>
+        <delete model="mrp.routing.workcenter" id="elegomotors_setup.op_packaging"/>
+
+    </data>
+</odoo>

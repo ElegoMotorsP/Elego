@@ -1,0 +1,39 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+    <!--
+        ElegoMotors Account Move Form — Price Readonly for Store Billing Group
+
+        When Amit (group_store_billing) opens a customer invoice, the unit
+        price and discount fields are displayed as read-only. This ensures
+        that prices from the Sales Order cannot be altered by the store
+        manager when raising the invoice post-PDI.
+
+        The view override uses groups_id so that ONLY group_store_billing
+        users see this version of the form (other users see editable prices).
+
+        The record_rules.xml rule ensures Amit can only see out_invoice /
+        out_refund records — this view override additionally makes the
+        pricing fields read-only on those records.
+    -->
+
+    <record id="account_move_form_store_billing_readonly" model="ir.ui.view">
+        <field name="name">account.move.form.store.billing.prices.readonly</field>
+        <field name="model">account.move</field>
+        <field name="inherit_id" ref="account.view_move_form"/>
+        <field name="groups_id" eval="[(6, 0, [ref('elegomotors_setup.group_store_billing')])]"/>
+        <field name="arch" type="xml">
+
+            <!-- Unit price — read-only for store billing users -->
+            <field name="price_unit" position="attributes">
+                <attribute name="readonly">True</attribute>
+            </field>
+
+            <!-- Discount — read-only for store billing users -->
+            <field name="discount" position="attributes">
+                <attribute name="readonly">True</attribute>
+            </field>
+
+        </field>
+    </record>
+
+</odoo>

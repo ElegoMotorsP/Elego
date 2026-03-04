@@ -61,19 +61,24 @@
                                configuration, Gate Entry, QC Inward,
                                Picking Slips, Production Issue, Inventory
                                management, received qty validation.
-                               Also creates/views customer invoices and
-                               vendor bills (Billing access; no payments).
-             Views: PO, Production, Sales Orders, all stock reports,
-                    Customer Invoices, Vendor Bills.
+                               Creates Sales Invoices post-PDI (prices
+                               are read-only — set from the Sales Order).
+             Views: PO, Sales Orders, all stock reports, Customer Invoices
+                    only (Vendor Bills are NOT accessible to Amit).
              Groups:
                • Stock Manager     — full warehouse + transfer management,
                                      location/route config, inventory adjust
                • Purchase User     — view and receive against POs
-               • MRP User          — view MOs, issue materials to production
-               • MRP Routings      — see Work Orders tab on MOs
                • Sale Salesman     — view SOs to cross-ref delivery demand
-               • Billing User      — create/edit customer invoices + vendor
-                                     bills; NO payment or journal access
+               • Billing User      — model-level access to account.move
+                                     (required for Create Invoice on SO/Delivery)
+               • Store Billing     — record rule restricts account.move to
+                                     out_invoice/out_refund only; view override
+                                     makes price_unit + discount read-only
+             NOTE: mrp.group_mrp_user REMOVED — Amit cannot produce MOs.
+             The "Produce All" button is restricted to group_manufacturing_operator
+             (Pratik). Amit issues material via "Issue to Production" transfer;
+             Pratik validates receipt and produces.
              ============================================================ -->
         <record id="user_ego_amit" model="res.users">
             <field name="name">Amit Kale</field>
@@ -87,10 +92,9 @@
                 (4, ref('base.group_user')),
                 (4, ref('stock.group_stock_manager')),
                 (4, ref('purchase.group_purchase_user')),
-                (4, ref('mrp.group_mrp_user')),
-                (4, ref('mrp.group_mrp_routings')),
                 (4, ref('sales_team.group_sale_salesman')),
                 (4, ref('account.group_account_invoice')),
+                (4, ref('elegomotors_setup.group_store_billing')),
             ]"/>
         </record>
 
@@ -190,28 +194,30 @@
         </record>
 
         <!-- ============================================================
-             6. QUALITY & WARRANTY — Pratik Gund
-             Responsibilities: QC checkpoints (inward + production),
-                               in-process production quality, QC hold/reject,
-                               warranty inward/outward, quality approvals.
-             Views: Items, Sales Orders (for warranty claims).
+             6. QUALITY & MANUFACTURING — Pratik Gund
+             Responsibilities:
+               Inward QC:       inspect material at QC Inward location,
+                                pass → validate QC Pass → Store transfer,
+                                fail → validate QC Fail → Quarantine transfer.
+               Manufacturing:   validate "Issue to Production" transfer
+                                (acknowledges material receipt at floor),
+                                click Produce All on MO (EXCLUSIVE — via
+                                group_manufacturing_operator),
+                                validate FG → Finished Goods transfer.
+               Post-Prod QC:    quality check form on FG transfer —
+                                pass → FG moves to Finished Goods,
+                                fail → stay in Production WIP / raise alert.
+               Warranty:        inward/outward stock moves for warranty claims.
              Groups:
-               • MRP User          — production in-process quality, work order
-                                     steps, WIP/Hold operations, scrap
-               • MRP Routings      — Work Orders tab visible on MOs so Pratik
-                                     can manage QC at each work centre step
-               • Stock User        — inward QC moves (QC Inward → Store or
-                                     QC Inward → Quarantine), warranty
-                                     inward/outward stock moves
-               • Stock Manager     — ability to create scrap orders and
-                                     validate quality rejection transfers
-             NOTE: quality_control module is Odoo Enterprise only.
-             In Community, QC workflow is managed via:
-               - MRP Work Order quality steps (mrp.group_mrp_routings)
-               - Scrap orders for rejected material
-               - Stock moves: QC Pass → Store / QC Fail → Quarantine
-             When EE license is activated, add:
-               quality_control.group_quality_manager
+               • Manufacturing Operator — EXCLUSIVE Produce All access on MOs;
+                                          implies mrp.group_mrp_user
+               • MRP Routings          — keep for form access (no work orders
+                                          in BOM, but still useful for config)
+               • Stock Manager         — validate QC transfers, scrap orders,
+                                          inward/outward warranty moves
+               • Quality Manager       — quality.point / quality.check /
+                                          quality.alert management (Community
+                                          quality module, not Enterprise)
              ============================================================ -->
         <record id="user_ego_pratik" model="res.users">
             <field name="name">Pratik Gund</field>
@@ -223,9 +229,10 @@
             <field name="company_id" ref="base.main_company"/>
             <field name="groups_id" eval="[
                 (4, ref('base.group_user')),
-                (4, ref('mrp.group_mrp_user')),
+                (4, ref('elegomotors_setup.group_manufacturing_operator')),
                 (4, ref('mrp.group_mrp_routings')),
                 (4, ref('stock.group_stock_manager')),
+                (4, ref('quality.group_quality_manager')),
             ]"/>
         </record>
 

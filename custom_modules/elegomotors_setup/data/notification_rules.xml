@@ -161,18 +161,18 @@ if partners:
             <field name="action_server_ids" eval="[(4, ref('act_subscribe_invoice'))]"/>
         </record>
 
-        <!-- 1f. Subscribe Finance + Purchase + Store when a new vendor bill is created.
-                  Amit (Store) is included because he can create/edit vendor bills
-                  (group_account_invoice — Billing) and must follow them. -->
+        <!-- 1f. Subscribe Finance + Purchase when a new vendor bill is created.
+                  Amit (Store) is REMOVED — store_billing record rule now restricts
+                  his account.move access to out_invoice/out_refund only.
+                  Vendor bills are managed exclusively by Finance (Rajshri). -->
         <record id="act_subscribe_vendor_bill" model="ir.actions.server">
-            <field name="name">EGO: Subscribe Finance + Purchase + Store to Vendor Bill</field>
+            <field name="name">EGO: Subscribe Finance + Purchase to Vendor Bill</field>
             <field name="model_id" ref="account.model_account_move"/>
             <field name="state">code</field>
             <field name="code"><![CDATA[
 finance  = env.ref('elegomotors_setup.user_ego_rajshri',  raise_if_not_found=False)
 purchase = env.ref('elegomotors_setup.user_ego_prashant', raise_if_not_found=False)
-store    = env.ref('elegomotors_setup.user_ego_amit',     raise_if_not_found=False)
-partners = [u.partner_id.id for u in [finance, purchase, store] if u]
+partners = [u.partner_id.id for u in [finance, purchase] if u]
 if partners:
     for rec in records.filtered(lambda r: r.move_type == 'in_invoice'):
         rec.message_subscribe(partner_ids=partners)
@@ -375,10 +375,11 @@ for rec in records:
         body=(
             "<b>Manufacturing Order Confirmed</b><br/>"
             "MO <b>%s</b> for <b>%s</b> (qty: %s) is confirmed.<br/>"
-            "<b>Quality (Pratik):</b> MO confirmed — prepare QC checkpoints "
-            "for production sequence: Frame → Motor → Battery → Electronics → Final Assembly → QC Testing → Packaging.<br/>"
-            "<b>Store (Amit):</b> Issue raw materials to Production via "
-            "<b>Picking Slip (Issue to Production)</b> from EGO/Store → EGO/Production WIP."
+            "<b>Store (Amit):</b> Create and validate an <b>Issue to Production</b> transfer "
+            "from <b>EGO/Store → EGO/Production WIP</b> with all required BOM components.<br/>"
+            "<b>Quality / Manufacturing (Pratik):</b> Validate the Issue to Production "
+            "receipt to acknowledge material at the assembly floor, then click "
+            "<b>Produce All</b> when assembly is complete."
         ) % (rec.name, rec.product_id.name, int(rec.product_qty)),
         message_type='notification',
         subtype_xmlid='mail.mt_note',
@@ -440,30 +441,34 @@ for rec in records:
             <field name="action_server_ids" eval="[(4, ref('act_notify_mo_done'))]"/>
         </record>
 
-        <!-- 2f. Gate Entry (Inward Receipt) Validated → notify Store + Purchase
+        <!-- 2f. Gate Entry (Inward Receipt) Validated → notify Store + Purchase + Accounts
              Trigger: stock.picking.state → 'done'
                       AND picking_type_code = 'incoming' (Gate Entry receipt)
-             Who:     Store (move to QC Inward — perform QC inspection),
-                      Purchase (material received against their PO) -->
+             Who:     Store / Pratik (QC inspection pending),
+                      Purchase (material received against their PO),
+                      Accounts (create vendor bill with vendor's invoice date) -->
         <record id="act_notify_gate_entry_done" model="ir.actions.server">
             <field name="name">EGO: Notify Gate Entry Receipt Validated</field>
             <field name="model_id" ref="stock.model_stock_picking"/>
             <field name="state">code</field>
             <field name="code"><![CDATA[
-store    = env.ref('elegomotors_setup.user_ego_amit',    raise_if_not_found=False)
+store    = env.ref('elegomotors_setup.user_ego_amit',     raise_if_not_found=False)
 purchase = env.ref('elegomotors_setup.user_ego_prashant', raise_if_not_found=False)
-partners = [u.partner_id.id for u in [store, purchase] if u]
+accounts = env.ref('elegomotors_setup.user_ego_rajshri',  raise_if_not_found=False)
+partners = [u.partner_id.id for u in [store, purchase, accounts] if u]
 for rec in records.filtered(lambda p: p.picking_type_code == 'incoming'):
+    po_name = rec.origin or 'N/A'
     rec.message_post(
         body=(
             "<b>Material Gate Entry Validated</b><br/>"
-            "Receipt <b>%s</b> is done — material is now at <b>EGO/QC Inward</b>.<br/>"
-            "<b>Store:</b> Perform inward QC inspection.<br/>"
-            "&nbsp;&nbsp;• If <b>OK</b> → create <b>QC Pass → Store</b> transfer to EGO/Store.<br/>"
-            "&nbsp;&nbsp;• If <b>Not OK</b> → create <b>QC Fail → Quarantine</b> transfer, "
-            "then process Hold/Reject and Return to Vendor (RTV).<br/>"
-            "<b>Purchase:</b> Material received against your PO."
-        ) % rec.name,
+            "Receipt <b>%s</b> (ref: <b>%s</b>) is done — material is now at <b>EGO/QC Inward</b>.<br/>"
+            "<b>Store (Amit):</b> Inward QC inspection will be performed by Quality (Pratik).<br/>"
+            "&nbsp;&nbsp;• QC Pass → material moves to <b>EGO/Store</b>.<br/>"
+            "&nbsp;&nbsp;• QC Fail → <b>Quarantine</b> → Hold/Reject/Return to Vendor (RTV).<br/>"
+            "<b>Purchase (Prashant):</b> Material received against your PO — track any shortfall.<br/>"
+            "<b>Accounts (Rajshri):</b> Please open the linked PO and create the <b>Vendor Bill</b> "
+            "with the vendor's invoice number and invoice date."
+        ) % (rec.name, po_name),
         message_type='notification',
         subtype_xmlid='mail.mt_note',
         partner_ids=partners,
@@ -529,7 +534,8 @@ for rec in records.filtered(lambda m: m.move_type == 'out_invoice'):
         <!-- 2h. Vendor Bill Posted → notify Finance + Purchase
              Trigger: account.move.state → 'posted', move_type = 'in_invoice'
              Who:     Finance (vendor bill received — schedule payment),
-                      Purchase (bill matched to PO — verify amounts) -->
+                      Purchase (bill matched to PO — verify amounts)
+             NOTE: Amit (Store) REMOVED — vendor bills are now Finance-only. -->
         <record id="act_notify_vendor_bill_posted" model="ir.actions.server">
             <field name="name">EGO: Notify Vendor Bill Posted</field>
             <field name="model_id" ref="account.model_account_move"/>
@@ -537,15 +543,13 @@ for rec in records.filtered(lambda m: m.move_type == 'out_invoice'):
             <field name="code"><![CDATA[
 finance  = env.ref('elegomotors_setup.user_ego_rajshri',  raise_if_not_found=False)
 purchase = env.ref('elegomotors_setup.user_ego_prashant', raise_if_not_found=False)
-store    = env.ref('elegomotors_setup.user_ego_amit',     raise_if_not_found=False)
-partners = [u.partner_id.id for u in [finance, purchase, store] if u]
+partners = [u.partner_id.id for u in [finance, purchase] if u]
 for rec in records.filtered(lambda m: m.move_type == 'in_invoice'):
     rec.message_post(
         body=(
             "<b>Vendor Bill Posted</b><br/>"
             "Bill <b>%s</b> from <b>%s</b> — Amount: <b>%s %s</b><br/>"
             "<b>Finance (Rajshri):</b> Vendor bill is posted. Schedule payment as per agreed terms.<br/>"
-            "<b>Store (Amit):</b> Vendor bill posted — verify GRN quantities match the bill.<br/>"
             "<b>Purchase (Prashant):</b> Please verify bill amounts match the approved PO."
         ) % (
             rec.name,
@@ -568,6 +572,125 @@ for rec in records.filtered(lambda m: m.move_type == 'in_invoice'):
             <field name="filter_domain">[('state', '=', 'posted'), ('move_type', '=', 'in_invoice')]</field>
             <field name="active" eval="True"/>
             <field name="action_server_ids" eval="[(4, ref('act_notify_vendor_bill_posted'))]"/>
+        </record>
+
+        <!-- ===========================================================
+             SECTION 3 — NEW WORKFLOW NOTIFICATIONS
+             =========================================================== -->
+
+        <!-- 2i. Issue to Production Validated → notify Pratik (material at floor)
+             Trigger: stock.picking.state → 'done' AND picking_type sequence_code = 'PI'
+             Who:     Pratik (Quality / Manufacturing) — acknowledge receipt and produce -->
+        <record id="act_notify_issue_to_production_done" model="ir.actions.server">
+            <field name="name">EGO: Notify Issue to Production Validated</field>
+            <field name="model_id" ref="stock.model_stock_picking"/>
+            <field name="state">code</field>
+            <field name="code"><![CDATA[
+mfg = env.ref('elegomotors_setup.user_ego_pratik', raise_if_not_found=False)
+partners = [mfg.partner_id.id] if mfg else []
+for rec in records.filtered(lambda p: p.picking_type_id.sequence_code == 'PI'):
+    rec.message_post(
+        body=(
+            "<b>Material Issued to Production Floor</b><br/>"
+            "Transfer <b>%s</b> has been validated by Store.<br/>"
+            "Raw materials are now at <b>EGO/Production WIP</b>.<br/>"
+            "<b>Quality / Manufacturing (Pratik):</b> Please confirm physical receipt "
+            "of materials at the assembly floor, then proceed with manufacturing.<br/>"
+            "Open the linked Manufacturing Order and click <b>Produce All</b> "
+            "once assembly is complete."
+        ) % rec.name,
+        message_type='notification',
+        subtype_xmlid='mail.mt_note',
+        partner_ids=partners,
+    )
+]]></field>
+        </record>
+
+        <record id="auto_issue_to_production_done" model="base.automation">
+            <field name="name">EGO: Issue to Production Validated — Notify Manufacturing</field>
+            <field name="model_id" ref="stock.model_stock_picking"/>
+            <field name="trigger">on_write</field>
+            <field name="filter_pre_domain">[('state', '!=', 'done')]</field>
+            <field name="filter_domain">[('state', '=', 'done'), ('picking_type_id.sequence_code', '=', 'PI')]</field>
+            <field name="active" eval="True"/>
+            <field name="action_server_ids" eval="[(4, ref('act_notify_issue_to_production_done'))]"/>
+        </record>
+
+        <!-- 2j. QC Pass → Store Validated → notify Amit (raw material in store)
+             Trigger: stock.picking.state → 'done' AND picking_type sequence_code = 'QCS'
+             Who:     Amit (Store Manager) — material passed QC and is in EGO/Store -->
+        <record id="act_notify_qc_pass_to_store_done" model="ir.actions.server">
+            <field name="name">EGO: Notify QC Pass → Store Validated</field>
+            <field name="model_id" ref="stock.model_stock_picking"/>
+            <field name="state">code</field>
+            <field name="code"><![CDATA[
+store = env.ref('elegomotors_setup.user_ego_amit', raise_if_not_found=False)
+partners = [store.partner_id.id] if store else []
+for rec in records.filtered(lambda p: p.picking_type_id.sequence_code == 'QCS'):
+    rec.message_post(
+        body=(
+            "<b>Inward QC Passed — Material Added to Store</b><br/>"
+            "Transfer <b>%s</b> validated by Quality (Pratik).<br/>"
+            "Raw material has passed inward inspection and is now in <b>EGO/Store</b>.<br/>"
+            "<b>Store (Amit):</b> Please verify stock in EGO/Store and update "
+            "inventory records if needed. Material is available for production issue."
+        ) % rec.name,
+        message_type='notification',
+        subtype_xmlid='mail.mt_note',
+        partner_ids=partners,
+    )
+]]></field>
+        </record>
+
+        <record id="auto_qc_pass_to_store_done" model="base.automation">
+            <field name="name">EGO: QC Pass → Store Validated — Notify Store</field>
+            <field name="model_id" ref="stock.model_stock_picking"/>
+            <field name="trigger">on_write</field>
+            <field name="filter_pre_domain">[('state', '!=', 'done')]</field>
+            <field name="filter_domain">[('state', '=', 'done'), ('picking_type_id.sequence_code', '=', 'QCS')]</field>
+            <field name="active" eval="True"/>
+            <field name="action_server_ids" eval="[(4, ref('act_notify_qc_pass_to_store_done'))]"/>
+        </record>
+
+        <!-- 2k. QC Fail → Quarantine Validated → notify Store + Accounts
+             Trigger: stock.picking.state → 'done' AND picking_type sequence_code = 'QCQ'
+             Who:     Amit (Store) — process RTV or prepare for rejection,
+                      Accounts (Rajshri) — prepare debit note if vendor rejection -->
+        <record id="act_notify_qc_fail_quarantine_done" model="ir.actions.server">
+            <field name="name">EGO: Notify QC Fail → Quarantine Validated</field>
+            <field name="model_id" ref="stock.model_stock_picking"/>
+            <field name="state">code</field>
+            <field name="code"><![CDATA[
+store    = env.ref('elegomotors_setup.user_ego_amit',    raise_if_not_found=False)
+accounts = env.ref('elegomotors_setup.user_ego_rajshri', raise_if_not_found=False)
+partners = [u.partner_id.id for u in [store, accounts] if u]
+for rec in records.filtered(lambda p: p.picking_type_id.sequence_code == 'QCQ'):
+    rec.message_post(
+        body=(
+            "<b>Inward QC Failed — Material Moved to Quarantine</b><br/>"
+            "Transfer <b>%s</b> validated — material is now in <b>EGO/Quarantine</b>.<br/>"
+            "<b>Store (Amit):</b> Choose next action:<br/>"
+            "&nbsp;&nbsp;• <b>Replacement:</b> Create <b>Returns to Vendors (RTV)</b> transfer "
+            "from Quarantine → Supplier, then create <b>Delivery Challan</b>.<br/>"
+            "&nbsp;&nbsp;• <b>Reject:</b> Inform Accounts to raise a <b>Debit Note</b> against the vendor PO.<br/>"
+            "<b>Accounts (Rajshri):</b> If material is rejected (no replacement), "
+            "please raise a <b>Debit Note</b> (vendor credit note) from the vendor's bill."
+        ) % rec.name,
+        message_type='notification',
+        subtype_xmlid='mail.mt_note',
+        partner_ids=partners,
+    )
+]]></field>
+        </record>
+
+        <record id="auto_qc_fail_quarantine_done" model="base.automation">
+            <field name="name">EGO: QC Fail → Quarantine Validated — Notify Store &amp; Accounts</field>
+            <field name="model_id" ref="stock.model_stock_picking"/>
+            <field name="trigger">on_write</field>
+            <field name="filter_pre_domain">[('state', '!=', 'done')]</field>
+            <field name="filter_domain">[('state', '=', 'done'), ('picking_type_id.sequence_code', '=', 'QCQ')]</field>
+            <field name="active" eval="True"/>
+            <field name="action_server_ids" eval="[(4, ref('act_notify_qc_fail_quarantine_done'))]"/>
         </record>
 
     </data>
