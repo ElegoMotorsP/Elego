@@ -19,7 +19,7 @@
             <field name="po_double_validation">two_step</field>
             <field name="po_double_validation_amount">0.0</field>
             <field name="po_lock">lock</field>
-            <field name="currency_id" ref="base.INR"/>
+            <!--<field name="currency_id" ref="base.INR"/>-->
             <!-- SO approval (sale_order_approval): enable in Settings when Enterprise sale_order_approval is installed. -->
         </record>
 
