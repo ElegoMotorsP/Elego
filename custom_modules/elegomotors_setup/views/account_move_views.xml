@@ -20,16 +20,15 @@
         <field name="name">account.move.form.store.billing.prices.readonly</field>
         <field name="model">account.move</field>
         <field name="inherit_id" ref="account.view_move_form"/>
-        <field name="groups_id" eval="[(6, 0, [ref('elegomotors_setup.group_store_billing')])]"/>
         <field name="arch" type="xml">
 
             <!-- Unit price — read-only for store billing users -->
-            <field name="price_unit" position="attributes">
+            <field name="price_unit" position="attributes" groups="elegomotors_setup.group_store_billing">
                 <attribute name="readonly">True</attribute>
             </field>
 
             <!-- Discount — read-only for store billing users -->
-            <field name="discount" position="attributes">
+            <field name="discount" position="attributes" groups="elegomotors_setup.group_store_billing">
                 <attribute name="readonly">True</attribute>
             </field>
 
