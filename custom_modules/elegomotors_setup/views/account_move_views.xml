@@ -8,8 +8,8 @@
         that prices from the Sales Order cannot be altered by the store
         manager when raising the invoice post-PDI.
 
-        The view override uses groups_id so that ONLY group_store_billing
-        users see this version of the form (other users see editable prices).
+        The view override uses groups="..." on each field attribute so that
+        ONLY group_store_billing users see read-only prices (others see editable).
 
         The record_rules.xml rule ensures Amit can only see out_invoice /
         out_refund records — this view override additionally makes the
