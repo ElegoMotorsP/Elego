@@ -53,7 +53,6 @@
         'data/quality_data.xml',         # QC control points: gate entry + FG receipt
         'data/notification_rules.xml',   # automated workflow notifications
         # View overrides (loaded last so base views exist)
-        'views/mrp_production_views.xml',
         'views/account_move_views.xml',
     ],
     'installable': True,
