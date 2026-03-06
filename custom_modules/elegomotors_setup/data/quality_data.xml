@@ -32,11 +32,9 @@
                    → manufacturing reworks and re-inspects
 
         FIELD NOTE — quality.point:
-          Field names are from Odoo 18 Community quality module.
-          Verify against your install:
+          Enterprise quality.point does not use measure_frequency_type; default is check every time.
             name             — control point title
             picking_type_ids — m2m to stock.picking.type (triggers check on that op type)
-            measure_frequency_type — 'all' | 'random' | 'periodical'
             user_id          — responsible person who performs the check
             company_id       — owning company
     -->
@@ -47,7 +45,6 @@
         <record id="qc_point_inward_inspection" model="quality.point">
             <field name="name">Inward Material Inspection</field>
             <field name="picking_type_ids" eval="[(4, ref('elegomotors_setup.picking_type_gate_entry'))]"/>
-            <field name="measure_frequency_type">all</field>
             <field name="user_id" ref="elegomotors_setup.user_ego_pratik"/>
             <field name="company_id" ref="base.main_company"/>
         </record>
@@ -56,7 +53,6 @@
         <record id="qc_point_production_output" model="quality.point">
             <field name="name">Post-Production Quality Check (Pre-Dispatch)</field>
             <field name="picking_type_ids" eval="[(4, ref('elegomotors_setup.picking_type_fg_to_stock'))]"/>
-            <field name="measure_frequency_type">all</field>
             <field name="user_id" ref="elegomotors_setup.user_ego_pratik"/>
             <field name="company_id" ref="base.main_company"/>
         </record>
