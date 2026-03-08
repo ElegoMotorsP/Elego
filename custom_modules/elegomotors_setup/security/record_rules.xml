@@ -1,0 +1,56 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+    <!--
+        ElegoMotors Record-Level Access Rules
+
+        Store Billing Rule — account.move
+        ====================================
+        Restricts Amit (group_store_billing) to see and act on ONLY
+        customer invoices and customer credit notes.
+
+        Vendor bills (in_invoice), vendor credit notes (in_refund),
+        and all journal entries are invisible to Amit at the model level.
+
+        Why this works without removing account.group_account_invoice:
+          Odoo's group record rules are OR'd together per user. The OR
+          only fires when a group actually HAS a rule. Because Community
+          edition's account module defines NO group-specific record rules
+          for account.group_account_invoice on account.move (access is
+          controlled solely via ir.model.access), Amit's effective rule
+          set is: [group_store_billing rule] — nothing to OR against.
+          The result is a clean domain restriction to customer invoices.
+
+        If a future Odoo upgrade adds group rules to account.group_account_invoice,
+        revisit and remove that group from Amit, providing a custom
+        ir.model.access.csv instead (see security/store_billing_access.csv
+        which is pre-prepared for that scenario).
+    -->
+
+    <data noupdate="0">
+
+        <record id="account_move_store_billing_rule" model="ir.rule">
+            <field name="name">Store Billing: Customer Invoices and Credit Notes Only</field>
+            <field name="model_id" ref="account.model_account_move"/>
+            <field name="domain_force">[('move_type', 'in', ['out_invoice', 'out_refund'])]</field>
+            <field name="groups" eval="[(4, ref('elegomotors_setup.group_store_billing'))]"/>
+            <field name="perm_read"   eval="True"/>
+            <field name="perm_write"  eval="True"/>
+            <field name="perm_create" eval="True"/>
+            <field name="perm_unlink" eval="False"/>
+        </record>
+
+        <!-- Same restriction for account.move.line — prevents Amit from querying
+             bill lines directly (e.g. from a widget or URL deep-link). -->
+        <record id="account_move_line_store_billing_rule" model="ir.rule">
+            <field name="name">Store Billing: Invoice Lines — Customer Invoices Only</field>
+            <field name="model_id" ref="account.model_account_move_line"/>
+            <field name="domain_force">[('move_id.move_type', 'in', ['out_invoice', 'out_refund'])]</field>
+            <field name="groups" eval="[(4, ref('elegomotors_setup.group_store_billing'))]"/>
+            <field name="perm_read"   eval="True"/>
+            <field name="perm_write"  eval="True"/>
+            <field name="perm_create" eval="True"/>
+            <field name="perm_unlink" eval="False"/>
+        </record>
+
+    </data>
+</odoo>

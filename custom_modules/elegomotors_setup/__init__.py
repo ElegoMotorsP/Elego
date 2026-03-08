@@ -1,1 +1,3 @@
-# ElegoMotors workflow configuration module - data only
+# ElegoMotors workflow configuration module
+from . import models
+from .hooks import post_init_hook

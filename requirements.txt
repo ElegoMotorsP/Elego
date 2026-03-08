@@ -1,0 +1,6 @@
+# Extra Python packages required by custom modules.
+# odoo.sh manages all core Odoo dependencies itself — do not list them here,
+# as pinning versions can override odoo.sh's environment and cause conflicts.
+#
+# Currently our custom modules (crm_custom, elegomotors_setup) use only
+# standard Odoo internals, so no extra packages are needed.

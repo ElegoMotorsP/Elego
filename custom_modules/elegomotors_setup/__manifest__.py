@@ -1,6 +1,6 @@
 {
     'name': 'ElegoMotors Workflow Setup',
-    'version': '18.0.1.0.0',
+    'version': '18.0.2.0.0',
     'category': 'Manufacturing',
     'summary': 'ElegoMotors EV 2-wheeler end-to-end manufacturing workflow configuration',
     'description': """
@@ -8,8 +8,12 @@
         - CRM pipeline stages (Inquiry → Quotation → Sales Order → Won)
         - Inventory locations (Gate Entry, QC Inward, Store, Production, Quarantine, FG)
         - Stock operation types (Gate Entry Receipt, Inward QC Move, Production Issue, Delivery)
-        - Manufacturing work centers (Frame Assembly, Motor, Battery, Electronics, QC, Packaging)
-        - Company settings (2-level PO approval)
+        - Manufacturing: single-assembly-point MO (no work-order routing steps)
+        - QC control points: inward material inspection + post-production quality check
+        - Company settings (INR currency, 2-level PO approval)
+        - Security: Produce button restricted to Manufacturing Operator group
+        - Security: Amit (Store) restricted to customer invoices only, prices read-only
+        - India localization (l10n_in) for GST + INR chart of accounts
     """,
     'author': 'ElegoMotors',
     'depends': [
@@ -23,10 +27,20 @@
         'hr',                   # HR: employee records (Srushti)
         'hr_attendance',        # Attendance: officer/manager tracking (Srushti)
         'hr_holidays',          # Time Off: leave management (Srushti)
+        'quality',              # Community QC: quality.point / quality.check / quality.alert
+        'l10n_in',              # India localization: GST taxes, INR chart of accounts
         # hr_payroll     — Enterprise-only; install separately if EE license is available
-        # quality_control — Enterprise-only; QC handled via MRP work-order steps (Community)
+        # quality_control — Enterprise-only; Community quality module used instead
     ],
     'data': [
+        # Security groups must load before users_data (groups referenced in user records)
+        'security/groups.xml',
+        'security/record_rules.xml',
+        # store_billing_access.csv is kept on disk as a fallback reference but NOT loaded:
+        # Amit retains account.group_account_invoice for model-level access (needed for
+        # "Create Invoice" button on SO/Delivery). The ir.rule in record_rules.xml
+        # restricts account.move records to out_invoice/out_refund at the ORM level.
+        # Master data
         'data/crm_stages_data.xml',
         'data/stock_locations_data.xml',
         'data/stock_picking_types_data.xml',
@@ -34,8 +48,12 @@
         'data/mrp_workcenters_data.xml',
         'data/company_config_data.xml',
         'data/bom_data.xml',
-        'data/users_data.xml',           # department users (loaded before notification_rules)
+        'data/bom_data_fix.xml',         # deletes routing ops (noupdate=0, runs on upgrade)
+        'data/users_data.xml',           # department users (loaded after groups)
+        'data/quality_data.xml',         # QC control points: gate entry + FG receipt
         'data/notification_rules.xml',   # automated workflow notifications
+        # View overrides (loaded last so base views exist)
+        'views/account_move_views.xml',
     ],
     'installable': True,
     'application': False,

@@ -1,0 +1,61 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+    <!--
+        ElegoMotors Quality Control Points
+
+        Two control points using Odoo Community's quality module
+        (quality.point + quality.check).
+
+        ── INWARD QC (on Gate Entry receipts) ────────────────────────────
+        When Amit validates a Gate Entry, a quality check is automatically
+        created and assigned to Pratik. Pratik inspects the material at
+        EGO/QC Inward and records Pass / Fail:
+
+          • Pass → Pratik validates "QC Pass → Store" transfer
+                   → material moves to EGO/Store
+                   → Amit notified (notification_rules.xml rule 2i)
+
+          • Fail → Pratik validates "QC Fail → Quarantine" transfer
+                   → Hold/Reject workflow:
+                     - Replacement: Amit creates "Returns to Vendors" transfer
+                     - Reject: Rajshri raises Debit Note from the PO
+
+        ── POST-PRODUCTION QC (on FG to Finished Goods Store) ────────────
+        When Pratik tries to validate the "FG to Finished Goods Store"
+        transfer (after production), a quality check is auto-created:
+
+          • Pass → transfer validated → vehicle moves to EGO/Finished Goods
+                   → available for Picking Slip + PDI + Sales Invoice
+
+          • Fail → block transfer → raise quality alert
+                   → vehicle stays in EGO/Production WIP (WIP/Hold)
+                   → manufacturing reworks and re-inspects
+
+        FIELD NOTE — quality.point:
+          Enterprise quality.point does not use measure_frequency_type; default is check every time.
+            name             — control point title
+            picking_type_ids — m2m to stock.picking.type (triggers check on that op type)
+            user_id          — responsible person who performs the check
+            company_id       — owning company
+    -->
+
+    <data noupdate="1">
+
+        <!-- ─── 1. INWARD MATERIAL INSPECTION ─────────────────────────── -->
+        <record id="qc_point_inward_inspection" model="quality.point">
+            <field name="name">Inward Material Inspection</field>
+            <field name="picking_type_ids" eval="[(4, ref('elegomotors_setup.picking_type_gate_entry'))]"/>
+            <field name="user_id" ref="elegomotors_setup.user_ego_pratik"/>
+            <field name="company_id" ref="base.main_company"/>
+        </record>
+
+        <!-- ─── 2. POST-PRODUCTION QUALITY CHECK ──────────────────────── -->
+        <record id="qc_point_production_output" model="quality.point">
+            <field name="name">Post-Production Quality Check (Pre-Dispatch)</field>
+            <field name="picking_type_ids" eval="[(4, ref('elegomotors_setup.picking_type_fg_to_stock'))]"/>
+            <field name="user_id" ref="elegomotors_setup.user_ego_pratik"/>
+            <field name="company_id" ref="base.main_company"/>
+        </record>
+
+    </data>
+</odoo>

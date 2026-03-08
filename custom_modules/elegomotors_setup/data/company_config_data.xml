@@ -9,15 +9,17 @@
         - 2-step SO approval (Rajshri or Manohar must approve all SOs)
         - Manufacturing resupply enabled on warehouse
         - Company name updated to ElegoMotors
+        - Default currency: INR (Indian Rupee)
     -->
     <data noupdate="1">
 
-        <!-- Update company name and details -->
+        <!-- Update company name and details, set INR as default currency -->
         <record id="base.main_company" model="res.company">
             <field name="name">ElegoMotors</field>
             <field name="po_double_validation">two_step</field>
             <field name="po_double_validation_amount">0.0</field>
             <field name="po_lock">lock</field>
+            <!--<field name="currency_id" ref="base.INR"/>-->
             <!-- SO approval (sale_order_approval): enable in Settings when Enterprise sale_order_approval is installed. -->
         </record>
 
@@ -66,10 +68,20 @@
     <!-- noupdate="0" — applied every upgrade so settings are always enforced -->
     <data noupdate="0">
 
-        <!-- Enable Work Orders feature (Manufacturing → Configuration → Settings → Work Orders) -->
-        <!-- Without this, mrp.workorder.workcenter_id constraint fires when creating MOs -->
+        <!-- Activate INR currency so it can be set as the company default.
+             INR is not active by default in Odoo; this enables it. -->
+        <record id="base.INR" model="res.currency">
+            <field name="active" eval="True"/>
+        </record>
+
+        <!-- REMOVE Work Orders / MRP Routings from all internal users.
+             Manufacturing at ElegoMotors is a SINGLE ASSEMBLY POINT.
+             Disabling mrp_routings removes the Work Orders tab from MOs,
+             giving a simple Draft → Confirm → Produce All → Done flow.
+             bom_data_fix.xml deletes the existing routing operations.
+             NOTE: previously this block ADDED mrp_routings; now it REMOVES it. -->
         <record model="res.groups" id="base.group_user">
-            <field name="implied_ids" eval="[(4, ref('mrp.group_mrp_routings'))]"/>
+            <field name="implied_ids" eval="[(3, ref('mrp.group_mrp_routings'))]"/>
         </record>
 
     </data>

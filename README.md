@@ -69,8 +69,6 @@ python odoo-bin -c odoo.conf
 - Write unit tests for new functionality
 - Test database migrations
 - Verify UI changes
-
-
 ## Common Debugging Procedures
 
 1. Check logs in:
@@ -91,5 +89,7 @@ python odoo-bin -c odoo.conf
 4. Submit pull requests
 
 ## License
+
+
 
 [Your License Here] 

@@ -10,10 +10,7 @@ _USER_PASSWORDS = {
 }
 
 
-def post_init_hook(cr, registry):
-    from odoo import api
-    from odoo.api import SUPERUSER_ID
-    env = api.Environment(cr, SUPERUSER_ID, {})
+def post_init_hook(env):
     for xml_id, password in _USER_PASSWORDS.items():
         try:
             user = env.ref(xml_id, raise_if_not_found=False)
