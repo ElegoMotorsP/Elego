@@ -4,8 +4,8 @@
         ElegoMotors Department Users — Production Data
 
         Seven department users with least-privilege group assignments.
-        noupdate="1" — passwords and group memberships are NOT overwritten
-        on module upgrade once the users have been created in the database.
+        noupdate="0" — passwords and group memberships ARE overwritten
+        on every module upgrade to match this file exactly (command 6 replaces all groups).
 
         SECURITY NOTE: Passwords provided here are temporary first-login
         credentials. Each user should change their password immediately
@@ -21,7 +21,7 @@
         Quality/WTY | Pratik Gund     | quality.elego23@gmail.com        | pratik@123
         Sales/CRM   | Tushar Gaikwad  | leads@elegomotors.com            | tushar@123
     -->
-    <data noupdate="1">
+    <data noupdate="0">
 
         <!-- ============================================================
              1. ADMIN / APPROVALS — Manohar Kalbhor
@@ -44,14 +44,16 @@
             <field name="notification_type">inbox</field>
             <field name="company_id" ref="base.main_company"/>
             <field name="groups_id" eval="[
-                (4, ref('base.group_user')),
-                (4, ref('base.group_erp_manager')),
-                (4, ref('purchase.group_purchase_manager')),
-                (4, ref('sales_team.group_sale_manager')),
-                (4, ref('stock.group_stock_manager')),
-                (4, ref('mrp.group_mrp_user')),
-                (4, ref('mrp.group_mrp_routings')),
-                (4, ref('account.group_account_user')),
+                (6, 0, [
+                    ref('base.group_user'),
+                    ref('base.group_erp_manager'),
+                    ref('purchase.group_purchase_manager'),
+                    ref('sales_team.group_sale_manager'),
+                    ref('stock.group_stock_manager'),
+                    ref('mrp.group_mrp_user'),
+                    ref('mrp.group_mrp_routings'),
+                    ref('account.group_account_user'),
+                ]),
             ]"/>
         </record>
 
@@ -89,12 +91,14 @@
             <field name="notification_type">inbox</field>
             <field name="company_id" ref="base.main_company"/>
             <field name="groups_id" eval="[
-                (4, ref('base.group_user')),
-                (4, ref('stock.group_stock_manager')),
-                (4, ref('purchase.group_purchase_user')),
-                (4, ref('sales_team.group_sale_salesman')),
-                (4, ref('account.group_account_invoice')),
-                (4, ref('elegomotors_setup.group_store_billing')),
+                (6, 0, [
+                    ref('base.group_user'),
+                    ref('stock.group_stock_manager'),
+                    ref('purchase.group_purchase_user'),
+                    ref('sales_team.group_sale_salesman'),
+                    ref('account.group_account_invoice'),
+                    ref('elegomotors_setup.group_store_billing'),
+                ]),
             ]"/>
         </record>
 
@@ -119,10 +123,12 @@
             <field name="notification_type">inbox</field>
             <field name="company_id" ref="base.main_company"/>
             <field name="groups_id" eval="[
-                (4, ref('base.group_user')),
-                (4, ref('purchase.group_purchase_user')),
-                (4, ref('mrp.group_mrp_user')),
-                (4, ref('stock.group_stock_user')),
+                (6, 0, [
+                    ref('base.group_user'),
+                    ref('purchase.group_purchase_user'),
+                    ref('mrp.group_mrp_user'),
+                    ref('stock.group_stock_user'),
+                ]),
             ]"/>
         </record>
 
@@ -153,12 +159,14 @@
             <field name="notification_type">inbox</field>
             <field name="company_id" ref="base.main_company"/>
             <field name="groups_id" eval="[
-                (4, ref('base.group_user')),
-                (4, ref('account.group_account_user')),
-                (4, ref('purchase.group_purchase_user')),
-                (4, ref('sales_team.group_sale_manager')),
-                (4, ref('mrp.group_mrp_user')),
-                (4, ref('stock.group_stock_user')),
+                (6, 0, [
+                    ref('base.group_user'),
+                    ref('account.group_account_user'),
+                    ref('purchase.group_purchase_user'),
+                    ref('sales_team.group_sale_manager'),
+                    ref('mrp.group_mrp_user'),
+                    ref('stock.group_stock_user'),
+                ]),
             ]"/>
         </record>
 
@@ -186,10 +194,12 @@
             <field name="notification_type">inbox</field>
             <field name="company_id" ref="base.main_company"/>
             <field name="groups_id" eval="[
-                (4, ref('base.group_user')),
-                (4, ref('hr.group_hr_manager')),
-                (4, ref('hr_attendance.group_hr_attendance_manager')),
-                (4, ref('hr_holidays.group_hr_holidays_responsible')),
+                (6, 0, [
+                    ref('base.group_user'),
+                    ref('hr.group_hr_manager'),
+                    ref('hr_attendance.group_hr_attendance_manager'),
+                    ref('hr_holidays.group_hr_holidays_responsible'),
+                ]),
             ]"/>
         </record>
 
@@ -228,11 +238,13 @@
             <field name="notification_type">inbox</field>
             <field name="company_id" ref="base.main_company"/>
             <field name="groups_id" eval="[
-                (4, ref('base.group_user')),
-                (4, ref('elegomotors_setup.group_manufacturing_operator')),
-                (4, ref('mrp.group_mrp_routings')),
-                (4, ref('stock.group_stock_manager')),
-                (4, ref('quality.group_quality_manager')),
+                (6, 0, [
+                    ref('base.group_user'),
+                    ref('elegomotors_setup.group_manufacturing_operator'),
+                    ref('mrp.group_mrp_routings'),
+                    ref('stock.group_stock_manager'),
+                    ref('quality.group_quality_manager'),
+                ]),
             ]"/>
         </record>
 
@@ -257,9 +269,11 @@
             <field name="notification_type">inbox</field>
             <field name="company_id" ref="base.main_company"/>
             <field name="groups_id" eval="[
-                (4, ref('base.group_user')),
-                (4, ref('sales_team.group_sale_salesman')),
-                (4, ref('stock.group_stock_user')),
+                (6, 0, [
+                    ref('base.group_user'),
+                    ref('sales_team.group_sale_salesman'),
+                    ref('stock.group_stock_user'),
+                ]),
             ]"/>
         </record>
 
