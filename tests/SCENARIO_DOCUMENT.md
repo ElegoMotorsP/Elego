@@ -1,10 +1,5 @@
 # ElegoMotors — Exhaustive Test Scenario Document
 
-**Odoo 18 Community | ElegoMotors EV 2-Wheeler Manufacturing**
-**Module:** `elegomotors_setup` | **Branch:** `shubham/workflow-setup-v2`
-
----
-
 ## Legend
 
 | Value | Meaning |
@@ -391,30 +386,4 @@
 
 ---
 
-## 11. Running the Tests
-
-```bash
-# Install test dependencies (first time only)
-pip install -r Elego/tests/requirements.txt
-playwright install chromium
-
-# Run all tests against the Odoo.sh instance
-cd Elego/tests
-ODOO_URL="https://<your-branch>.odoo.sh" pytest test_elegomotors_workflow.py -v
-
-# Run only access control tests (Suite 1 and Suite 10)
-pytest test_elegomotors_workflow.py -k "access or cannot or can_access or produce or price_readonly or register_payment or accounting" -v
-
-# Run only negative (blocking) tests
-pytest test_elegomotors_workflow.py -k "cannot" -v
-
-# Run only the full E2E test
-pytest test_elegomotors_workflow.py -m e2e -v
-
-# Run with screenshots saved to logs/screenshots/
-EGO_SCREENSHOTS=1 pytest test_elegomotors_workflow.py -v
-```
-
----
-
-*Generated: 2026-03-11 | Branch: shubham/workflow-setup-v2*
+*Generated: 2026-03-11 
