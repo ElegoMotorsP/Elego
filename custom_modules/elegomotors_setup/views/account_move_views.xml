@@ -16,19 +16,28 @@
         pricing fields read-only on those records.
     -->
 
+    <!--
+        groups_id on the view record is the correct Odoo way to scope an entire
+        view inheritance to a specific group. The fields below have no groups
+        attribute — the scoping is done at the record level. This avoids the
+        bug where groups="..." on a position="attributes" node is evaluated at
+        arch-combine time and marks the field readonly for ALL users (including
+        admin), which breaks Odoo's own account test suite.
+    -->
     <record id="account_move_form_store_billing_readonly" model="ir.ui.view">
         <field name="name">account.move.form.store.billing.prices.readonly</field>
         <field name="model">account.move</field>
         <field name="inherit_id" ref="account.view_move_form"/>
+        <field name="groups_id" eval="[(4, ref('elegomotors_setup.group_store_billing'))]"/>
         <field name="arch" type="xml">
 
-            <!-- Unit price — read-only for store billing users -->
-            <field name="price_unit" position="attributes" groups="elegomotors_setup.group_store_billing">
+            <!-- Unit price — read-only (this entire view is only applied for group_store_billing) -->
+            <field name="price_unit" position="attributes">
                 <attribute name="readonly">True</attribute>
             </field>
 
-            <!-- Discount — read-only for store billing users -->
-            <field name="discount" position="attributes" groups="elegomotors_setup.group_store_billing">
+            <!-- Discount — read-only -->
+            <field name="discount" position="attributes">
                 <attribute name="readonly">True</attribute>
             </field>
 
