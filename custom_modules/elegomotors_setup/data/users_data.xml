@@ -65,22 +65,25 @@
                                management, received qty validation.
                                Creates Sales Invoices post-PDI (prices
                                are read-only — set from the Sales Order).
-             Views: PO, Sales Orders, all stock reports, Customer Invoices
-                    only (Vendor Bills are NOT accessible to Amit).
+             Views: PO (view only), Sales Orders (view only), all stock
+                    reports, Customer Invoices only (Vendor Bills NOT
+                    accessible to Amit).
              Groups:
-               • Stock Manager     — full warehouse + transfer management,
-                                     location/route config, inventory adjust
-               • Purchase User     — view and receive against POs
-               • Sale Salesman     — view SOs to cross-ref delivery demand
-               • Billing User      — model-level access to account.move
-                                     (required for Create Invoice on SO/Delivery)
-               • Store Billing     — record rule restricts account.move to
-                                     out_invoice/out_refund only; view override
-                                     makes price_unit + discount read-only
+               • Stock Manager       — full warehouse + transfer management,
+                                       location/route config, inventory adjust
+               • Purchase Viewer     — see PO list/form; CANNOT create POs
+                                       (create() raises AccessError via model
+                                       override in models/purchase_order.py)
+               • Sale Viewer         — see SO/Quotation list/form; CANNOT
+                                       create SOs (same guard in sale_order.py)
+               • Billing User        — model-level access to account.move
+                                       (required for Create Invoice on SO/Delivery)
+               • Store Billing       — record rule restricts account.move to
+                                       out_invoice/out_refund only; view override
+                                       makes price_unit + discount read-only
              NOTE: mrp.group_mrp_user REMOVED — Amit cannot produce MOs.
-             The "Produce All" button is restricted to group_manufacturing_operator
-             (Pratik). Amit issues material via "Issue to Production" transfer;
-             Pratik validates receipt and produces.
+             NOTE: quality group REMOVED — Amit has no quality access.
+             Products must be created by Manohar (Admin), not Amit.
              ============================================================ -->
         <record id="user_ego_amit" model="res.users">
             <field name="name">Amit Kale</field>
@@ -94,8 +97,8 @@
                 (6, 0, [
                     ref('base.group_user'),
                     ref('stock.group_stock_manager'),
-                    ref('purchase.group_purchase_user'),
-                    ref('sales_team.group_sale_salesman'),
+                    ref('elegomotors_setup.group_purchase_viewer'),
+                    ref('elegomotors_setup.group_sale_viewer'),
                     ref('account.group_account_invoice'),
                     ref('elegomotors_setup.group_store_billing'),
                 ]),
@@ -139,16 +142,20 @@
                                customer/dealer creation, sales returns,
                                JV entries, purchase bill booking, all
                                account reports.
-             Views: PO, Production, Sales Orders, all stock + acct reports.
+             Views: PO (view only), Sales Orders (approval authority),
+                    Inventory (view), all accounting reports.
              Groups:
                • Accounting User   — full double-entry accounting, journals,
                                      reconciliation, JV, payments, reports
-               • Purchase User     — view POs for 3-way matching
+               • Purchase Viewer   — see POs for 3-way matching; CANNOT
+                                     create POs (model override blocks create)
                • Sales Manager     — SO 2-step approval authority; implies
                                      Sale Salesman (view SOs for invoice
-                                     matching); replaces explicit salesman
-               • MRP User          — production cost visibility
-               • Stock User        — stock valuation reports
+                                     matching)
+               • Stock User        — inventory view + stock valuation reports
+             NOTE: mrp.group_mrp_user REMOVED — Rajshri has no manufacturing
+             access. Production menus are not visible to her.
+             NOTE: quality group NOT added — Rajshri has no quality access.
              ============================================================ -->
         <record id="user_ego_rajshri" model="res.users">
             <field name="name">Rajshri Kadam</field>
@@ -162,9 +169,8 @@
                 (6, 0, [
                     ref('base.group_user'),
                     ref('account.group_account_user'),
-                    ref('purchase.group_purchase_user'),
+                    ref('elegomotors_setup.group_purchase_viewer'),
                     ref('sales_team.group_sale_manager'),
-                    ref('mrp.group_mrp_user'),
                     ref('stock.group_stock_user'),
                 ]),
             ]"/>

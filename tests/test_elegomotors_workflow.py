@@ -2464,3 +2464,419 @@ async def test_full_inward_qc_chain(helper, shared_state):
         "QC Pass transfer must be Done — material should now be in EGO/Store"
     )
     await helper.screenshot("full_inward_qc_chain_done")
+
+
+# ---------------------------------------------------------------------------
+# Suite 12: current_problems.txt — View-Only & Access Restriction Tests
+#
+# Implements permission changes from current_problems.txt:
+#
+#   Amit Kale (Store Manager):
+#     - Purchase view only — cannot create new POs           (N-CP1)
+#     - Sales view only — cannot create new SOs              (N-CP2)
+#     - Can still view existing POs                          (P-CP1)
+#     - Can still view existing SOs                          (P-CP2)
+#     - No quality access — Quality menu not visible         (N-CP3)
+#     - Invoicing only — Vendor Bills not accessible         (N-CP4)
+#
+#   Rajshri Kadam (Accounts):
+#     - No manufacturing — MRP menu not visible              (N-CP5)
+#     - Purchase view only — cannot create new POs           (N-CP6)
+#     - Can still view existing POs                          (P-CP3)
+#     - Full accounting access retained                      (P-CP4)
+#
+# The enforcement is in:
+#   models/purchase_order.py — create() raises AccessError for group_purchase_viewer
+#   models/sale_order.py     — create() raises AccessError for group_sale_viewer
+#   data/users_data.xml      — Amit: purchase_viewer + sale_viewer (not full user)
+#                              Rajshri: purchase_viewer, mrp.group_mrp_user removed
+# ---------------------------------------------------------------------------
+
+
+@pytest.mark.asyncio
+async def test_amit_cannot_create_purchase_order(helper):
+    """Amit (group_purchase_viewer) cannot create a new Purchase Order.
+
+    The new PO form opens but submitting must redirect to an Access Error or
+    the save/confirm action must be blocked. Per current_problems.txt:
+    'Purchase view only access. no new creation'.
+
+    Scenario: N-CP1.
+    """
+    await helper.login_as("amit")
+    # Attempt to navigate directly to the new PO form
+    base = helper.page.url.split("/odoo")[0]
+    await helper.page.goto(f"{base}/odoo/purchase/new")
+    await helper.page.wait_for_timeout(2000)
+
+    page_content = await helper.page.content()
+
+    # Either the page shows an access error, redirects away from /new,
+    # or the New button is absent on the PO list
+    if "Access Error" in page_content or "Access Denied" in page_content:
+        # Good — blocked at navigation level
+        await helper.screenshot("amit_po_create_blocked_nav")
+        return
+
+    # If the form opened, try to fill and confirm — it must fail
+    if "new" in helper.page.url or "Purchase" in page_content:
+        # Fill vendor field
+        vendor_input = helper.page.locator('div[name="partner_id"] input:visible')
+        if await vendor_input.count() > 0:
+            await vendor_input.fill("Azure Interior")
+            await helper.page.keyboard.press("ArrowDown")
+            await helper.page.keyboard.press("Enter")
+            await helper.page.wait_for_timeout(800)
+
+        confirm_btn = helper.page.locator('button[name="button_confirm"]')
+        if await confirm_btn.count() > 0:
+            await confirm_btn.click()
+            await helper.page.wait_for_timeout(1500)
+            page_content = await helper.page.content()
+            assert (
+                "Access Error" in page_content
+                or "Access Denied" in page_content
+                or "cannot create" in page_content.lower()
+                or "not allowed" in page_content.lower()
+            ), (
+                "Amit (purchase viewer) must NOT be able to confirm a new PO — "
+                "AccessError expected from models/purchase_order.py"
+            )
+            await helper.screenshot("amit_po_create_blocked_confirm")
+            return
+
+    # Check that the New button is absent on the PO list
+    await helper.page.goto(f"{base}/odoo/purchase")
+    await helper.page.wait_for_timeout(1500)
+    new_btn_count = await helper.page.locator(
+        'button.o_list_button_add, a.o_list_button_add, button:has-text("New")'
+    ).count()
+    assert new_btn_count == 0, (
+        "Amit (purchase viewer) must NOT see the New button on the PO list"
+    )
+    await helper.screenshot("amit_no_new_po_button")
+
+
+@pytest.mark.asyncio
+async def test_amit_can_view_purchase_orders(helper):
+    """Amit (group_purchase_viewer) can see and open existing Purchase Orders.
+
+    group_purchase_viewer implies purchase.group_purchase_user so the PO list
+    and form are accessible — only creation is blocked.
+    Scenario: P-CP1.
+    """
+    await helper.login_as("prashant")
+    po_name = await create_purchase_order(helper)
+
+    await helper.login_as("amit")
+    await open_purchase(helper)
+    await helper.page.fill("input.o_searchview_input", po_name)
+    await helper.page.keyboard.press("Enter")
+    await helper.page.wait_for_timeout(1000)
+
+    page_content = await helper.page.content()
+    assert (
+        "Access Error" not in page_content
+        and "Missing Action" not in page_content
+    ), f"Amit must be able to VIEW the Purchase module; url={helper.page.url}"
+
+    # Try to open the PO
+    row = helper.page.locator("tr.o_data_row").first
+    if await row.count() > 0:
+        await row.click()
+        await helper.page.wait_for_timeout(800)
+        page_content = await helper.page.content()
+        assert po_name in page_content or "Purchase Order" in page_content, (
+            "Amit must be able to open and read a PO form"
+        )
+    await helper.screenshot("amit_can_view_po")
+
+
+@pytest.mark.asyncio
+async def test_amit_cannot_create_sale_order(helper):
+    """Amit (group_sale_viewer) cannot create a new Sales Order or Quotation.
+
+    Per current_problems.txt: 'Sales view only access'.
+    The create() override in models/sale_order.py raises AccessError.
+    Scenario: N-CP2.
+    """
+    await helper.login_as("amit")
+    base = helper.page.url.split("/odoo")[0]
+    await helper.page.goto(f"{base}/odoo/sales/new")
+    await helper.page.wait_for_timeout(2000)
+
+    page_content = await helper.page.content()
+
+    if "Access Error" in page_content or "Access Denied" in page_content:
+        await helper.screenshot("amit_so_create_blocked_nav")
+        return
+
+    if "new" in helper.page.url or "Quotation" in page_content or "Order" in page_content:
+        # Try filling and confirming
+        customer_input = helper.page.locator('div[name="partner_id"] input:visible')
+        if await customer_input.count() > 0:
+            await customer_input.fill("Azure Interior")
+            await helper.page.keyboard.press("ArrowDown")
+            await helper.page.keyboard.press("Enter")
+            await helper.page.wait_for_timeout(800)
+
+        confirm_btn = helper.page.locator('button[name="action_confirm"]')
+        if await confirm_btn.count() > 0:
+            await confirm_btn.click()
+            await helper.page.wait_for_timeout(1500)
+            page_content = await helper.page.content()
+            assert (
+                "Access Error" in page_content
+                or "Access Denied" in page_content
+                or "cannot create" in page_content.lower()
+            ), (
+                "Amit (sale viewer) must NOT be able to confirm a new SO — "
+                "AccessError expected from models/sale_order.py"
+            )
+            await helper.screenshot("amit_so_create_blocked_confirm")
+            return
+
+    # Check that the New button is absent on the SO list
+    await helper.page.goto(f"{base}/odoo/sales")
+    await helper.page.wait_for_timeout(1500)
+    new_btn_count = await helper.page.locator(
+        'button.o_list_button_add, a.o_list_button_add, button:has-text("New")'
+    ).count()
+    assert new_btn_count == 0, (
+        "Amit (sale viewer) must NOT see the New button on the SO list"
+    )
+    await helper.screenshot("amit_no_new_so_button")
+
+
+@pytest.mark.asyncio
+async def test_amit_can_view_sales_orders(helper):
+    """Amit (group_sale_viewer) can see and open existing Sales Orders.
+
+    group_sale_viewer implies sales_team.group_sale_salesman so the SO list
+    and form are accessible — only creation is blocked.
+    Scenario: P-CP2.
+    """
+    await helper.login_as("tushar")
+    so_name = await create_sales_order(helper)
+
+    await helper.login_as("amit")
+    await open_sales(helper)
+    await helper.page.fill("input.o_searchview_input", so_name)
+    await helper.page.keyboard.press("Enter")
+    await helper.page.wait_for_timeout(1000)
+
+    page_content = await helper.page.content()
+    assert (
+        "Access Error" not in page_content
+        and "Missing Action" not in page_content
+    ), f"Amit must be able to VIEW the Sales module; url={helper.page.url}"
+
+    row = helper.page.locator("tr.o_data_row").first
+    if await row.count() > 0:
+        await row.click()
+        await helper.page.wait_for_timeout(800)
+        page_content = await helper.page.content()
+        assert so_name in page_content or "Sales Order" in page_content or "Quotation" in page_content, (
+            "Amit must be able to open and read an SO form"
+        )
+    await helper.screenshot("amit_can_view_so")
+
+
+@pytest.mark.asyncio
+async def test_amit_has_no_quality_access(helper):
+    """Amit has no quality group — the Quality menu must not be visible.
+
+    Per current_problems.txt: 'Remove quality access' for Amit.
+    Amit's groups_id does not include quality.group_quality_manager or
+    quality.group_quality_user.
+    Scenario: N-CP3.
+    """
+    await helper.login_as("amit")
+    base = helper.page.url.split("/odoo")[0]
+    await helper.page.goto(f"{base}/odoo/quality")
+    await helper.page.wait_for_timeout(2000)
+
+    page_content = await helper.page.content()
+    assert (
+        "Access Error" in page_content
+        or "Missing Action" in page_content
+        or "403" in page_content
+        or helper.page.url.endswith("/odoo")
+        or "/odoo/quality" not in helper.page.url
+    ), (
+        "Amit must NOT have Quality access — quality group was removed from his profile"
+    )
+    await helper.screenshot("amit_no_quality_access")
+
+
+@pytest.mark.asyncio
+async def test_amit_cannot_access_vendor_bills(helper):
+    """Amit (group_store_billing) can only see customer invoices, not vendor bills.
+
+    The record rule in record_rules.xml restricts account.move to
+    move_type in ('out_invoice', 'out_refund') for group_store_billing.
+    Per current_problems.txt: 'No accounting, Invoicing only'.
+    Scenario: N-CP4.
+    """
+    await helper.login_as("amit")
+    base = helper.page.url.split("/odoo")[0]
+    # Try to navigate directly to vendor bills
+    await helper.page.goto(f"{base}/odoo/accounting/vendor-bills")
+    await helper.page.wait_for_timeout(2000)
+
+    page_content = await helper.page.content()
+    # Either the page is empty/no records, or shows an access error,
+    # or redirects away (Amit only has group_account_invoice, not group_account_user)
+    bill_rows = await helper.page.locator("tr.o_data_row").count()
+    assert (
+        "Access Error" in page_content
+        or "Missing Action" in page_content
+        or bill_rows == 0
+        or "/odoo/accounting/vendor-bills" not in helper.page.url
+    ), (
+        "Amit must NOT see Vendor Bills — record rule restricts to out_invoice/out_refund only"
+    )
+    await helper.screenshot("amit_no_vendor_bills")
+
+
+@pytest.mark.asyncio
+async def test_rajshri_has_no_manufacturing_access(helper):
+    """Rajshri (Accounts) has no MRP access — Manufacturing menu must not be visible.
+
+    Per current_problems.txt: 'No manufacturing' for Rajshri.
+    mrp.group_mrp_user was removed from Rajshri's profile in users_data.xml.
+    Scenario: N-CP5.
+    """
+    await helper.login_as("rajshri")
+    base = helper.page.url.split("/odoo")[0]
+    await helper.page.goto(f"{base}/odoo/manufacturing")
+    await helper.page.wait_for_timeout(2000)
+
+    page_content = await helper.page.content()
+    assert (
+        "Access Error" in page_content
+        or "Missing Action" in page_content
+        or "403" in page_content
+        or helper.page.url.endswith("/odoo")
+        or "/odoo/manufacturing" not in helper.page.url
+    ), (
+        "Rajshri must NOT have Manufacturing access — mrp.group_mrp_user was removed"
+    )
+    await helper.screenshot("rajshri_no_manufacturing_access")
+
+
+@pytest.mark.asyncio
+async def test_rajshri_cannot_create_purchase_order(helper):
+    """Rajshri (group_purchase_viewer) cannot create a new Purchase Order.
+
+    Per current_problems.txt: 'Purchase view' for Rajshri — view only, no creation.
+    The create() override in models/purchase_order.py raises AccessError.
+    Scenario: N-CP6.
+    """
+    await helper.login_as("rajshri")
+    base = helper.page.url.split("/odoo")[0]
+    await helper.page.goto(f"{base}/odoo/purchase/new")
+    await helper.page.wait_for_timeout(2000)
+
+    page_content = await helper.page.content()
+
+    if "Access Error" in page_content or "Access Denied" in page_content:
+        await helper.screenshot("rajshri_po_create_blocked_nav")
+        return
+
+    if "new" in helper.page.url or "Purchase" in page_content:
+        vendor_input = helper.page.locator('div[name="partner_id"] input:visible')
+        if await vendor_input.count() > 0:
+            await vendor_input.fill("Azure Interior")
+            await helper.page.keyboard.press("ArrowDown")
+            await helper.page.keyboard.press("Enter")
+            await helper.page.wait_for_timeout(800)
+
+        confirm_btn = helper.page.locator('button[name="button_confirm"]')
+        if await confirm_btn.count() > 0:
+            await confirm_btn.click()
+            await helper.page.wait_for_timeout(1500)
+            page_content = await helper.page.content()
+            assert (
+                "Access Error" in page_content
+                or "Access Denied" in page_content
+                or "cannot create" in page_content.lower()
+            ), (
+                "Rajshri (purchase viewer) must NOT be able to confirm a new PO"
+            )
+            await helper.screenshot("rajshri_po_create_blocked_confirm")
+            return
+
+    await helper.page.goto(f"{base}/odoo/purchase")
+    await helper.page.wait_for_timeout(1500)
+    new_btn_count = await helper.page.locator(
+        'button.o_list_button_add, a.o_list_button_add, button:has-text("New")'
+    ).count()
+    assert new_btn_count == 0, (
+        "Rajshri (purchase viewer) must NOT see the New button on the PO list"
+    )
+    await helper.screenshot("rajshri_no_new_po_button")
+
+
+@pytest.mark.asyncio
+async def test_rajshri_can_view_purchase_orders(helper):
+    """Rajshri (group_purchase_viewer) can see and open existing Purchase Orders.
+
+    group_purchase_viewer implies purchase.group_purchase_user so the
+    PO list and form are readable — only creation is blocked.
+    Scenario: P-CP3.
+    """
+    await helper.login_as("prashant")
+    po_name = await create_purchase_order(helper)
+
+    await helper.login_as("rajshri")
+    await open_purchase(helper)
+    await helper.page.fill("input.o_searchview_input", po_name)
+    await helper.page.keyboard.press("Enter")
+    await helper.page.wait_for_timeout(1000)
+
+    page_content = await helper.page.content()
+    assert (
+        "Access Error" not in page_content
+        and "Missing Action" not in page_content
+    ), f"Rajshri must be able to VIEW the Purchase module; url={helper.page.url}"
+
+    row = helper.page.locator("tr.o_data_row").first
+    if await row.count() > 0:
+        await row.click()
+        await helper.page.wait_for_timeout(800)
+        page_content = await helper.page.content()
+        assert po_name in page_content or "Purchase Order" in page_content, (
+            "Rajshri must be able to open and read a PO form"
+        )
+    await helper.screenshot("rajshri_can_view_po")
+
+
+@pytest.mark.asyncio
+async def test_rajshri_has_full_accounting_access(helper):
+    """Rajshri (group_account_user) retains full Accounting access.
+
+    Per current_problems.txt: 'Accounts app' and 'Accounting instead of
+    invoicing app' — Rajshri must access journals, payments, P&L reports.
+    Scenario: P-CP4.
+    """
+    await helper.login_as("rajshri")
+    await open_accounting(helper)
+    await helper.page.wait_for_timeout(2000)
+
+    page_content = await helper.page.content()
+    assert (
+        "Access Error" not in page_content
+        and "Missing Action" not in page_content
+    ), f"Rajshri must have full Accounting access; url={helper.page.url}"
+
+    # Verify she can see accounting-specific content (not just invoicing)
+    base = helper.page.url.split("/odoo")[0]
+    await helper.page.goto(f"{base}/odoo/accounting/journal-entries")
+    await helper.page.wait_for_timeout(1500)
+    page_content = await helper.page.content()
+    assert (
+        "Access Error" not in page_content
+        and "Missing Action" not in page_content
+    ), "Rajshri must access Journal Entries (full accounting user, not just invoicing)"
+    await helper.screenshot("rajshri_full_accounting_access")
