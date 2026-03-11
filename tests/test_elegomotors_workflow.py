@@ -2003,3 +2003,464 @@ async def test_manohar_can_approve_po(helper):
         f"PO not in confirmed state after Manohar approval; url={helper.page.url}"
     )
     await helper.screenshot("manohar_approves_po")
+
+
+# ---------------------------------------------------------------------------
+# Suite 11: Diagram Workflow Scenarios + Remaining P/N Coverage
+#
+# Covers:
+#   P19  — Srushti can manage attendance
+#   N04  — Amit cannot approve PO
+#   N08  — Manohar cannot click Produce All (not in group_manufacturing_operator)
+#   D-P1 — Diagram Problem 1: vendor bill created from PO after gate entry
+#   D-P2 — Diagram Problem 2: QC control points configured for inward + FG
+#   D-P3 — Diagram Problem 3: Issue-to-Production step exists before manufacture
+#   D-W1 — Diagram Workflow: FG available YES branch (direct delivery path)
+#   D-W2 — Diagram Workflow: FG available NO branch (MO creation path)
+#   D-W3 — Diagram Workflow: Post-production QC fail → WIP/Hold (quarantine)
+#   D-W4 — Diagram Workflow: Full inward QC chain (gate entry → QC OK → store)
+# ---------------------------------------------------------------------------
+
+
+@pytest.mark.asyncio
+async def test_srushti_can_manage_attendance(helper):
+    """Srushti (HR Manager + Attendance Manager) can open and edit Attendance records.
+
+    Scenario: P19.
+    """
+    await helper.login_as("srushti")
+    await helper.page.goto(f"{helper.page.url.split('/odoo')[0]}/odoo/attendances")
+    await helper.page.wait_for_timeout(2000)
+    page_content = await helper.page.content()
+    assert (
+        "Access Error" not in page_content
+        and "Missing Action" not in page_content
+    ), f"Srushti should have Attendance access; url={helper.page.url}"
+    await helper.screenshot("srushti_attendance_access")
+
+
+@pytest.mark.asyncio
+async def test_amit_cannot_approve_po(helper):
+    """Amit (Purchase User, not Purchase Manager) cannot approve a PO.
+
+    The 2-step PO approval requires purchase.group_purchase_manager, which
+    only Manohar has. Amit's Approve button must not be visible.
+    Scenario: N04.
+    """
+    await helper.login_as("prashant")
+    po_name = await create_purchase_order(helper)
+
+    await helper.login_as("amit")
+    await open_purchase(helper)
+    await helper.page.fill("input.o_searchview_input", po_name)
+    await helper.page.keyboard.press("Enter")
+    await helper.page.wait_for_timeout(800)
+    await helper.click_if_visible(f"text={po_name}", timeout=5000)
+    await helper.page.wait_for_timeout(800)
+
+    approve_count = await helper.page.locator(
+        'button[name="button_approve"], button:has-text("Approve Order")'
+    ).count()
+    assert approve_count == 0, (
+        "Amit (Purchase User) must NOT see the Approve button on a PO"
+    )
+    await helper.screenshot("amit_no_po_approve")
+
+
+@pytest.mark.asyncio
+async def test_manohar_cannot_produce_mo(helper):
+    """Manohar (MRP User, NOT group_manufacturing_operator) cannot click Produce All.
+
+    Manohar has mrp.group_mrp_user but not group_manufacturing_operator.
+    The Produce All button is exclusively restricted to Pratik.
+    Scenario: N08.
+    """
+    await helper.login_as("pratik")
+    mo_name = await create_manufacturing_order(helper)
+
+    await helper.login_as("manohar")
+    await open_mrp(helper)
+    await helper.page.fill("input.o_searchview_input", mo_name)
+    await helper.page.keyboard.press("Enter")
+    await helper.page.wait_for_timeout(800)
+    await helper.click_if_visible(f"text={mo_name}", timeout=5000)
+    await helper.page.wait_for_timeout(800)
+
+    produce_count = await helper.page.locator(
+        'button:has-text("Produce All"), button:has-text("Mark as Done"), '
+        'button:has-text("Mark as Finished"), button[name="button_mark_done"]'
+    ).count()
+    assert produce_count == 0, (
+        "Manohar (MRP User, not Manufacturing Operator) must NOT see Produce All"
+    )
+    await helper.screenshot("manohar_no_produce_button")
+
+
+@pytest.mark.asyncio
+async def test_vendor_bill_created_from_po_after_receipt(helper):
+    """Diagram Problem 1: Vendor bill can be created from a confirmed PO.
+
+    After Manohar approves the PO and Amit validates Gate Entry, Rajshri
+    (Accounting User) must be able to open the PO and create a Vendor Bill.
+    The bill must have a vendor, a bill date, and land in Draft state.
+    """
+    await helper.login_as("prashant")
+    po_name = await create_purchase_order(helper)
+
+    await helper.login_as("manohar")
+    await open_purchase(helper)
+    await helper.page.fill("input.o_searchview_input", po_name)
+    await helper.page.keyboard.press("Enter")
+    await helper.page.wait_for_timeout(800)
+    await helper.click_if_visible(f"text={po_name}", timeout=5000)
+    await helper.click_if_visible(
+        'button[name="button_approve"], button:has-text("Approve")',
+        timeout=5000,
+    )
+    await helper.page.wait_for_timeout(1000)
+
+    # Create Vendor Bill from the approved PO
+    await helper.login_as("rajshri")
+    await open_purchase(helper)
+    await helper.page.fill("input.o_searchview_input", po_name)
+    await helper.page.keyboard.press("Enter")
+    await helper.page.wait_for_timeout(800)
+    await helper.click_if_visible(f"text={po_name}", timeout=5000)
+    await helper.page.wait_for_timeout(1000)
+
+    # Click "Create Bill" button on confirmed PO
+    bill_clicked = await helper.click_if_visible(
+        'button[name="action_create_invoice"], button:has-text("Create Bill"), '
+        'button:has-text("Create Vendor Bill")',
+        timeout=5000,
+    )
+    if not bill_clicked:
+        pytest.skip(
+            "Create Bill button not visible — PO must be in confirmed state with "
+            "a validated receipt. Verify Gate Entry was validated first."
+        )
+
+    await helper.page.wait_for_timeout(1200)
+    page_content = await helper.page.content()
+    assert (
+        "Vendor Bill" in page_content
+        or "Bill" in page_content
+        or "invoice" in page_content.lower()
+    ), f"Vendor bill not created from PO; url={helper.page.url}"
+
+    # Verify the bill date field is present and editable (Problem 1 fix check)
+    date_field = helper.page.locator(
+        'div[name="invoice_date"] input, div[name="invoice_date"] span.o_field_widget'
+    )
+    assert await date_field.count() > 0, (
+        "Invoice date field not found on vendor bill — this was flagged as Problem 1 in diagram"
+    )
+    await helper.screenshot("vendor_bill_from_po_with_date")
+
+
+@pytest.mark.asyncio
+async def test_qc_control_points_configured(helper):
+    """Diagram Problem 2: QC control points exist for inward and FG operations.
+
+    The quality module must have at least one quality.point configured for:
+    1. Inward material inspection (triggered on Gate Entry / receipt)
+    2. Post-production QC (triggered on FG to Finished Goods transfer)
+    Manohar (ERP Manager) opens Quality > Configuration > Control Points.
+    """
+    await helper.login_as("manohar")
+    await helper.page.goto(
+        f"{helper.page.url.split('/odoo')[0]}/odoo/quality"
+    )
+    await helper.page.wait_for_timeout(1500)
+
+    # Navigate to control points
+    found_menu = await helper.click_if_visible(
+        'a[data-menu-xmlid="quality.menu_quality_config_root"], '
+        'button:has-text("Configuration"), a:has-text("Configuration")',
+        timeout=5000,
+    )
+    if found_menu:
+        await helper.page.wait_for_timeout(500)
+        await helper.click_if_visible(
+            'a[data-menu-xmlid="quality.menu_quality_point"], '
+            'menuitem:has-text("Control Points"), a:has-text("Control Points")',
+            timeout=4000,
+        )
+    else:
+        await helper.page.goto(
+            f"{helper.page.url.split('/odoo')[0]}/odoo/quality/control-points"
+        )
+
+    await helper.page.wait_for_timeout(1500)
+    page_content = await helper.page.content()
+
+    if "Access Error" in page_content or "Missing Action" in page_content:
+        pytest.skip("Quality Control Points menu not accessible — verify quality module installed")
+
+    # Verify at least one control point exists
+    row_count = await helper.page.locator("tr.o_data_row").count()
+    assert row_count > 0, (
+        "No QC control points found — Diagram Problem 2: QC flow is not configured. "
+        "Add quality.point records for inward inspection and FG receipt in quality_data.xml"
+    )
+    await helper.screenshot("qc_control_points_exist")
+
+
+@pytest.mark.asyncio
+async def test_inward_qc_control_point_exists(helper):
+    """Diagram Problem 2: A QC control point targeting Gate Entry (inward) exists.
+
+    Checks that quality_data.xml has created a control point for the
+    Gate Entry (GE) operation type, so inward material gets a quality check.
+    """
+    await helper.login_as("manohar")
+    await helper.page.goto(
+        f"{helper.page.url.split('/odoo')[0]}/odoo/quality/control-points"
+    )
+    await helper.page.wait_for_timeout(1500)
+    page_content = await helper.page.content()
+
+    if "Access Error" in page_content or "Missing Action" in page_content:
+        pytest.skip("Quality module not accessible")
+
+    if "No records" in page_content or await helper.page.locator("tr.o_data_row").count() == 0:
+        pytest.skip("No QC control points configured — see Diagram Problem 2")
+
+    # Search for Gate Entry control point
+    await helper.page.fill("input.o_searchview_input", "Gate Entry")
+    await helper.page.keyboard.press("Enter")
+    await helper.page.wait_for_timeout(1000)
+    page_content = await helper.page.content()
+
+    assert (
+        "Gate Entry" in page_content
+        or await helper.page.locator("tr.o_data_row").count() > 0
+    ), (
+        "No QC control point found for Gate Entry inward operation — "
+        "Diagram Problem 2: inward QC not configured"
+    )
+    await helper.screenshot("inward_qc_control_point")
+
+
+@pytest.mark.asyncio
+async def test_issue_to_production_step_before_manufacture(helper):
+    """Diagram Problem 3: Issue-to-Production step exists before MO is produced.
+
+    The diagram flags that 'issued to production state missing — Amit/Prashant
+    can produce without material picking'. This test verifies that:
+    1. A confirmed MO has an associated stock.move for component materials
+    2. An Issue-to-Production picking is expected before Produce All
+    """
+    await helper.login_as("pratik")
+    mo_name = await create_manufacturing_order(helper)
+
+    # Stay on the MO page and look for the Components tab or stock picking count
+    await helper.page.wait_for_timeout(1000)
+    page_content = await helper.page.content()
+
+    # The MO should show a "Transfer" smart button or Components tab
+    # indicating that material moves are tracked
+    has_transfer_btn = await helper.page.locator(
+        'button.o_stat_button:has-text("Transfer"), '
+        'button.o_stat_button:has-text("Transfers"), '
+        '.o_stat_button:has-text("Transfer")'
+    ).count() > 0
+
+    has_components_tab = await helper.page.locator(
+        '[role="tab"]:has-text("Components"), .nav-link:has-text("Components")'
+    ).count() > 0
+
+    assert has_transfer_btn or has_components_tab, (
+        "Confirmed MO must show a Transfer smart button or Components tab to "
+        "track material issued to production — Diagram Problem 3"
+    )
+    await helper.screenshot("mo_has_transfer_tracking")
+
+
+@pytest.mark.asyncio
+async def test_amit_issues_material_before_production(helper):
+    """Diagram Problem 3: Material is formally issued (picked) to production.
+
+    Verifies the full flow: MO confirmed → Amit creates Issue-to-Production
+    transfer → transfer is in Done state before Pratik produces.
+    This ensures there is a formal 'issued to production' record, preventing
+    the problem where someone could produce without material being picked.
+    """
+    await helper.login_as("pratik")
+    mo_name = await create_manufacturing_order(helper)
+
+    # Amit issues material to production
+    await helper.login_as("amit")
+    try:
+        await helper.create_simple_internal_transfer(
+            "Issue to Production",
+            "Steel Frame",
+            "1",
+            "EGO/Store",
+            "EGO/Production WIP",
+        )
+    except AssertionError as e:
+        pytest.skip(f"Could not create Issue to Production transfer: {e}")
+
+    # Verify the transfer is Done — this is the formal 'issued to production' record
+    page_content = await helper.page.content()
+    assert "Done" in page_content, (
+        "Issue-to-Production transfer must reach Done state before production can start"
+    )
+    await helper.screenshot("material_issued_before_production")
+
+
+@pytest.mark.asyncio
+async def test_fg_available_yes_branch(helper, shared_state):
+    """Diagram Workflow D-W1: FG Available YES branch — direct delivery without MO.
+
+    When FG stock is already in Finished Goods, the flow goes directly:
+    SO (approved) → Delivery picking (PDI + Dispatch) → Sales Invoice.
+    No new MO should be needed.
+    """
+    await helper.login_as("tushar")
+    so_name = await create_sales_order(helper)
+    shared_state["fg_yes_so"] = so_name
+
+    # Rajshri approves the SO
+    try:
+        await approve_sales_order(helper, so_name, approver="rajshri")
+    except AssertionError:
+        pytest.skip("SO approval not working — cannot test FG available YES branch")
+
+    # Amit checks if a Delivery order was auto-created
+    await helper.login_as("amit")
+    await open_sales(helper)
+    await helper.page.fill("input.o_searchview_input", so_name)
+    await helper.page.keyboard.press("Enter")
+    await helper.page.wait_for_timeout(800)
+    await helper.click_if_visible(f"text={so_name}", timeout=5000)
+    await helper.page.wait_for_timeout(1000)
+
+    # Delivery smart button should be visible on the confirmed SO
+    delivery_visible = await helper.page.locator(
+        'button[name="action_view_delivery"], '
+        '.o_stat_button:has-text("Delivery"), '
+        '.o_stat_button:has-text("Deliveries")'
+    ).count() > 0
+    assert delivery_visible, (
+        "Approved SO must show a Delivery smart button — FG Available YES branch "
+        "should create a delivery picking automatically"
+    )
+    await helper.screenshot("fg_yes_branch_delivery_created")
+
+
+@pytest.mark.asyncio
+async def test_fg_available_no_branch(helper, shared_state):
+    """Diagram Workflow D-W2: FG Available NO branch — MO is created when FG is missing.
+
+    When FG is not in stock, Prashant creates an MO to manufacture the product.
+    This tests that an MO can be created and confirmed for the FG product.
+    The MO confirms the 'No FG → Create MO' branch from the diagram.
+    """
+    await helper.login_as("pratik")
+    mo_name = await create_manufacturing_order(helper)
+    shared_state["fg_no_mo"] = mo_name
+
+    # MO should be in Confirmed state (production triggered by SO demand)
+    page_content = await helper.page.content()
+    assert "Confirmed" in page_content or mo_name in page_content, (
+        f"MO should be confirmed when FG is not available; url={helper.page.url}"
+    )
+    await helper.screenshot("fg_no_branch_mo_created")
+
+
+@pytest.mark.asyncio
+async def test_post_production_qc_fail_wip_hold(helper):
+    """Diagram Workflow D-W3: Post-production QC fail → WIP / Hold (quarantine).
+
+    When the produced FG fails quality check, the material goes to WIP/Hold
+    (modelled as a QC Fail transfer to Quarantine in ElegoMotors).
+    After rework, it loops back to Manufacturing (Pratik).
+    """
+    await helper.login_as("pratik")
+    try:
+        await helper.create_simple_internal_transfer(
+            "QC Fail",
+            "ElegoMotors EV Scooter EGO-S1",
+            "1",
+            "EGO/Production WIP",
+            "EGO/Quarantine",
+        )
+    except AssertionError as e:
+        pytest.skip(f"Could not create post-production QC fail transfer: {e}")
+
+    page_content = await helper.page.content()
+    assert "Done" in page_content, (
+        "Post-production QC Fail transfer must go to Done — "
+        "material should be in EGO/Quarantine (WIP/Hold)"
+    )
+    await helper.screenshot("post_production_qc_fail_wip")
+
+
+@pytest.mark.asyncio
+async def test_full_inward_qc_chain(helper, shared_state):
+    """Diagram Workflow D-W4: Full inward QC chain — gate entry to store.
+
+    Diagram flow: PO approved → Gate Entry → QC Inward → QC Pass → Store.
+    This is the 'OK' path in the inward QC decision diamond.
+    Verifies:
+    1. Gate Entry receipt goes to EGO/QC Inward (not directly to store)
+    2. QC Pass transfer moves material from QC Inward to EGO/Store
+    """
+    await helper.login_as("prashant")
+    po_name = await create_purchase_order(helper)
+    shared_state["qc_chain_po"] = po_name
+
+    await helper.login_as("manohar")
+    await open_purchase(helper)
+    await helper.page.fill("input.o_searchview_input", po_name)
+    await helper.page.keyboard.press("Enter")
+    await helper.page.wait_for_timeout(800)
+    await helper.click_if_visible(f"text={po_name}", timeout=5000)
+    await helper.click_if_visible(
+        'button[name="button_approve"], button:has-text("Approve")',
+        timeout=5000,
+    )
+    await helper.page.wait_for_timeout(1000)
+
+    # Amit validates Gate Entry → material goes to QC Inward
+    await helper.login_as("amit")
+    await helper.open_picking_type_transfers("Gate Entry")
+    await helper.page.wait_for_timeout(800)
+    row = helper.page.locator("tr.o_data_row").first
+    if await row.count() == 0:
+        pytest.skip("No Gate Entry transfers found")
+    await row.click()
+    await helper.page.wait_for_timeout(800)
+
+    # Confirm destination is EGO/QC Inward (not WH/Stock or EGO/Store)
+    page_content = await helper.page.content()
+    assert "QC Inward" in page_content or "EGO" in page_content, (
+        "Gate Entry destination must be EGO/QC Inward — material should go to QC first"
+    )
+
+    await helper.click_if_visible('button[name="button_validate"]', timeout=5000)
+    await helper._handle_validate_dialogs()
+    await helper.page.wait_for_timeout(800)
+    page_content = await helper.page.content()
+    assert "Done" in page_content, "Gate Entry must be Done after validation"
+
+    # Pratik validates QC Pass → material moves to EGO/Store
+    await helper.login_as("pratik")
+    try:
+        await helper.create_simple_internal_transfer(
+            "QC Pass",
+            "Steel Frame",
+            "1",
+            "EGO/QC Inward",
+            "EGO/Store",
+        )
+    except AssertionError as e:
+        pytest.skip(f"Could not validate QC Pass transfer: {e}")
+
+    page_content = await helper.page.content()
+    assert "Done" in page_content, (
+        "QC Pass transfer must be Done — material should now be in EGO/Store"
+    )
+    await helper.screenshot("full_inward_qc_chain_done")

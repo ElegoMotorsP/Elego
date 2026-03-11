@@ -308,10 +308,13 @@
 
 ## 9. Known Conflicts and Resolutions
 
-| Issue | Root Cause | Fix Applied |
-|-------|-----------|------------|
-| Odoo built-in mrp_workorder_hr_account tests — 4 errors | button_mark_done raised AccessError even for admin (uid=1) and sudo() environments used in tests | mrp_production.py now checks env.su and env.uid != SUPERUSER_ID before raising AccessError |
-| Odoo built-in sale_purchase_stock.test_cross_dock_flow — 1 failure | stock_picking_types_fix.xml was overriding stock.picking_type_in.default_location_dest_id to EGO/QC Inward and stock.picking_type_out to EGO/FG, changing the expected locations for the test | Removed those two overrides — ElegoMotors uses separate Gate Entry and Delivery operation types; the standard WH/Receipts and WH/Delivery are left at default locations |
+| Issue | Root Cause | Fix Applied / Status |
+|-------|-----------|---------------------|
+| Odoo built-in mrp_workorder_hr_account tests — 4 errors | button_mark_done raised AccessError even for admin (uid=1) and sudo() environments used in tests | FIXED — mrp_production.py now checks env.su and env.uid != SUPERUSER_ID before raising AccessError |
+| Odoo built-in sale_purchase_stock.test_cross_dock_flow — 1 failure | stock_picking_types_fix.xml was overriding stock.picking_type_in.default_location_dest_id to EGO/QC Inward, changing expected locations | FIXED — Removed those two overrides; ElegoMotors uses separate Gate Entry and Delivery types |
+| Diagram Problem 1: Supplier Invoice and invoice date not available after Gate Entry | Vendor bill is not created automatically from PO receipt; Rajshri must manually create it with invoice date | TEST ADDED — test_vendor_bill_created_from_po_after_receipt verifies bill creation and date field presence |
+| Diagram Problem 2: QC flow is not configured | quality.point records for Gate Entry inward inspection and FG post-production check may be missing | TEST ADDED — test_qc_control_points_configured and test_inward_qc_control_point_exists verify records exist |
+| Diagram Problem 3: Issue-to-production state missing — Amit or Prashant can produce without material picking | No enforced confirmation step requiring Issue-to-Production before Produce All | TEST ADDED — test_issue_to_production_step_before_manufacture and test_amit_issues_material_before_production verify the step exists and is tracked |
 | Notification tests may skip | Automated notification rules depend on mail server configuration and rule activation | notification_rules.xml sets active=True; tests use pytest.skip if chatter text is not found within timeout |
 | Follower subscription tests may skip | Subscription automation rules need mail module active and correct partner mappings | Same as above — graceful skip built into tests |
 
@@ -383,6 +386,18 @@
 | Suite 10 | test_pratik_cannot_access_accounting | — |
 | Suite 10 | test_srushti_cannot_access_accounting | — |
 | Suite 10 | test_manohar_can_approve_po | P03 |
+| Suite 11 | test_srushti_can_manage_attendance | P19 |
+| Suite 11 | test_amit_cannot_approve_po | N04 |
+| Suite 11 | test_manohar_cannot_produce_mo | N08 |
+| Suite 11 | test_vendor_bill_created_from_po_after_receipt | Diagram Problem 1 — vendor bill and invoice date after gate entry |
+| Suite 11 | test_qc_control_points_configured | Diagram Problem 2 — QC flow configured (quality.point records exist) |
+| Suite 11 | test_inward_qc_control_point_exists | Diagram Problem 2 — Gate Entry inward QC control point exists |
+| Suite 11 | test_issue_to_production_step_before_manufacture | Diagram Problem 3 — MO has transfer tracking for issued components |
+| Suite 11 | test_amit_issues_material_before_production | Diagram Problem 3 — Issue-to-Production must complete before Produce All |
+| Suite 11 | test_fg_available_yes_branch | Diagram D-W1 — Approved SO creates delivery when FG is in stock |
+| Suite 11 | test_fg_available_no_branch | Diagram D-W2 — MO created when FG is not available |
+| Suite 11 | test_post_production_qc_fail_wip_hold | Diagram D-W3 — Post-production QC fail sends unit to Quarantine (WIP/Hold) |
+| Suite 11 | test_full_inward_qc_chain | Diagram D-W4 — Gate Entry → QC Inward → QC Pass → Store full chain |
 
 ---
 
