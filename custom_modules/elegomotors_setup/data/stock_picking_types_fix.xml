@@ -34,18 +34,18 @@
             <field name="return_picking_type_id" ref="elegomotors_setup.picking_type_gate_entry"/>
         </record>
 
-        <!-- Update default warehouse to use Gate Entry as primary receipt operation -->
-        <record id="stock.warehouse0" model="stock.warehouse">
-            <field name="in_type_id" ref="elegomotors_setup.picking_type_gate_entry"/>
-            <field name="out_type_id" ref="elegomotors_setup.picking_type_delivery"/>
-        </record>
-
         <!--
-            NOTE: We intentionally do NOT override stock.picking_type_in or stock.picking_type_out
-            destinations here. Those overrides would break Odoo's built-in sale_purchase_stock
-            test (test_cross_dock_flow) which expects the standard WH/Receipts to deliver to
-            WH/Stock. Our Gate Entry and Delivery (PDI + Dispatch) types are completely separate
-            operation types that serve ElegoMotors' custom flow.
+            NOTE: We intentionally do NOT override stock.warehouse0.in_type_id or out_type_id.
+            Overriding those fields causes Odoo's own sale_purchase_stock tests to fail:
+            - test_cross_dock_flow expects picking_type_id=1 (WH/Receipts) and
+              location_dest_id=8 (WH/Stock), but our Gate Entry (1551 → QC Inward 9)
+              would replace them.
+            - test_mto_cancel_multi_steps_confirmed_purchase also breaks when the
+              warehouse outgoing type is our custom Delivery instead of WH/Delivery.
+
+            ElegoMotors workflow: Gate Entry (Inward) and Delivery (PDI + Dispatch) are
+            standalone operation types that Amit uses directly from the Inventory Overview.
+            They do not need to be set as the warehouse's primary in/out types.
         -->
 
     </data>
