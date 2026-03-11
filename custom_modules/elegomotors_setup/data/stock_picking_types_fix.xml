@@ -40,17 +40,13 @@
             <field name="out_type_id" ref="elegomotors_setup.picking_type_delivery"/>
         </record>
 
-        <!-- Update default Receipts operation to point to our Gate Entry location (fallback) -->
-        <record id="stock.picking_type_in" model="stock.picking.type">
-            <field name="default_location_dest_id" ref="elegomotors_setup.location_ego_qc_inward"/>
-            <field name="return_picking_type_id" ref="picking_type_vendor_returns"/>
-        </record>
-
-        <!-- Update default Delivery operation to use our FG location (fallback) -->
-        <record id="stock.picking_type_out" model="stock.picking.type">
-            <field name="default_location_src_id" ref="elegomotors_setup.location_ego_fg"/>
-            <field name="return_picking_type_id" ref="elegomotors_setup.picking_type_gate_entry"/>
-        </record>
+        <!--
+            NOTE: We intentionally do NOT override stock.picking_type_in or stock.picking_type_out
+            destinations here. Those overrides would break Odoo's built-in sale_purchase_stock
+            test (test_cross_dock_flow) which expects the standard WH/Receipts to deliver to
+            WH/Stock. Our Gate Entry and Delivery (PDI + Dispatch) types are completely separate
+            operation types that serve ElegoMotors' custom flow.
+        -->
 
     </data>
 </odoo>
