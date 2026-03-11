@@ -38,5 +38,31 @@
             <field name="name">Store: Customer Invoices (Read-only Prices)</field>
         </record>
 
+        <!--
+            group_purchase_viewer
+                Amit (Store Manager) and Rajshri (Accounts) hold this group.
+                Implies purchase.group_purchase_user so the holder sees the
+                Purchase menu and can read POs, but the Python-level override in
+                models/purchase_order.py raises AccessError on create(), so they
+                cannot raise new Purchase Orders.
+        -->
+        <record id="group_purchase_viewer" model="res.groups">
+            <field name="name">Purchase: View Only</field>
+            <field name="implied_ids" eval="[(4, ref('purchase.group_purchase_user'))]"/>
+        </record>
+
+        <!--
+            group_sale_viewer
+                Amit (Store Manager) holds this group.
+                Implies sales_team.group_sale_salesman so the holder sees the
+                Sales menu and can read SOs/Quotations, but the Python-level
+                override in models/sale_order.py raises AccessError on create(),
+                so Amit cannot raise new Sales Orders.
+        -->
+        <record id="group_sale_viewer" model="res.groups">
+            <field name="name">Sales: View Only</field>
+            <field name="implied_ids" eval="[(4, ref('sales_team.group_sale_salesman'))]"/>
+        </record>
+
     </data>
 </odoo>
