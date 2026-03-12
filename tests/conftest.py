@@ -40,6 +40,7 @@ def _stamp() -> str:
 class OdooTestHelper:
     def __init__(self, page):
         self.page = page
+        self._current_user: str | None = None
         if SCREENSHOTS_ENABLED:
             os.makedirs(SCREENSHOTS_DIR, exist_ok=True)
 
@@ -50,10 +51,17 @@ class OdooTestHelper:
 
     async def goto(self, path: str = "/web") -> None:
         await self.page.goto(f"{BASE_URL}{path}")
-        await self.page.wait_for_timeout(800)
+        await self.page.wait_for_load_state("domcontentloaded")
 
     async def login_as(self, user_key: str) -> UserCred:
         user = USERS[user_key]
+        if self._current_user == user_key:
+            # Already logged in — just navigate home to get a clean page state.
+            await self.page.goto(f"{BASE_URL}/odoo")
+            await self.page.wait_for_selector(".o_main_navbar", timeout=15000)
+            await self.dismiss_popups()
+            return user
+
         await self.goto("/web/login")
         await self.page.fill('input[name="login"]', user.login)
         await self.page.fill('input[name="password"]', user.password)
@@ -63,10 +71,12 @@ class OdooTestHelper:
         await self.page.click('button[type="submit"]')
         await self.page.wait_for_selector(".o_main_navbar", timeout=20000)
         await self.dismiss_popups()
+        self._current_user = user_key
         await self.screenshot(f"login_{user.key}")
         return user
 
     async def logout(self) -> None:
+        self._current_user = None
         await self.goto("/web/session/logout")
         await self.page.wait_for_selector('input[name="login"]', timeout=10000)
 
@@ -85,7 +95,7 @@ class OdooTestHelper:
 
     async def open_menu_url(self, relative_url: str) -> None:
         await self.goto(relative_url)
-        await self.page.wait_for_timeout(1200)
+        await self.page.wait_for_load_state("domcontentloaded")
         if "Missing Action" in await self.page.content():
             raise AssertionError(f"Invalid Odoo route/action: {relative_url}")
 
@@ -94,7 +104,7 @@ class OdooTestHelper:
             locator = self.page.locator(selector).first
             await locator.wait_for(state="visible", timeout=timeout)
             await locator.click()
-            await self.page.wait_for_timeout(600)
+            await self.page.wait_for_timeout(400)
             return True
         except Exception:
             return False
@@ -130,7 +140,7 @@ class OdooTestHelper:
         ).all():
             try:
                 await remove_btn.click()
-                await self.page.wait_for_timeout(300)
+                await self.page.wait_for_timeout(200)
             except Exception:
                 pass
 
@@ -142,7 +152,7 @@ class OdooTestHelper:
         open_picking_type_transfers() to go to a specific type's list.
         """
         await self.open_menu_url("/odoo/inventory")
-        await self.page.wait_for_timeout(1500)
+        await self.page.wait_for_timeout(800)
 
     async def open_picking_type_transfers(self, operation_type_name: str) -> None:
         """Navigate to the transfers list for a specific operation type.
@@ -151,7 +161,7 @@ class OdooTestHelper:
         full transfer list (all statuses, not just Ready).
         """
         await self.open_menu_url("/odoo/inventory")
-        await self.page.wait_for_timeout(1500)
+        await self.page.wait_for_timeout(800)
 
         # Find the article card whose text contains the operation type name
         card = self.page.locator("article").filter(has_text=operation_type_name).first
@@ -174,11 +184,11 @@ class OdooTestHelper:
             # Fallback: click the link title on the card
             await card.locator("a").first.click()
 
-        await self.page.wait_for_timeout(1200)
+        await self.page.wait_for_timeout(800)
 
         # Remove any automatic "Ready" status filter so we see all transfers
         await self._clear_search_filters()
-        await self.page.wait_for_timeout(600)
+        await self.page.wait_for_timeout(400)
 
     async def open_inventory_products(self) -> None:
         await self.open_menu_url("/odoo/inventory")
@@ -201,38 +211,38 @@ class OdooTestHelper:
     async def open_customer_invoices(self) -> None:
         """Navigate to Accounting > Customers > Invoices."""
         await self.open_menu_url("/odoo/accounting")
-        await self.page.wait_for_timeout(800)
+        await self.page.wait_for_timeout(500)
         await self.require_click_any([
             "button:has-text('Customers')",
             "a:has-text('Customers')",
         ], timeout=5000)
-        await self.page.wait_for_timeout(500)
+        await self.page.wait_for_timeout(300)
         await self.require_click_any([
             "menuitem:has-text('Invoices')",
             "a:has-text('Invoices')",
             "text=Invoices",
         ], timeout=5000)
-        await self.page.wait_for_timeout(1000)
+        await self.page.wait_for_timeout(600)
 
     async def open_vendor_bills(self) -> None:
         """Navigate to Accounting > Vendors > Bills."""
         await self.open_menu_url("/odoo/accounting")
-        await self.page.wait_for_timeout(800)
+        await self.page.wait_for_timeout(500)
         await self.require_click_any([
             "button:has-text('Vendors')",
             "a:has-text('Vendors')",
         ], timeout=5000)
-        await self.page.wait_for_timeout(500)
+        await self.page.wait_for_timeout(300)
         await self.require_click_any([
             "menuitem:has-text('Bills')",
             "a:has-text('Bills')",
             "text=Bills",
         ], timeout=5000)
-        await self.page.wait_for_timeout(1000)
+        await self.page.wait_for_timeout(600)
 
     async def open_inventory_configuration(self) -> None:
         await self.open_menu_url("/odoo/inventory")
-        await self.page.wait_for_timeout(1000)
+        await self.page.wait_for_timeout(600)
         await self.require_click_any([
             "button:has-text('Configuration')",
             "a[data-menu-xmlid='stock.menu_stock_config_settings']",
@@ -258,7 +268,7 @@ class OdooTestHelper:
         if not found:
             # Fallback: use Odoo's action external-id URL format
             await self.goto("/odoo/inventory")
-            await self.page.wait_for_timeout(800)
+            await self.page.wait_for_timeout(600)
             # Trigger via JS service (works in Odoo 17 owl apps)
             await self.page.evaluate("""
                 async () => {
@@ -272,7 +282,7 @@ class OdooTestHelper:
                     }
                 }
             """)
-            await self.page.wait_for_timeout(2000)
+            await self.page.wait_for_timeout(1500)
             # If still not on locations page, raise
             if "Locations" not in await self.page.title() and "location" not in self.page.url.lower():
                 raise AssertionError("Could not navigate to Locations page")
@@ -302,7 +312,7 @@ class OdooTestHelper:
 
     async def _handle_validate_dialogs(self) -> None:
         """Handle any dialogs that appear after clicking Validate on a transfer."""
-        await self.page.wait_for_timeout(1000)
+        await self.page.wait_for_timeout(800)
         # "Immediate Transfer" dialog
         for btn_text in ["Validate", "Apply All"]:
             if await self.click_if_visible(
@@ -310,7 +320,7 @@ class OdooTestHelper:
                 f".o_dialog button:has-text('{btn_text}')",
                 timeout=2500,
             ):
-                await self.page.wait_for_timeout(800)
+                await self.page.wait_for_timeout(600)
                 break
         # "Create Backorder?" dialog
         for btn_text in ["No Backorder", "No Transfer"]:
@@ -319,7 +329,7 @@ class OdooTestHelper:
                 f".o_dialog button:has-text('{btn_text}')",
                 timeout=2500,
             ):
-                await self.page.wait_for_timeout(800)
+                await self.page.wait_for_timeout(600)
                 break
 
     async def create_simple_internal_transfer(
@@ -341,7 +351,7 @@ class OdooTestHelper:
             "button.o_list_button_add, button[name='action_picking_new']",
             timeout=8000,
         )
-        await self.page.wait_for_timeout(1000)
+        await self.page.wait_for_timeout(800)
 
         # Operation type may already be set; fill only if field is empty/editable
         op_field = self.page.locator('div[name="picking_type_id"] input')
@@ -353,7 +363,7 @@ class OdooTestHelper:
                     await self.page.fill('div[name="picking_type_id"] input', operation_type)
                     await self.page.keyboard.press("ArrowDown")
                     await self.page.keyboard.press("Enter")
-                    await self.page.wait_for_timeout(600)
+                    await self.page.wait_for_timeout(400)
             except Exception:
                 pass
 
@@ -371,7 +381,7 @@ class OdooTestHelper:
                         await field.first.fill(location_val)
                         await self.page.keyboard.press("ArrowDown")
                         await self.page.keyboard.press("Enter")
-                        await self.page.wait_for_timeout(400)
+                        await self.page.wait_for_timeout(300)
                 except Exception:
                     pass
 
@@ -391,15 +401,15 @@ class OdooTestHelper:
                 break
         if not added_line:
             raise AssertionError("Could not find button to add product line")
-        await self.page.wait_for_timeout(400)
+        await self.page.wait_for_timeout(300)
         prod_field = self.page.locator('div[name="product_id"] input')
         if await prod_field.count() > 0:
             await prod_field.first.click()
             await prod_field.first.fill(product_name)
-            await self.page.wait_for_timeout(600)
+            await self.page.wait_for_timeout(500)
             await self.page.keyboard.press("ArrowDown")
             await self.page.keyboard.press("Enter")
-            await self.page.wait_for_timeout(600)
+            await self.page.wait_for_timeout(500)
 
         # Set quantity (demand or done field)
         qty_field = self.page.locator(
@@ -410,7 +420,7 @@ class OdooTestHelper:
             await self.page.keyboard.press("Control+A")
             await self.page.keyboard.type(qty)
             await self.page.keyboard.press("Tab")
-            await self.page.wait_for_timeout(400)
+            await self.page.wait_for_timeout(300)
 
         # Validate
         await self.require_click('button[name="button_validate"]', timeout=5000)
@@ -431,12 +441,10 @@ class OdooTestHelper:
             "[class*='Chatter']",
         ]
 
-        chatter_found = False
         for selector in chatter_selectors:
             try:
                 loc = self.page.locator(selector).first
                 await loc.wait_for(state="visible", timeout=5000)
-                chatter_found = True
                 break
             except Exception:
                 pass
@@ -446,17 +454,16 @@ class OdooTestHelper:
         while time.time() < deadline:
             if expected_text in await self.page.content():
                 return
-            await self.page.wait_for_timeout(500)
+            await self.page.wait_for_timeout(400)
         raise AssertionError(
             f"Chatter text '{expected_text}' not found; url={self.page.url}"
         )
 
     async def followers_contains(self, expected_name: str) -> None:
         """Check that expected_name is a visible follower on the current record."""
-        await self.page.wait_for_timeout(500)
+        await self.page.wait_for_timeout(300)
 
         # Try to click the followers button to open the panel
-        followers_button_found = False
         for selector in [
             "button[class*='Followers'], button[class*='followers']",
             ".o-mail-Followers-button",
@@ -465,33 +472,25 @@ class OdooTestHelper:
             "button:has-text('Followers')",
         ]:
             if await self.click_if_visible(selector, timeout=2000):
-                followers_button_found = True
                 break
 
-        await self.page.wait_for_timeout(1000)
+        await self.page.wait_for_timeout(600)
 
         # Check page content for the follower name
-        # Since followers can be displayed as labels/pills in a panel
         deadline = time.time() + 10
         while time.time() < deadline:
             page_content = await self.page.content()
 
-            # Look for the name in contexts that suggest it's a follower
-            # (in a followers panel, sidebar, or modal)
             if expected_name in page_content:
-                # Verify it's in a follower-related context, not just topbar
-                # Check if we're in a dialog/modal (followers panel)
                 is_in_modal = ".modal" in page_content or ".o_dialog" in page_content
                 is_in_follower_section = "follower" in page_content.lower() or "Following" in page_content
 
                 if is_in_follower_section or is_in_modal:
-                    # Double-check with visible element
                     elements = self.page.locator(f"text={expected_name}")
                     count = await elements.count()
                     for i in range(count):
                         try:
                             if await elements.nth(i).is_visible(timeout=300):
-                                # Verify it's not the topbar login name
                                 elem = elements.nth(i)
                                 parent_html = await elem.locator("..").inner_html()
                                 if "oe_topbar_name" not in parent_html:
@@ -509,7 +508,10 @@ class OdooTestHelper:
         assert await self.page.locator(selector).count() == 0
 
 
-@pytest_asyncio.fixture
+# Session-scoped fixtures: one browser + one page for the entire test run.
+# login_as() caches the current user and skips the login form when the same
+# user is requested again, cutting per-test overhead from ~15 s to ~2 s.
+@pytest_asyncio.fixture(scope="session")
 async def browser():
     playwright = await async_playwright().start()
     browser = await playwright.chromium.launch(headless=HEADLESS, timeout=30000)
@@ -524,7 +526,7 @@ async def browser():
         pass
 
 
-@pytest_asyncio.fixture
+@pytest_asyncio.fixture(scope="session")
 async def page(browser):
     context = await browser.new_context(viewport={"width": 1920, "height": 1080})
     page = await context.new_page()
@@ -532,7 +534,7 @@ async def page(browser):
     await context.close()
 
 
-@pytest.fixture
+@pytest.fixture(scope="session")
 def helper(page):
     return OdooTestHelper(page)
 
