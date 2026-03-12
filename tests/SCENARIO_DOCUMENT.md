@@ -19,9 +19,9 @@
 | # | User | Login | Department | Key Odoo Groups |
 |---|------|-------|------------|-----------------|
 | 1 | **Manohar Kalbhor** | manohar.kalbhor@elegomotors.com | Admin / Approvals | ERP Manager, Purchase Manager, Sales Manager, Stock Manager, MRP User + Routings, Accounting User |
-| 2 | **Amit Kale** | storeelegomotors@gmail.com | Store Manager | Stock Manager, Purchase User, MRP User + Routings, Sale Salesman, Billing User (group_account_invoice), group_store_billing |
+| 2 | **Amit Kale** | storeelegomotors@gmail.com | Store Manager | Stock Manager, Purchase User (view only — no create), MRP User + Routings, Sale Salesman (view only — no create), Billing User (group_account_invoice), group_store_billing — no Quality group, no product create rights |
 | 3 | **Prashant Khedkar** | NPD@elegomotors.com | Purchase | Purchase User, MRP User, Stock User |
-| 4 | **Rajshri Kadam** | elegoac@gmail.com | Accounts | Accounting User, Purchase User, Sales Manager, MRP User, Stock User |
+| 4 | **Rajshri Kadam** | elegoac@gmail.com | Accounts | Accounting User, Purchase User (view only — no create), Sales Manager, Stock User |
 | 5 | **Srushti Gund** | hrelegomotors@gmail.com | HR | HR Manager, Attendance Manager, Time Off Responsible |
 | 6 | **Pratik Gund** | quality.elego23@gmail.com | Quality / Manufacturing | group_manufacturing_operator (implies MRP User), MRP Routings, Stock Manager, Quality Manager |
 | 7 | **Tushar Gaikwad** | leads@elegomotors.com | Sales / CRM | Sale Salesman, Stock User |
@@ -35,13 +35,13 @@
 | Module | Manohar | Amit | Prashant | Rajshri | Srushti | Pratik | Tushar |
 |--------|---------|------|----------|---------|---------|--------|--------|
 | Settings | Full (ERP Manager) | No Access | No Access | No Access | No Access | No Access | No Access |
-| Purchase | Full | Full | Full | Full | No Access | No Access | No Access |
+| Purchase | Full | View Only (no create / edit / confirm) | Full | View Only (no create / edit / confirm) | No Access | No Access | No Access |
 | Sales / CRM | Full | View Only (own SOs via salesman) | No Access | Full | No Access | No Access | Full (own) |
 | Inventory | Full | Full | View Only | View Only | No Access | Full | View Only |
-| Manufacturing | Full | Full | Full (BOM + view MO) | Full | No Access | Full | No Access |
+| Manufacturing | Full | Full | Full (BOM + view MO) | No Access | No Access | Full | No Access |
 | Accounting | Full | Customer Invoices and Vendor Bills only (Billing group — no payments, no reports) | No Access | Full | No Access | No Access | No Access |
 | HR / Employees | No Access | No Access | No Access | No Access | Full | No Access | No Access |
-| Quality | Full | Full | Full | Full | No Access | Full | No Access |
+| Quality | Full | No Access | Full | No Access | No Access | Full | No Access |
 
 ---
 
@@ -49,12 +49,12 @@
 
 | Action | Manohar | Amit | Prashant | Rajshri | Srushti | Pratik | Tushar |
 |--------|---------|------|----------|---------|---------|--------|--------|
-| View POs | Full | Full | Full | Full | No Access | No Access | No Access |
-| Create PO | Full | Full | Full | Full | No Access | No Access | No Access |
-| Edit PO (before confirm) | Full | Full | Full | Full | No Access | No Access | No Access |
-| Confirm PO (send to approve) | Full | Full | Full | Full | No Access | No Access | No Access |
+| View POs | Full | View Only | Full | View Only | No Access | No Access | No Access |
+| Create PO | Full | No Access | Full | No Access | No Access | No Access | No Access |
+| Edit PO (before confirm) | Full | No Access | Full | No Access | No Access | No Access | No Access |
+| Confirm PO (send to approve) | Full | No Access | Full | No Access | No Access | No Access | No Access |
 | Approve PO — 2-step | Full (Purchase Manager — Exclusive) | No Access | No Access | No Access | No Access | No Access | No Access |
-| Send PO by Email | Full | Full | Full | Full | No Access | No Access | No Access |
+| Send PO by Email | Full | No Access | Full | No Access | No Access | No Access | No Access |
 | Receive goods against PO (Gate Entry) | Full | Full (primary) | No Access | No Access | No Access | No Access | No Access |
 
 ---
@@ -77,12 +77,12 @@
 
 | Action | Manohar | Amit | Prashant | Rajshri | Srushti | Pratik | Tushar |
 |--------|---------|------|----------|---------|---------|--------|--------|
-| View MOs | Full | Full | Full | Full | No Access | Full | No Access |
-| Create MO | Full | Full | Full | Full | No Access | Full | No Access |
-| Confirm MO | Full | Full | Full | Full | No Access | Full | No Access |
-| View Work Orders | Full | Full | Full | Full | No Access | Full | No Access |
+| View MOs | Full | Full | Full | No Access | No Access | Full | No Access |
+| Create MO | Full | Full | Full | No Access | No Access | Full | No Access |
+| Confirm MO | Full | Full | Full | No Access | No Access | Full | No Access |
+| View Work Orders | Full | Full | Full | No Access | No Access | Full | No Access |
 | Produce All / Mark as Done | No Access | No Access | No Access | No Access | No Access | Full (Exclusive — group_manufacturing_operator) | No Access |
-| Create / Edit BOM | Full | Full | Full | Full | No Access | Full | No Access |
+| Create / Edit BOM | Full | Full | Full | No Access | No Access | Full | No Access |
 | Issue Material to Production | Full | Full (primary) | No Access | No Access | No Access | Full | No Access |
 
 ---
@@ -91,8 +91,8 @@
 
 | Action | Manohar | Amit | Prashant | Rajshri | Srushti | Pratik | Tushar |
 |--------|---------|------|----------|---------|---------|--------|--------|
-| View stock products | Full | Full | Full | Full | No Access | Full | View Only |
-| View all transfers | Full | Full | Full | Full | No Access | Full | View Only |
+| View stock products | Full | Full | Full | View Only | No Access | Full | View Only |
+| View all transfers | Full | Full | Full | View Only | No Access | Full | View Only |
 | Validate Gate Entry receipt | Full | Full (primary) | No Access | No Access | No Access | Full | No Access |
 | Validate QC Pass to Store | Full | Full | No Access | No Access | No Access | Full (primary) | No Access |
 | Validate QC Fail to Quarantine | Full | Full | No Access | No Access | No Access | Full (primary) | No Access |
@@ -101,7 +101,7 @@
 | Validate Delivery (PDI + Dispatch) | Full | Full (primary) | No Access | No Access | No Access | No Access | No Access |
 | Return to Vendor (RTV) | Full | Full | Full (process) | No Access | No Access | Full | No Access |
 | Warehouse / Location configuration | Full | Full (Stock Manager) | No Access | No Access | No Access | No Access | No Access |
-| Inventory adjustment (Physical) | Full | Full | No Access | Full | No Access | No Access | No Access |
+| Inventory adjustment (Physical) | Full | Full | No Access | No Access | No Access | No Access | No Access |
 
 ---
 
@@ -146,7 +146,7 @@
 | P03 | Manohar | Approve a PO in 2-step flow | PO moves to Purchase Order (confirmed) state |
 | P04 | Manohar | Approve a SO in 2-step flow | SO moves to Sale (confirmed) state |
 | P05 | Amit | Open Inventory | Inventory overview loads |
-| P06 | Amit | Open Purchase | Purchase order list loads |
+| P06 | Amit | Open Purchase | Purchase order list loads (read-only — New button absent) |
 | P07 | Amit | Open Accounting | Accounting module loads (Billing group grants access) |
 | P08 | Amit | View Customer Invoices | Invoice list is visible and readable |
 | P09 | Amit | View Vendor Bills | Vendor bill list is visible and readable |
@@ -180,9 +180,16 @@
 | N02 | Amit | Register Payment on Customer Invoice | Register Payment button not shown — Amit has Billing group only, not Accounting User |
 | N03 | Amit | Edit price_unit or discount on Customer Invoice | Fields render as read-only — group_store_billing view restriction applies |
 | N04 | Amit | Approve PO | Approve button not visible — only Purchase Manager (Manohar) can approve |
+| N17 | Amit | Create a Purchase Order | New button absent on PO list — Amit has view-only Purchase access |
+| N18 | Amit | Edit an existing Purchase Order | Fields are read-only — Amit cannot modify POs |
 | N05 | Prashant | Create a Sales Order | New button absent on SO list — no Sale Salesman or Sale Manager group |
 | N06 | Prashant | Open Accounting or view Invoices | Missing Action or Access Error — no account group assigned |
 | N07 | Rajshri | Click Produce All or Mark as Done on MO | Button not visible — access restricted to group_manufacturing_operator |
+| N19 | Rajshri | Open Manufacturing module | Missing Action or Access Error — no MRP group |
+| N20 | Rajshri | Open Quality module | Missing Action or Access Error — no Quality group |
+| N21 | Rajshri | Create a Purchase Order | New button absent — view-only Purchase access |
+| N22 | Amit | Open Quality module | Missing Action or Access Error — no Quality group |
+| N23 | Amit | Create a new Product | Access Error — product creation restricted to admin account only |
 | N08 | Manohar | Click Produce All on MO (not in manufacturing_operator group) | Button not visible or AccessError — Manohar is MRP User but not Manufacturing Operator |
 | N09 | Srushti | Open Inventory | Missing Action or Access Error — no stock group |
 | N10 | Srushti | Open Manufacturing | Missing Action or Access Error — no MRP group |
@@ -394,6 +401,15 @@
 | Suite 11 | test_inward_qc_control_point_exists | Diagram Problem 2 — Gate Entry inward QC control point exists |
 | Suite 11 | test_issue_to_production_step_before_manufacture | Diagram Problem 3 — MO has transfer tracking for issued components |
 | Suite 11 | test_amit_issues_material_before_production | Diagram Problem 3 — Issue-to-Production must complete before Produce All |
+| Suite 11 | test_amit_cannot_create_purchase_order | N17 — Amit view-only Purchase, cannot create PO |
+| Suite 11 | test_amit_cannot_create_sale_order | N18 — Amit view-only Sales, cannot create SO |
+| Suite 11 | test_amit_has_no_quality_access | N22 — Amit Quality module blocked |
+| Suite 11 | test_amit_cannot_create_product | N23 — Amit cannot create Products |
+| Suite 11 | test_rajshri_has_no_manufacturing_access | N19 — Rajshri Manufacturing module blocked |
+| Suite 11 | test_rajshri_has_no_quality_access | N20 — Rajshri Quality module blocked |
+| Suite 11 | test_rajshri_cannot_create_purchase_order | N21 — Rajshri view-only Purchase, cannot create PO |
+| Suite 11 | test_rajshri_can_view_purchase_orders | P-CP3 — Rajshri can still read PO list and form |
+| Suite 11 | test_rajshri_has_full_accounting_access | P14 / P-CP4 — Rajshri full Accounting + Journal Entries |
 | Suite 11 | test_fg_available_yes_branch | Diagram D-W1 — Approved SO creates delivery when FG is in stock |
 | Suite 11 | test_fg_available_no_branch | Diagram D-W2 — MO created when FG is not available |
 | Suite 11 | test_post_production_qc_fail_wip_hold | Diagram D-W3 — Post-production QC fail sends unit to Quarantine (WIP/Hold) |
