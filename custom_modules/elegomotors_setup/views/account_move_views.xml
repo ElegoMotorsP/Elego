@@ -27,9 +27,14 @@
         <field name="inherit_id" ref="account.view_move_form"/>
         <field name="arch" type="xml">
 
-            <!-- Inject the readonly indicator into the parent form (invisible) -->
+            <!-- Inject the readonly indicator into the parent form.
+                 The expression is non-constant so Odoo 17 does not flag it as
+                 "always invisible"; the field is still hidden from the UI but
+                 its value remains accessible via parent.store_billing_readonly
+                 in the invoice_line_ids list. -->
             <field name="invoice_line_ids" position="before">
-                <field name="store_billing_readonly" invisible="True"/>
+                <field name="store_billing_readonly"
+                       invisible="store_billing_readonly or not store_billing_readonly"/>
             </field>
 
             <!-- Unit price — readonly when parent.store_billing_readonly is True -->

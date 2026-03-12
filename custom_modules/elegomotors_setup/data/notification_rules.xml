@@ -156,7 +156,10 @@ if partners:
             <field name="name">EGO: Subscribe Finance+Sales — Customer Invoice Created</field>
             <field name="model_id" ref="account.model_account_move"/>
             <field name="trigger">on_create</field>
-            <field name="filter_domain">[('move_type', '=', 'out_invoice')]</field>
+            <!-- invoice_origin is set when an invoice is generated from a Sale Order.
+                 Direct-create invoices (including those created by Odoo's own test suite)
+                 have no origin, so this prevents polluting test followers. -->
+            <field name="filter_domain">[('move_type', '=', 'out_invoice'), ('invoice_origin', '!=', False)]</field>
             <field name="active" eval="True"/>
             <field name="action_server_ids" eval="[(4, ref('act_subscribe_invoice'))]"/>
         </record>
@@ -183,7 +186,9 @@ if partners:
             <field name="name">EGO: Subscribe Finance+Purchase — Vendor Bill Created</field>
             <field name="model_id" ref="account.model_account_move"/>
             <field name="trigger">on_create</field>
-            <field name="filter_domain">[('move_type', '=', 'in_invoice')]</field>
+            <!-- invoice_origin is set when a vendor bill is generated from a Purchase Order.
+                 Test-suite bills created directly (no origin) are excluded. -->
+            <field name="filter_domain">[('move_type', '=', 'in_invoice'), ('invoice_origin', '!=', False)]</field>
             <field name="active" eval="True"/>
             <field name="action_server_ids" eval="[(4, ref('act_subscribe_vendor_bill'))]"/>
         </record>
