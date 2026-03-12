@@ -2472,24 +2472,28 @@ async def test_full_inward_qc_chain(helper, shared_state):
 # Implements permission changes from current_problems.txt:
 #
 #   Amit Kale (Store Manager):
-#     - Purchase view only — cannot create new POs           (N-CP1)
+#     - Purchase view only — cannot create new POs           (N-CP1 / N17)
 #     - Sales view only — cannot create new SOs              (N-CP2)
 #     - Can still view existing POs                          (P-CP1)
 #     - Can still view existing SOs                          (P-CP2)
-#     - No quality access — Quality menu not visible         (N-CP3)
+#     - No quality access — Quality menu not visible         (N-CP3 / N22)
 #     - Invoicing only — Vendor Bills not accessible         (N-CP4)
+#     - Product creation blocked — admin only                (N-CP7 / N23)
 #
 #   Rajshri Kadam (Accounts):
-#     - No manufacturing — MRP menu not visible              (N-CP5)
-#     - Purchase view only — cannot create new POs           (N-CP6)
+#     - No manufacturing — MRP menu not visible              (N-CP5 / N19)
+#     - No quality — Quality menu not visible                (N-CP8 / N20)
+#     - Purchase view only — cannot create new POs           (N-CP6 / N21)
 #     - Can still view existing POs                          (P-CP3)
 #     - Full accounting access retained                      (P-CP4)
 #
 # The enforcement is in:
 #   models/purchase_order.py — create() raises AccessError for group_purchase_viewer
 #   models/sale_order.py     — create() raises AccessError for group_sale_viewer
-#   data/users_data.xml      — Amit: purchase_viewer + sale_viewer (not full user)
-#                              Rajshri: purchase_viewer, mrp.group_mrp_user removed
+#   data/users_data.xml      — Amit: purchase_viewer + sale_viewer, no quality group,
+#                                     no product.group_product_manager
+#                              Rajshri: purchase_viewer, mrp.group_mrp_user removed,
+#                                       quality group removed
 # ---------------------------------------------------------------------------
 
 
@@ -2880,3 +2884,106 @@ async def test_rajshri_has_full_accounting_access(helper):
         and "Missing Action" not in page_content
     ), "Rajshri must access Journal Entries (full accounting user, not just invoicing)"
     await helper.screenshot("rajshri_full_accounting_access")
+
+
+@pytest.mark.asyncio
+async def test_rajshri_has_no_quality_access(helper):
+    """Rajshri (Accounts) has no quality group — the Quality menu must not be visible.
+
+    Per current_problems.txt: 'No quality' for Rajshri.
+    Rajshri's groups_id does not include quality.group_quality_manager or
+    quality.group_quality_user. Navigating to /odoo/quality must return an
+    Access Error, Missing Action, or redirect away.
+    Scenario: N20 / N-CP8.
+    """
+    await helper.login_as("rajshri")
+    base = helper.page.url.split("/odoo")[0]
+    await helper.page.goto(f"{base}/odoo/quality")
+    await helper.page.wait_for_timeout(2000)
+
+    page_content = await helper.page.content()
+    assert (
+        "Access Error" in page_content
+        or "Missing Action" in page_content
+        or "403" in page_content
+        or helper.page.url.endswith("/odoo")
+        or "/odoo/quality" not in helper.page.url
+    ), (
+        "Rajshri must NOT have Quality access — quality group was removed from her profile"
+    )
+    await helper.screenshot("rajshri_no_quality_access")
+
+
+@pytest.mark.asyncio
+async def test_amit_cannot_create_product(helper):
+    """Amit (Store Manager) cannot create new Products.
+
+    Per current_problems.txt: 'Product creation with admin account, not to store.'
+    Amit must not see a New button on the product list, and a direct
+    navigation to the new-product form must either redirect away or raise
+    an Access Error when the form is saved.
+    Scenario: N23 / N-CP7.
+    """
+    await helper.login_as("amit")
+    base = helper.page.url.split("/odoo")[0]
+
+    # 1. Check that the New button is absent on the product list
+    await helper.page.goto(f"{base}/odoo/inventory/products")
+    await helper.page.wait_for_timeout(2000)
+
+    page_content = await helper.page.content()
+    if "Access Error" in page_content or "Missing Action" in page_content:
+        await helper.screenshot("amit_no_product_create_access_error")
+        return
+
+    new_btn_count = await helper.page.locator(
+        'button.o_list_button_add, a.o_list_button_add, button:has-text("New")'
+    ).count()
+    if new_btn_count == 0:
+        await helper.screenshot("amit_no_new_product_button")
+        return
+
+    # 2. If the New button is present, navigate directly to the new-product form
+    #    and attempt to save — the backend create() must raise AccessError
+    await helper.page.goto(f"{base}/odoo/inventory/products/new")
+    await helper.page.wait_for_timeout(2000)
+
+    page_content = await helper.page.content()
+    if "Access Error" in page_content or "Access Denied" in page_content:
+        await helper.screenshot("amit_product_create_blocked_nav")
+        return
+
+    # Fill minimum required field (product name) and try to save
+    name_input = helper.page.locator('input[id="name"], div[name="name"] input').first
+    if await name_input.count() > 0:
+        await name_input.fill("TEST_AMIT_PRODUCT_SHOULD_FAIL")
+        await helper.page.wait_for_timeout(500)
+
+    save_btn = helper.page.locator(
+        'button[name="save_manually"], button.o_form_button_save, button:has-text("Save")'
+    ).first
+    if await save_btn.count() > 0:
+        await save_btn.click()
+        await helper.page.wait_for_timeout(1500)
+        page_content = await helper.page.content()
+        assert (
+            "Access Error" in page_content
+            or "Access Denied" in page_content
+            or "cannot create" in page_content.lower()
+            or "not allowed" in page_content.lower()
+        ), (
+            "Amit must NOT be able to create a new Product — "
+            "product creation is restricted to the admin account"
+        )
+        await helper.screenshot("amit_product_create_blocked_save")
+        return
+
+    # If we reach here with no save button visible, the form itself was blocked
+    assert (
+        "Access Error" in page_content
+        or "/odoo/inventory/products/new" not in helper.page.url
+    ), (
+        "Amit must NOT reach a usable new-product form — "
+        "product creation is restricted to the admin account"
+    )
+    await helper.screenshot("amit_product_create_blocked")
