@@ -1244,6 +1244,7 @@ async def test_po_created_subscribes_prashant(helper):
     await create_purchase_order(helper)
     try:
         await helper.followers_contains("Prashant")
+        await helper.followers_contains("Manohar")
     except AssertionError:
         pytest.skip("Follower subscription automation not configured")
 
@@ -1268,6 +1269,8 @@ async def test_picking_created_subscribes_amit(helper):
         pytest.skip(f"Could not create transfer: {str(e)}")
     try:
         await helper.followers_contains("Amit")
+        await helper.followers_contains("Prashant")
+        await helper.followers_contains("Pratik")
     except AssertionError:
         pytest.skip("Follower subscription automation not configured")
 
@@ -1294,13 +1297,14 @@ async def test_customer_invoice_subscribes_rajshri_tushar(helper):
         await helper.followers_contains("Rajshri")
         await helper.followers_contains("Tushar")
         await helper.followers_contains("Amit")
+        await helper.followers_contains("Manohar")
     except AssertionError:
         pytest.skip("Follower subscription automation not configured")
 
 
 @pytest.mark.asyncio
 async def test_vendor_bill_subscribes_rajshri_prashant(helper):
-    """Vendor bill creation subscribes Rajshri (Finance), Prashant (Purchase), and Amit (Store)."""
+    """Vendor bill creation subscribes Rajshri (Finance), Prashant (Purchase), and Manohar (Admin)."""
     await helper.login_as("rajshri")
     await helper.open_vendor_bills()
     if await helper.page.locator("tr.o_data_row").count() > 0:
@@ -1309,7 +1313,7 @@ async def test_vendor_bill_subscribes_rajshri_prashant(helper):
         try:
             await helper.followers_contains("Rajshri")
             await helper.followers_contains("Prashant")
-            await helper.followers_contains("Amit")
+            await helper.followers_contains("Manohar")
         except AssertionError:
             pytest.skip("Follower subscription automation not configured")
     else:
@@ -1342,6 +1346,7 @@ async def test_notify_po_to_approve(helper):
     await helper.login_as("prashant")
     await create_purchase_order(helper)
     await helper.chatter_contains("Awaiting Approval")
+    await helper.chatter_contains("Manohar")
 
 
 @pytest.mark.asyncio
@@ -1412,6 +1417,9 @@ async def test_notify_mo_done(helper):
     assert any(
         kw in page_content for kw in ["Manufacturing Complete", "Done", "To Close", "Produce"]
     ), f"MO done notification not found; done_clicked={done_clicked}; url={helper.page.url}"
+    # Prashant (Purchase) is now notified on MO Done; Tushar (Sales) is no longer notified
+    assert "Prashant" in page_content or "Purchase" in page_content, \
+        "MO Done: expected Purchase/Prashant mention in notification"
     await helper.screenshot("notify_mo_done")
 
 
@@ -1448,6 +1456,9 @@ async def test_notify_gate_entry_validated(helper):
     assert any(
         kw in page_content for kw in ["Gate Entry Validated", "Material Gate Entry", "Done"]
     ), f"Gate Entry notification not found; url={helper.page.url}"
+    # Pratik (Quality) is now notified on Gate Entry Validated
+    assert "Pratik" in page_content or "Quality" in page_content, \
+        "Gate Entry: expected Pratik/Quality mention in notification"
     await helper.screenshot("notify_gate_entry_validated")
 
 
