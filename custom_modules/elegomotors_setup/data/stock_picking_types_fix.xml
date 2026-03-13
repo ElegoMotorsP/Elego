@@ -48,5 +48,38 @@
             They do not need to be set as the warehouse's primary in/out types.
         -->
 
+        <!-- ================================================================
+             13-Mar access control: set group_id on operation types to
+             restrict which users see the card in the Inventory Overview and
+             can create/validate transfers of that type.
+
+             Gate Entry + Issue to Production → group_inbound_operator
+                 Members: Amit, Manohar
+                 Excluded: Pratik (loses both in 13-Mar update)
+
+             QC Pass → Store → group_qc_pass_operator
+                 Members: Pratik, Manohar
+                 Excluded: Amit (loses QC Pass in 13-Mar update)
+
+             FG to Finished Goods Store → group_fg_transfer_operator
+                 Members: Pratik, Prashant, Manohar
+                 Excluded: Amit (loses FG transfer; Prashant gains it)
+        ================================================================ -->
+        <record id="elegomotors_setup.picking_type_gate_entry" model="stock.picking.type">
+            <field name="group_id" ref="elegomotors_setup.group_inbound_operator"/>
+        </record>
+
+        <record id="elegomotors_setup.picking_type_production_issue" model="stock.picking.type">
+            <field name="group_id" ref="elegomotors_setup.group_inbound_operator"/>
+        </record>
+
+        <record id="elegomotors_setup.picking_type_qc_to_store" model="stock.picking.type">
+            <field name="group_id" ref="elegomotors_setup.group_qc_pass_operator"/>
+        </record>
+
+        <record id="elegomotors_setup.picking_type_fg_to_stock" model="stock.picking.type">
+            <field name="group_id" ref="elegomotors_setup.group_fg_transfer_operator"/>
+        </record>
+
     </data>
 </odoo>

@@ -28,12 +28,16 @@
              Responsibilities: PO approval (2-step), item/vendor approval,
                                dealer creation, MIS reports across all depts.
              Groups:
-               • ERP Manager       — access to Settings + all installed apps
-               • Purchase Manager  — PO 2-step approval authority
-               • Sales Manager     — sales pipeline + SO oversight
-               • Stock Manager     — warehouse creation, inventory config
-               • MRP User          — production + BOM oversight
-               • Accounting User   — financial reports, journals, P&L
+               • ERP Manager            — access to Settings + all installed apps
+               • Purchase Manager       — PO 2-step approval authority
+               • Sales Manager          — sales pipeline + SO oversight
+               • Stock Manager          — warehouse creation, inventory config
+               • MRP User + Routings    — production + BOM oversight
+               • Accounting User        — financial reports, journals, P&L
+               • HR User                — view/manage Employee records (13-Mar)
+               • Inbound Operator       — Gate Entry + Issue to Production (13-Mar)
+               • QC Pass Operator       — QC Pass → Store transfers (13-Mar)
+               • FG Transfer Operator   — FG to Finished Goods transfers (13-Mar)
              ============================================================ -->
         <record id="user_ego_manohar" model="res.users">
             <field name="name">Manohar Kalbhor</field>
@@ -53,6 +57,10 @@
                     ref('mrp.group_mrp_user'),
                     ref('mrp.group_mrp_routings'),
                     ref('account.group_account_user'),
+                    ref('hr.group_hr_user'),
+                    ref('elegomotors_setup.group_inbound_operator'),
+                    ref('elegomotors_setup.group_qc_pass_operator'),
+                    ref('elegomotors_setup.group_fg_transfer_operator'),
                 ]),
             ]"/>
         </record>
@@ -83,6 +91,8 @@
                                        makes price_unit + discount read-only
              NOTE: mrp.group_mrp_user REMOVED — Amit cannot produce MOs.
              NOTE: quality group REMOVED — Amit has no quality access.
+             NOTE: group_qc_pass_operator NOT assigned (13-Mar) — Amit can no
+             longer validate QC Pass → Store transfers (only Pratik/Manohar).
              Products must be created by Manohar (Admin), not Amit.
              ============================================================ -->
         <record id="user_ego_amit" model="res.users">
@@ -101,6 +111,7 @@
                     ref('elegomotors_setup.group_sale_viewer'),
                     ref('account.group_account_invoice'),
                     ref('elegomotors_setup.group_store_billing'),
+                    ref('elegomotors_setup.group_inbound_operator'),
                 ]),
             ]"/>
         </record>
@@ -110,12 +121,21 @@
              Responsibilities: PO creation, item/vendor/HSN creation,
                                terms & conditions, purchase pricing,
                                rejection/return to vendor, BOM creation.
-             Views: Inventory reports, production reports.
+             Views: Inventory reports, production reports, Vendor Bills (view).
              Groups:
-               • Purchase User     — PO creation and management
-               • MRP User          — BOM creation + production view
-                                     (BOM access requires MRP module)
-               • Stock User        — inventory reports, current stock view
+               • Purchase User              — PO creation and management
+               • Manufacturing Operator     — Produce All / Mark as Done on MOs
+                                              (13-Mar: Prashant gains production
+                                              completion authority alongside Pratik)
+                                              implies mrp.group_mrp_user
+               • Stock User                 — inventory reports, current stock view
+               • Purchase Vendor Bill Viewer — read-only access to Vendor Bills
+                                              (13-Mar: Prashant gains view access)
+                                              implies account.group_account_invoice;
+                                              record rule restricts to in_invoice/in_refund;
+                                              Python create() block prevents new bill creation
+             NOTE: mrp.group_mrp_user is now implied by group_manufacturing_operator,
+             so it is no longer listed separately here.
              ============================================================ -->
         <record id="user_ego_prashant" model="res.users">
             <field name="name">Prashant Khedkar</field>
@@ -129,8 +149,10 @@
                 (6, 0, [
                     ref('base.group_user'),
                     ref('purchase.group_purchase_user'),
-                    ref('mrp.group_mrp_user'),
+                    ref('elegomotors_setup.group_manufacturing_operator'),
                     ref('stock.group_stock_user'),
+                    ref('elegomotors_setup.group_fg_transfer_operator'),
+                    ref('elegomotors_setup.group_purchase_vendor_bill_viewer'),
                 ]),
             ]"/>
         </record>
@@ -139,7 +161,6 @@
              4. ACCOUNTS — Rajshri Kadam
              Responsibilities: Payments (send/receive — EXCLUSIVE), SO
                                approval (2-step alongside Manohar),
-                               customer/dealer creation, sales returns,
                                JV entries, purchase bill booking, all
                                account reports.
              Views: PO (view only), Sales Orders (approval authority),
@@ -153,6 +174,10 @@
                                      Sale Salesman (view SOs for invoice
                                      matching)
                • Stock User        — inventory view + stock valuation reports
+               • Sale Approver     — marker group; sale_order.py create()
+                                     blocks SO creation for this group so
+                                     Rajshri can APPROVE but NOT CREATE SOs
+                                     (13-Mar: Rajshri loses Create Quotation)
              NOTE: mrp.group_mrp_user REMOVED — Rajshri has no manufacturing
              access. Production menus are not visible to her.
              NOTE: quality group NOT added — Rajshri has no quality access.
@@ -172,6 +197,7 @@
                     ref('elegomotors_setup.group_purchase_viewer'),
                     ref('sales_team.group_sale_manager'),
                     ref('stock.group_stock_user'),
+                    ref('elegomotors_setup.group_sale_approver'),
                 ]),
             ]"/>
         </record>
@@ -212,28 +238,29 @@
         <!-- ============================================================
              6. QUALITY & MANUFACTURING — Pratik Gund
              Responsibilities:
-               Inward QC:       inspect material at QC Inward location,
-                                pass → validate QC Pass → Store transfer,
-                                fail → validate QC Fail → Quarantine transfer.
-               Manufacturing:   validate "Issue to Production" transfer
-                                (acknowledges material receipt at floor),
-                                click Produce All on MO (EXCLUSIVE — via
-                                group_manufacturing_operator),
-                                validate FG → Finished Goods transfer.
                Post-Prod QC:    quality check form on FG transfer —
                                 pass → FG moves to Finished Goods,
                                 fail → stay in Production WIP / raise alert.
+               Manufacturing:   click Produce All on MO (★ EXCLUSIVE via
+                                group_manufacturing_operator),
+                                validate FG → Finished Goods transfer,
+                                validate Delivery (PDI + Dispatch) (13-Mar).
+               Inward QC:       QC Pass → Store, QC Fail → Quarantine.
                Warranty:        inward/outward stock moves for warranty claims.
              Groups:
-               • Manufacturing Operator — EXCLUSIVE Produce All access on MOs;
+               • Manufacturing Operator — EXCLUSIVE Produce All on MOs;
                                           implies mrp.group_mrp_user
-               • MRP Routings          — keep for form access (no work orders
-                                          in BOM, but still useful for config)
                • Stock Manager         — validate QC transfers, scrap orders,
+                                          delivery validation (13-Mar gained),
                                           inward/outward warranty moves
                • Quality Manager       — quality.point / quality.check /
-                                          quality.alert management (Community
-                                          quality module, not Enterprise)
+                                          quality.alert management
+             NOTE: mrp.group_mrp_routings REMOVED (13-Mar) — Pratik no longer
+             needs visibility of the Work Orders tab on MOs. The Routings group
+             also granted Create/Edit BOM access which is now restricted to
+             Prashant/Manohar only.
+             NOTE: group_inbound_operator NOT assigned (13-Mar) — Pratik can no
+             longer access Gate Entry or Issue to Production operation types.
              ============================================================ -->
         <record id="user_ego_pratik" model="res.users">
             <field name="name">Pratik Gund</field>
@@ -247,9 +274,10 @@
                 (6, 0, [
                     ref('base.group_user'),
                     ref('elegomotors_setup.group_manufacturing_operator'),
-                    ref('mrp.group_mrp_routings'),
                     ref('stock.group_stock_manager'),
                     ref('quality.group_quality_manager'),
+                    ref('elegomotors_setup.group_qc_pass_operator'),
+                    ref('elegomotors_setup.group_fg_transfer_operator'),
                 ]),
             ]"/>
         </record>

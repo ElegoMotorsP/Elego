@@ -1,5 +1,6 @@
 # -*- coding: utf-8 -*-
 from odoo import api, fields, models
+from odoo.exceptions import AccessError
 
 
 class AccountMove(models.Model):
@@ -19,3 +20,19 @@ class AccountMove(models.Model):
         )
         for record in self:
             record.store_billing_readonly = is_store_billing
+
+    @api.model_create_multi
+    def create(self, vals_list):
+        # group_purchase_vendor_bill_viewer holders (Prashant) can read vendor
+        # bills but must not create new accounting entries.
+        if (
+            not self.env.su
+            and self.env.user.has_group(
+                'elegomotors_setup.group_purchase_vendor_bill_viewer'
+            )
+        ):
+            raise AccessError(
+                'Purchase viewers cannot create new accounting entries. '
+                'Ask Rajshri (Accounts) or Manohar (Admin) to create the bill.'
+            )
+        return super().create(vals_list)
