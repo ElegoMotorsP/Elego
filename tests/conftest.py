@@ -7,7 +7,7 @@ import pytest_asyncio
 from playwright.async_api import async_playwright
 
 
-BASE_URL = os.getenv("ODOO_URL", "https://elegomotors-updates-13-march-29657598.dev.odoo.com/")
+BASE_URL = os.getenv("ODOO_URL", "https://elegomotors-updates-13-march-29657598.dev.odoo.com")
 DATABASE = os.getenv("ODOO_DB", "elegomotors")
 SCREENSHOTS_DIR = os.getenv("EGO_SCREENSHOTS_DIR", "logs/screenshots")
 SCREENSHOTS_ENABLED = os.getenv("EGO_SCREENSHOTS", "0") == "1"
@@ -53,6 +53,27 @@ class OdooTestHelper:
         await self.page.goto(f"{BASE_URL}{path}")
         await self.page.wait_for_load_state("domcontentloaded")
 
+    async def _handle_user_chooser(self) -> None:
+        """Click 'Use another user' if Odoo shows the cached-session chooser dialog.
+
+        After clicking, waits for the login input to become visible so the caller
+        can fill credentials immediately without an extra wait.
+        """
+        try:
+            link = self.page.locator(
+                "a:has-text('Use another user'), "
+                "a:has-text('use another account'), "
+                "button:has-text('Use another user')"
+            )
+            await link.first.wait_for(state="visible", timeout=4000)
+            await link.first.click()
+            # Wait for the chooser to disappear and the actual login form to appear
+            await self.page.wait_for_selector(
+                'input[name="login"]', state="visible", timeout=10000
+            )
+        except Exception:
+            pass  # Chooser not present — normal login form already visible
+
     async def login_as(self, user_key: str) -> UserCred:
         user = USERS[user_key]
         if self._current_user == user_key:
@@ -62,7 +83,23 @@ class OdooTestHelper:
             await self.dismiss_popups()
             return user
 
+        # Explicitly logout the current session before switching users so
+        # Odoo does not accumulate cached sessions that trigger the chooser.
+        if self._current_user is not None:
+            try:
+                await self.goto("/web/session/logout")
+                await self.page.wait_for_load_state("domcontentloaded")
+            except Exception:
+                pass
+
         await self.goto("/web/login")
+        # Handle the "Choose a user" dialog that Odoo shows when multiple
+        # sessions are cached in the browser's localStorage.
+        await self._handle_user_chooser()
+        # Fallback wait — ensures the form is visible even if _handle_user_chooser
+        # returned early (chooser was not present or already dismissed).
+        await self.page.wait_for_selector('input[name="login"]', state="visible", timeout=15000)
+
         await self.page.fill('input[name="login"]', user.login)
         await self.page.fill('input[name="password"]', user.password)
         db_input = self.page.locator('input[name="db"]')
@@ -85,11 +122,17 @@ class OdooTestHelper:
             '.o_tour_pointer_tip button',
             'button.btn-close',
             '.modal-footer button.btn-secondary',
+            # Dismiss Odoo technical/warning modals (e.g. info dialogs during transfers)
+            '.o_technical_modal .modal-footer button.btn-primary',
+            '.o_technical_modal .modal-footer button:has-text("Ok")',
+            '.o_technical_modal .modal-footer button:has-text("OK")',
+            '.o_technical_modal button.btn-close',
         ]
         for selector in candidates:
             try:
                 if await self.page.locator(selector).first.is_visible(timeout=500):
                     await self.page.locator(selector).first.click()
+                    await self.page.wait_for_timeout(300)
             except Exception:
                 pass
 
@@ -410,6 +453,10 @@ class OdooTestHelper:
             await self.page.keyboard.press("ArrowDown")
             await self.page.keyboard.press("Enter")
             await self.page.wait_for_timeout(500)
+
+        # Dismiss any technical modal that may have appeared during product selection
+        await self.dismiss_popups()
+        await self.page.wait_for_timeout(300)
 
         # Set quantity (demand or done field)
         qty_field = self.page.locator(
