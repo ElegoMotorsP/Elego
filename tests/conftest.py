@@ -7,7 +7,7 @@ import pytest_asyncio
 from playwright.async_api import async_playwright
 
 
-BASE_URL = os.getenv("ODOO_URL", "https://elegomotors-updates-13-march-29657598.dev.odoo.com")
+BASE_URL = os.getenv("ODOO_URL", "https://elegomotors-updates-13-march-29668140.dev.odoo.com")
 DATABASE = os.getenv("ODOO_DB", "elegomotors")
 SCREENSHOTS_DIR = os.getenv("EGO_SCREENSHOTS_DIR", "logs/screenshots")
 SCREENSHOTS_ENABLED = os.getenv("EGO_SCREENSHOTS", "0") == "1"
@@ -268,7 +268,19 @@ class OdooTestHelper:
         await self.page.wait_for_timeout(600)
 
     async def open_vendor_bills(self) -> None:
-        """Navigate to Accounting > Vendors > Bills."""
+        """Navigate to Vendor Bills.
+
+        Tries the direct URL first — users with only account.group_account_invoice
+        (Billing) do not get the 'Vendors' top menu in Accounting, but can still
+        access the vendor bills action URL directly.  Falls back to menu navigation
+        for users with full Accountant / Manager access.
+        """
+        # Try the direct route first
+        await self.open_menu_url("/odoo/accounting/vendor-bills")
+        await self.page.wait_for_timeout(500)
+        if "Missing Action" not in await self.page.content():
+            return
+        # Fallback: navigate through the Vendors menu (Accountant users)
         await self.open_menu_url("/odoo/accounting")
         await self.page.wait_for_timeout(500)
         await self.require_click_any([
