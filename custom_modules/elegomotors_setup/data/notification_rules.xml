@@ -545,7 +545,10 @@ for rec in records.filtered(lambda m: m.move_type == 'out_invoice'):
             <field name="model_id" ref="account.model_account_move"/>
             <field name="trigger">on_write</field>
             <field name="filter_pre_domain">[('state', '!=', 'posted'), ('move_type', '=', 'out_invoice')]</field>
-            <field name="filter_domain">[('state', '=', 'posted'), ('move_type', '=', 'out_invoice')]</field>
+            <!-- invoice_origin is set when the invoice originates from a Sale Order.
+                 Direct-create invoices (including those in Odoo's own test suite) have
+                 no origin, so this prevents polluting test results with notification messages. -->
+            <field name="filter_domain">[('state', '=', 'posted'), ('move_type', '=', 'out_invoice'), ('invoice_origin', '!=', False)]</field>
             <field name="active" eval="True"/>
             <field name="action_server_ids" eval="[(4, ref('act_notify_invoice_posted'))]"/>
         </record>
@@ -590,7 +593,8 @@ for rec in records.filtered(lambda m: m.move_type == 'in_invoice'):
             <field name="model_id" ref="account.model_account_move"/>
             <field name="trigger">on_write</field>
             <field name="filter_pre_domain">[('state', '!=', 'posted'), ('move_type', '=', 'in_invoice')]</field>
-            <field name="filter_domain">[('state', '=', 'posted'), ('move_type', '=', 'in_invoice')]</field>
+            <!-- invoice_origin guard: same rationale as auto_invoice_posted above. -->
+            <field name="filter_domain">[('state', '=', 'posted'), ('move_type', '=', 'in_invoice'), ('invoice_origin', '!=', False)]</field>
             <field name="active" eval="True"/>
             <field name="action_server_ids" eval="[(4, ref('act_notify_vendor_bill_posted'))]"/>
         </record>
