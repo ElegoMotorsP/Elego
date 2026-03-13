@@ -3319,15 +3319,21 @@ async def test_amit_cannot_create_vendor_bill(helper):
     """Amit (Store) loses Create/Edit Vendor Bill.
 
     OLD: Amit=✓ for Create/Edit Vendor Bill. NEW: Amit=— (only Rajshri/Manohar create bills).
-    Amit can still VIEW vendor bills (group_account_invoice retained).
+    Amit has only account.group_account_invoice (Billing); that group does NOT expose
+    the 'Vendors' top menu in Accounting (which requires account.group_account_user).
+    The group_store_billing record rule also restricts Amit to out_invoice/out_refund.
     """
     await helper.login_as("amit")
-    await helper.open_vendor_bills()
-    await helper.assert_no_missing_action()  # Amit can still VIEW
-    btn = helper.page.locator("button.o_list_button_add")
-    if await btn.count() > 0:
-        pytest.skip("Amit still sees the New Vendor Bill button — Accounting User group not yet removed")
-    await helper.screenshot("amit_no_create_vendor_bill")
+    await helper.open_menu_url("/odoo/accounting")
+    await helper.page.wait_for_timeout(500)
+    # 'Vendors' menu must not be visible for a Billing-only user
+    vendors_visible = await helper.page.locator(
+        "button:has-text('Vendors'), a:has-text('Vendors')"
+    ).count() > 0
+    assert not vendors_visible, (
+        "Amit should NOT see the Vendors menu — only Billing (group_account_invoice) is assigned"
+    )
+    await helper.screenshot("amit_no_vendors_menu")
 
 
 # --- Inventory Physical Adjustment ---
