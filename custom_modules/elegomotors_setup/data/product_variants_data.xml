@@ -1,0 +1,77 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+    <!--
+        EGO-S1 Color Variants & Serial Tracking
+        =========================================
+        1. Defines a "Color" product attribute with 4 values.
+        2. Applies the attribute to the EGO-S1 scooter template,
+           creating one product.product variant per color.
+        3. Enables serial-number tracking on the finished product
+           so each scooter is produced one unit at a time.
+
+        noupdate="0" — re-applies on every module upgrade so that
+        adding new colors or changing tracking is reflected.
+    -->
+    <data noupdate="0">
+
+        <!-- ============================================================
+             COLOR ATTRIBUTE
+             ============================================================ -->
+
+        <record id="attr_color" model="product.attribute">
+            <field name="name">Color</field>
+            <field name="create_variant">always</field>
+        </record>
+
+        <!-- Attribute values -->
+        <record id="attr_val_black" model="product.attribute.value">
+            <field name="attribute_id" ref="attr_color"/>
+            <field name="name">Black</field>
+            <field name="sequence">1</field>
+        </record>
+
+        <record id="attr_val_white" model="product.attribute.value">
+            <field name="attribute_id" ref="attr_color"/>
+            <field name="name">White</field>
+            <field name="sequence">2</field>
+        </record>
+
+        <record id="attr_val_blue" model="product.attribute.value">
+            <field name="attribute_id" ref="attr_color"/>
+            <field name="name">Blue</field>
+            <field name="sequence">3</field>
+        </record>
+
+        <record id="attr_val_red" model="product.attribute.value">
+            <field name="attribute_id" ref="attr_color"/>
+            <field name="name">Red</field>
+            <field name="sequence">4</field>
+        </record>
+
+        <!-- ============================================================
+             APPLY COLOR ATTRIBUTE TO EGO-S1 TEMPLATE
+             Creates 4 product.product variants automatically.
+             ============================================================ -->
+
+        <record id="ptal_ego_color" model="product.template.attribute.line">
+            <field name="product_tmpl_id" ref="tmpl_ego_scooter"/>
+            <field name="attribute_id" ref="attr_color"/>
+            <field name="value_ids" eval="[
+                (4, ref('attr_val_black')),
+                (4, ref('attr_val_white')),
+                (4, ref('attr_val_blue')),
+                (4, ref('attr_val_red')),
+            ]"/>
+        </record>
+
+        <!-- ============================================================
+             ENABLE SERIAL NUMBER TRACKING
+             Forces qty=1 per produce operation — one unit at a time.
+             ============================================================ -->
+
+        <record id="tmpl_ego_scooter" model="product.template">
+            <field name="tracking">serial</field>
+        </record>
+
+    </data>
+</odoo>

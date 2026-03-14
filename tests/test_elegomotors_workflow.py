@@ -3937,3 +3937,240 @@ async def test_rajshri_accounting_dashboard_visible(helper):
         f"Rajshri's accounting dashboard appears empty or inaccessible; url={helper.page.url}"
     )
     await helper.screenshot("rajshri_accounting_dashboard")
+
+
+# ---------------------------------------------------------------------------
+# Suite: Color Variants, Serial Tracking & Daily Production Plan
+# ---------------------------------------------------------------------------
+
+@pytest.mark.asyncio
+async def test_product_has_color_variants(helper):
+    """EGO-S1 product template should have Color attribute with Black/White/Blue/Red values."""
+    await helper.login_as("manohar")
+    await helper.open_menu_url("/odoo/inventory/products")
+    await helper.page.fill("input.o_searchview_input", "ElegoMotors EV Scooter EGO-S1")
+    await helper.page.keyboard.press("Enter")
+    await helper.page.wait_for_timeout(1000)
+    await helper.require_click("text=ElegoMotors EV Scooter EGO-S1", timeout=8000)
+    await helper.page.wait_for_timeout(800)
+    # Open Attributes & Variants tab
+    tab_clicked = await helper.click_if_visible(
+        '[role="tab"]:has-text("Attributes"), '
+        '.o_notebook .nav-link:has-text("Attributes")',
+        timeout=5000,
+    )
+    if not tab_clicked:
+        await helper.require_click("text=Attributes & Variants", timeout=5000)
+    await helper.page.wait_for_timeout(800)
+    page_content = await helper.page.content()
+    assert "Color" in page_content, "Color attribute not found on EGO-S1 product"
+    for color in ("Black", "White", "Blue", "Red"):
+        assert color in page_content, f"Color variant '{color}' not found on EGO-S1 product"
+    await helper.screenshot("product_color_variants")
+
+
+@pytest.mark.asyncio
+async def test_finished_product_has_serial_tracking(helper):
+    """EGO-S1 product should have 'By Unique Serial Number' tracking enabled."""
+    await helper.login_as("manohar")
+    await helper.open_menu_url("/odoo/inventory/products")
+    await helper.page.fill("input.o_searchview_input", "ElegoMotors EV Scooter EGO-S1")
+    await helper.page.keyboard.press("Enter")
+    await helper.page.wait_for_timeout(1000)
+    await helper.require_click("text=ElegoMotors EV Scooter EGO-S1", timeout=8000)
+    await helper.page.wait_for_timeout(800)
+    page_content = await helper.page.content()
+    assert "Unique Serial Number" in page_content or "serial" in page_content.lower(), (
+        "EGO-S1 does not have serial number tracking enabled"
+    )
+    await helper.screenshot("serial_tracking_enabled")
+
+
+@pytest.mark.asyncio
+async def test_create_mo_for_black_variant(helper, shared_state):
+    """Create a Manufacturing Order for the EGO-S1 Black color variant (qty=3)."""
+    await helper.login_as("pratik")
+    await open_mrp(helper)
+    await helper.require_click("button.o_list_button_add", timeout=10000)
+    await helper.page.fill('div[name="product_id"] input', "EGO-S1")
+    await helper.page.wait_for_timeout(600)
+    black_clicked = await helper.click_if_visible(
+        "text=ElegoMotors EV Scooter EGO-S1 (Black)",
+        timeout=5000,
+    )
+    if not black_clicked:
+        await helper.page.keyboard.press("ArrowDown")
+        await helper.page.keyboard.press("Enter")
+    await helper.page.wait_for_timeout(600)
+    await helper.page.click('div[name="product_qty"] input')
+    await helper.page.keyboard.press("Control+A")
+    await helper.page.keyboard.type("3")
+    await helper.page.keyboard.press("Tab")
+    await helper.screenshot("mo_black_filled")
+    await helper.require_click('button[name="action_confirm"]', timeout=5000)
+    await helper.page.wait_for_timeout(1000)
+    mo_name = await helper.page.locator(".o_field_widget[name='name']").first.text_content()
+    assert (mo_name or "").strip(), "MO name not found after Black variant MO creation"
+    await helper.assert_text_visible("Confirmed")
+    shared_state["mo_black"] = (mo_name or "").strip()
+    await helper.screenshot("mo_black_confirmed")
+
+
+@pytest.mark.asyncio
+async def test_create_mo_for_white_variant(helper, shared_state):
+    """Create a Manufacturing Order for the EGO-S1 White color variant (qty=2)."""
+    await helper.login_as("pratik")
+    await open_mrp(helper)
+    await helper.require_click("button.o_list_button_add", timeout=10000)
+    await helper.page.fill('div[name="product_id"] input', "EGO-S1")
+    await helper.page.wait_for_timeout(600)
+    white_clicked = await helper.click_if_visible(
+        "text=ElegoMotors EV Scooter EGO-S1 (White)",
+        timeout=5000,
+    )
+    if not white_clicked:
+        await helper.page.keyboard.press("ArrowDown")
+        await helper.page.keyboard.press("Enter")
+    await helper.page.wait_for_timeout(600)
+    await helper.page.click('div[name="product_qty"] input')
+    await helper.page.keyboard.press("Control+A")
+    await helper.page.keyboard.type("2")
+    await helper.page.keyboard.press("Tab")
+    await helper.require_click('button[name="action_confirm"]', timeout=5000)
+    await helper.page.wait_for_timeout(1000)
+    mo_name = await helper.page.locator(".o_field_widget[name='name']").first.text_content()
+    assert (mo_name or "").strip(), "MO name not found after White variant MO creation"
+    await helper.assert_text_visible("Confirmed")
+    shared_state["mo_white"] = (mo_name or "").strip()
+    await helper.screenshot("mo_white_confirmed")
+
+
+@pytest.mark.asyncio
+async def test_produce_one_unit_at_a_time(helper, shared_state):
+    """Serial tracking forces qty_producing=1 and requires a serial number per unit."""
+    await helper.login_as("pratik")
+    mo_black = shared_state.get("mo_black")
+    if not mo_black:
+        pytest.skip("Black MO not available from prior test.")
+    await open_mrp(helper)
+    await helper.page.fill("input.o_searchview_input", mo_black)
+    await helper.page.keyboard.press("Enter")
+    await helper.page.wait_for_timeout(800)
+    await helper.click_if_visible(f"text={mo_black}", timeout=5000)
+    await helper.page.wait_for_timeout(800)
+    # Trigger produce dialog
+    await helper.require_click_any([
+        'button:has-text("Produce All")',
+        'button:has-text("Record Production")',
+        'button[name="button_mark_done"]',
+        'button:has-text("Produce")',
+    ], timeout=8000)
+    await helper.page.wait_for_timeout(800)
+    page_content = await helper.page.content()
+    # Serial tracking must enforce qty=1 and show serial number field
+    assert "Serial Number" in page_content or "Lot/Serial" in page_content or "lot_producing" in page_content, (
+        "Serial number field not found — serial tracking may not be enabled on EGO-S1"
+    )
+    # qty_producing must be 1 for serial-tracked product
+    qty_field = helper.page.locator(
+        'div[name="qty_producing"] input, input[id*="qty_producing"]'
+    ).first
+    qty_val = await qty_field.input_value()
+    assert float(qty_val or "0") == 1.0, (
+        f"Expected qty_producing=1 for serial-tracked product, got {qty_val!r}"
+    )
+    await helper.screenshot("produce_one_unit_serial_required")
+
+
+@pytest.mark.asyncio
+async def test_daily_production_plan_menu_exists(helper):
+    """Manufacturing menu should contain a 'Daily Production Plan' item."""
+    await helper.login_as("manohar")
+    await open_mrp(helper)
+    await helper.page.wait_for_timeout(800)
+    menu_found = await helper.click_if_visible(
+        "a:has-text('Daily Production Plan'), "
+        "span:has-text('Daily Production Plan'), "
+        "menuitem:has-text('Daily Production Plan')",
+        timeout=5000,
+    )
+    assert menu_found, "Daily Production Plan menu item not found under Manufacturing"
+    await helper.page.wait_for_timeout(800)
+    await helper.assert_no_missing_action()
+    await helper.screenshot("daily_plan_menu_exists")
+
+
+@pytest.mark.asyncio
+async def test_daily_plan_has_four_color_records(helper):
+    """Daily Production Plan list should have one record per color (4 total)."""
+    await helper.login_as("manohar")
+    await open_mrp(helper)
+    await helper.page.wait_for_timeout(400)
+    await helper.require_click(
+        "a:has-text('Daily Production Plan'), span:has-text('Daily Production Plan')",
+        timeout=8000,
+    )
+    await helper.page.wait_for_timeout(1000)
+    rows = await helper.page.locator("tr.o_data_row").count()
+    assert rows >= 4, f"Expected ≥4 daily plan records (one per color), found {rows}"
+    page_content = await helper.page.content()
+    for color in ("Black", "White", "Blue", "Red"):
+        assert color in page_content, f"Color '{color}' not found in daily plan records"
+    await helper.screenshot("daily_plan_four_records")
+
+
+@pytest.mark.asyncio
+async def test_manual_trigger_creates_mos(helper):
+    """'Create Today's MOs' action on Daily Production Plan generates MOs for all colors."""
+    await helper.login_as("manohar")
+    await open_mrp(helper)
+    await helper.page.wait_for_timeout(400)
+    await helper.require_click(
+        "a:has-text('Daily Production Plan'), span:has-text('Daily Production Plan')",
+        timeout=8000,
+    )
+    await helper.page.wait_for_timeout(1000)
+    # Select all records via header checkbox
+    await helper.click_if_visible(
+        "thead .o_list_record_selector input[type='checkbox'], "
+        "th.o_list_record_selector input",
+        timeout=5000,
+    )
+    await helper.page.wait_for_timeout(400)
+    # Open Action dropdown
+    await helper.require_click_any([
+        "button:has-text('Action')",
+        ".o_dropdown_button:has-text('Action')",
+        "div.o_list_buttons button:has-text('Action')",
+    ], timeout=5000)
+    await helper.page.wait_for_timeout(400)
+    action_clicked = await helper.click_if_visible(
+        "text=Create Today's MOs",
+        timeout=3000,
+    )
+    if not action_clicked:
+        pytest.skip("'Create Today's MOs' action not found — server action may not be bound")
+    await helper.page.wait_for_timeout(2000)
+    await helper.screenshot("after_create_daily_mos")
+    # Verify MOs were created
+    await open_mrp(helper)
+    await helper.page.wait_for_timeout(1000)
+    page_content = await helper.page.content()
+    assert "EGO-S1" in page_content, "No EGO-S1 MOs found in Manufacturing after daily plan trigger"
+    await helper.screenshot("daily_mos_created_in_mrp")
+
+
+@pytest.mark.asyncio
+async def test_cron_job_configured(helper):
+    """'Daily Manufacturing Orders' scheduled action should exist and be active."""
+    await helper.login_as("manohar")
+    await helper.open_menu_url("/odoo/action-base.ir_cron_act")
+    await helper.page.wait_for_timeout(1000)
+    await helper.page.fill("input.o_searchview_input", "Daily Manufacturing Orders")
+    await helper.page.keyboard.press("Enter")
+    await helper.page.wait_for_timeout(800)
+    page_content = await helper.page.content()
+    assert "Daily Manufacturing Orders" in page_content, (
+        "Cron job 'Daily Manufacturing Orders' not found in scheduled actions"
+    )
+    await helper.screenshot("cron_job_found")

@@ -1,0 +1,36 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+    <!--
+        Daily Manufacturing Orders — Cron Job & Initial Plan Data
+        ===========================================================
+        noupdate="1": the cron record and initial plan records are seeded once
+        on install and are not overwritten on subsequent upgrades, allowing
+        managers to adjust them freely through the UI.
+    -->
+    <data noupdate="1">
+
+        <!-- ============================================================
+             SCHEDULED ACTION — runs daily at 06:00
+             Calls action_create_daily_mos() on all active plan lines.
+             ============================================================ -->
+
+        <record id="cron_daily_production_mos" model="ir.cron">
+            <field name="name">Daily Manufacturing Orders</field>
+            <field name="model_id" ref="model_mrp_daily_production_plan"/>
+            <field name="state">code</field>
+            <field name="code">model.search([('active', '=', True)]).action_create_daily_mos()</field>
+            <field name="interval_number">1</field>
+            <field name="interval_type">days</field>
+            <field name="numbercall">-1</field>
+            <field name="active">True</field>
+        </record>
+
+        <!-- ============================================================
+             INITIAL PLAN RECORDS — seeded once via _create_initial_plans
+             Default quantities: Black=5, White=3, Blue=2, Red=2
+             ============================================================ -->
+
+        <function model="mrp.daily.production.plan" name="_create_initial_plans"/>
+
+    </data>
+</odoo>

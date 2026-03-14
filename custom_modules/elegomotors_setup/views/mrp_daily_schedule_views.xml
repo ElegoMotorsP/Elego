@@ -1,0 +1,74 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+    <!-- ================================================================
+         Daily Manufacturing Production Plan — Views & Menu
+         ================================================================ -->
+
+    <!-- List view -->
+    <record id="view_mrp_daily_plan_list" model="ir.ui.view">
+        <field name="name">mrp.daily.production.plan.list</field>
+        <field name="model">mrp.daily.production.plan</field>
+        <field name="arch" type="xml">
+            <list string="Daily Production Plan" editable="bottom">
+                <field name="sequence" widget="handle"/>
+                <field name="product_variant_id" string="Variant"/>
+                <field name="product_tmpl_id" string="Product" readonly="1"/>
+                <field name="planned_qty" string="Daily Qty"/>
+                <field name="active"/>
+            </list>
+        </field>
+    </record>
+
+    <!-- Form view -->
+    <record id="view_mrp_daily_plan_form" model="ir.ui.view">
+        <field name="name">mrp.daily.production.plan.form</field>
+        <field name="model">mrp.daily.production.plan</field>
+        <field name="arch" type="xml">
+            <form string="Daily Production Plan">
+                <sheet>
+                    <group>
+                        <field name="product_variant_id"/>
+                        <field name="planned_qty"/>
+                        <field name="active"/>
+                    </group>
+                </sheet>
+            </form>
+        </field>
+    </record>
+
+    <!-- Action -->
+    <record id="action_mrp_daily_plan" model="ir.actions.act_window">
+        <field name="name">Daily Production Plan</field>
+        <field name="res_model">mrp.daily.production.plan</field>
+        <field name="view_mode">list,form</field>
+        <field name="help" type="html">
+            <p class="o_view_nocontent_smiling_face">
+                No daily plan configured yet.
+            </p>
+            <p>
+                Add one line per color variant with the quantity to manufacture each day.
+                The scheduled cron job creates Manufacturing Orders automatically every morning.
+            </p>
+        </field>
+    </record>
+
+    <!-- Server action: "Create Today's MOs" — bound to the list action dropdown -->
+    <record id="action_create_today_mos" model="ir.actions.server">
+        <field name="name">Create Today's MOs</field>
+        <field name="model_id" ref="model_mrp_daily_production_plan"/>
+        <field name="binding_model_id" ref="model_mrp_daily_production_plan"/>
+        <field name="binding_view_types">list</field>
+        <field name="state">code</field>
+        <field name="code">records.action_create_daily_mos()</field>
+    </record>
+
+    <!-- Menu: Manufacturing > Daily Production Plan -->
+    <menuitem
+        id="menu_mrp_daily_plan"
+        name="Daily Production Plan"
+        parent="mrp.menu_mrp_manufacturing_order"
+        action="action_mrp_daily_plan"
+        sequence="15"
+        groups="mrp.group_mrp_user"/>
+
+</odoo>

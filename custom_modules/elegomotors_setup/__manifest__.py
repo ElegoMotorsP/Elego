@@ -36,6 +36,7 @@
         # Security groups must load before users_data (groups referenced in user records)
         'security/groups.xml',
         'security/record_rules.xml',
+        'security/ir.model.access.csv',  # model-level access for custom models
         # store_billing_access.csv is kept on disk as a fallback reference but NOT loaded:
         # Amit retains account.group_account_invoice for model-level access (needed for
         # "Create Invoice" button on SO/Delivery). The ir.rule in record_rules.xml
@@ -48,12 +49,15 @@
         'data/mrp_workcenters_data.xml',
         'data/company_config_data.xml',
         'data/bom_data.xml',
-        'data/bom_data_fix.xml',         # deletes routing ops (noupdate=0, runs on upgrade)
-        'data/users_data.xml',           # department users (loaded after groups)
-        'data/quality_data.xml',         # QC control points: gate entry + FG receipt
-        'data/notification_rules.xml',   # automated workflow notifications
+        'data/bom_data_fix.xml',             # deletes routing ops (noupdate=0, runs on upgrade)
+        'data/product_variants_data.xml',    # Color attribute + serial tracking on EGO-S1
+        'data/users_data.xml',               # department users (loaded after groups)
+        'data/quality_data.xml',             # QC control points: gate entry + FG receipt
+        'data/notification_rules.xml',       # automated workflow notifications
+        'data/cron_data.xml',                # daily MO cron + initial plan records (after variants)
         # View overrides (loaded last so base views exist)
         'views/account_move_views.xml',
+        'views/mrp_daily_schedule_views.xml',
     ],
     'installable': True,
     'application': False,
