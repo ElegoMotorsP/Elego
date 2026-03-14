@@ -66,7 +66,7 @@
     <menuitem
         id="menu_mrp_daily_plan"
         name="Daily Production Plan"
-        parent="mrp.menu_mrp_manufacturing_order"
+        parent="mrp.menu_mrp_root"
         action="action_mrp_daily_plan"
         sequence="15"
         groups="mrp.group_mrp_user"/>
