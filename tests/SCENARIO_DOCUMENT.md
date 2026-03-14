@@ -41,7 +41,7 @@
 | Manufacturing | Full | Full | Full (BOM + view MO) | No Access | No Access | Full | No Access |
 | Accounting | Full | Customer Invoices and Vendor Bills only (Billing group — no payments, no reports) | No Access | Full | No Access | No Access | No Access |
 | HR / Employees | No Access | No Access | No Access | No Access | Full | No Access | No Access |
-| Quality | Full | No Access | Full | No Access | No Access | Full | No Access |
+| Quality | Full | No Access | No Access | No Access | No Access | Full | No Access |
 
 ---
 

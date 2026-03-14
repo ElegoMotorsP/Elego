@@ -248,6 +248,8 @@ async def test_manohar_access_all_modules(helper):
     await helper.assert_no_missing_action()
     await helper.open_menu_url("/odoo/settings")
     await helper.assert_no_missing_action()
+    await helper.open_menu_url("/odoo/quality")
+    await helper.assert_no_missing_action()
     await helper.screenshot("access_manohar")
 
 
@@ -305,6 +307,8 @@ async def test_pratik_access_quality(helper):
     await open_mrp(helper)
     await helper.assert_no_missing_action()
     await open_inventory(helper)
+    await helper.assert_no_missing_action()
+    await helper.open_menu_url("/odoo/quality")
     await helper.assert_no_missing_action()
     await helper.screenshot("access_pratik")
 

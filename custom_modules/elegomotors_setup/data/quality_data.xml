@@ -37,6 +37,7 @@
             picking_type_ids — m2m to stock.picking.type (triggers check on that op type)
             user_id          — responsible person who performs the check
             company_id       — owning company
+            test_type        — 'passfail' (Pass/Fail inspection; CE default but set explicitly)
     -->
 
     <data noupdate="1">
@@ -47,6 +48,7 @@
             <field name="picking_type_ids" eval="[(4, ref('elegomotors_setup.picking_type_gate_entry'))]"/>
             <field name="user_id" ref="elegomotors_setup.user_ego_pratik"/>
             <field name="company_id" ref="base.main_company"/>
+            <field name="test_type">passfail</field>
         </record>
 
         <!-- ─── 2. POST-PRODUCTION QUALITY CHECK ──────────────────────── -->
@@ -55,6 +57,7 @@
             <field name="picking_type_ids" eval="[(4, ref('elegomotors_setup.picking_type_fg_to_stock'))]"/>
             <field name="user_id" ref="elegomotors_setup.user_ego_pratik"/>
             <field name="company_id" ref="base.main_company"/>
+            <field name="test_type">passfail</field>
         </record>
 
     </data>

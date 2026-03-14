@@ -38,6 +38,8 @@
                • Inbound Operator       — Gate Entry + Issue to Production (13-Mar)
                • QC Pass Operator       — QC Pass → Store transfers (13-Mar)
                • FG Transfer Operator   — FG to Finished Goods transfers (13-Mar)
+               • Quality User           — view QC control points and checks;
+                                          Pratik (Quality Manager) manages QC config
              ============================================================ -->
         <record id="user_ego_manohar" model="res.users">
             <field name="name">Manohar Kalbhor</field>
@@ -61,6 +63,7 @@
                     ref('elegomotors_setup.group_inbound_operator'),
                     ref('elegomotors_setup.group_qc_pass_operator'),
                     ref('elegomotors_setup.group_fg_transfer_operator'),
+                    ref('quality.group_quality_user'),
                 ]),
             ]"/>
         </record>
