@@ -9,6 +9,22 @@ def uid(prefix: str) -> str:
 
 async def open_sales(helper):
     await helper.open_menu_url("/odoo/sales")
+    await helper.page.wait_for_timeout(800)
+    # Odoo 18 applies "My Quotations" by default.  The × remove button lives inside
+    # .o_searchview_facet as <span class="o_facet_remove"> (OWL-based search bar).
+    # We try several selector variants so this works across minor Odoo version diffs.
+    FACET_REMOVE = (
+        ".o_searchview_facet .o_facet_remove, "
+        ".o_searchview_facet span.o_facet_remove, "
+        ".o_searchview_facet i.o_facet_remove, "
+        ".o_searchview_facet .o_delete"
+    )
+    for _ in range(10):
+        btn = helper.page.locator(FACET_REMOVE).first
+        if await btn.count() == 0:
+            break
+        await btn.click()
+        await helper.page.wait_for_timeout(500)
 
 
 async def open_purchase(helper):
@@ -166,29 +182,30 @@ async def create_sales_order(helper, customer="Azure Interior", product="ElegoMo
     return (so_name or "").strip()
 
 
-async def approve_sales_order(helper, so_name, approver="rajshri"):
-    """Approve a Sales Order that is in 'to approve' state.
+async def _dual_approve_so(helper, so_name: str):
+    """Perform both approvals (Accounts + MD) to confirm a pending Sales Order.
 
-    2-step SO approval is enabled company-wide; only users with
-    group_sale_manager (Rajshri or Manohar) can approve.
-    Navigates to the SO, clicks Approve, and returns after confirming
-    the record is still on the Sales Order page.
+    Uses _open_so_by_name which robustly clears all search filters before
+    navigating to the record.
+    Raises AssertionError if the SO is not confirmed after both approvals.
     """
-    await helper.login_as(approver)
-    await open_sales(helper)
-    await helper.page.fill("input.o_searchview_input", so_name)
-    await helper.page.keyboard.press("Enter")
-    await helper.click_if_visible(f"text={so_name}", timeout=5000)
-    await helper.page.wait_for_timeout(800)
-    await helper.require_click_any([
-        'button[name="action_approve_draft"]',
-        'button:has-text("Approve Order")',
-        'button:has-text("Approve")',
-    ], timeout=8000)
-    await helper.page.wait_for_timeout(1000)
+    # Rajshri — Accounts approval
+    await helper.login_as("rajshri")
+    await _open_so_by_name(helper, so_name)
+    accts_btn = helper.page.locator("button[name='action_approve_accounts']")
+    if await accts_btn.count() > 0:
+        await accts_btn.click()
+        await helper.page.wait_for_timeout(1000)
+    # Manohar — MD approval
+    await helper.login_as("manohar")
+    await _open_so_by_name(helper, so_name)
+    md_btn = helper.page.locator("button[name='action_approve_manohar']")
+    if await md_btn.count() > 0:
+        await md_btn.click()
+        await helper.page.wait_for_timeout(1500)
     page_content = await helper.page.content()
-    assert "Sales Order" in page_content
-    await helper.screenshot(f"so_approved_by_{approver}")
+    assert "Sales Order" in page_content, f"SO {so_name} not confirmed after dual approval"
+    await helper.screenshot(f"dual_approved_{so_name}")
 
 
 async def create_manufacturing_order(helper, product="ElegoMotors EV Scooter EGO-S1", qty="1"):
@@ -399,44 +416,6 @@ async def test_amit_cannot_register_payment(helper):
     await helper.screenshot("amit_no_payment_btn")
 
 
-@pytest.mark.asyncio
-async def test_rajshri_can_approve_so(helper):
-    """Rajshri (Accounts, now group_sale_manager) can approve a Sales Order."""
-    await helper.login_as("tushar")
-    so_name = await create_sales_order(helper)
-    await helper.login_as("rajshri")
-    await open_sales(helper)
-    await helper.page.fill("input.o_searchview_input", so_name)
-    await helper.page.keyboard.press("Enter")
-    await helper.click_if_visible(f"text={so_name}", timeout=5000)
-    await helper.page.wait_for_timeout(800)
-    try:
-        await helper.require_click_any([
-            'button[name="action_approve_draft"]',
-            'button:has-text("Approve Order")',
-            'button:has-text("Approve")',
-        ], timeout=5000)
-    except AssertionError:
-        pytest.skip("Approve button not visible — SO approval may not be enabled or button name differs")
-    await helper.page.wait_for_timeout(1000)
-    page_content = await helper.page.content()
-    assert "Sales Order" in page_content
-    await helper.screenshot("rajshri_approved_so")
-
-
-@pytest.mark.asyncio
-async def test_tushar_cannot_approve_so(helper):
-    """Tushar (group_sale_salesman only) cannot approve his own submitted SO."""
-    await helper.login_as("tushar")
-    await create_sales_order(helper)
-    # After action_confirm, SO is 'to approve'; Approve button must NOT appear for Tushar
-    approve_btn_count = await helper.page.locator(
-        'button[name="action_approve_draft"]'
-    ).count()
-    assert approve_btn_count == 0, (
-        "Tushar (salesman) must not see the Approve Order button on a 'to approve' SO"
-    )
-    await helper.screenshot("tushar_no_approve_btn")
 
 
 # ---------------------------------------------------------------------------
@@ -493,11 +472,10 @@ async def test_confirm_sales_order_from_crm(helper, shared_state):
     await helper.login_as("tushar")
     so_name = await create_sales_order(helper)
     shared_state["so_name"] = so_name
-    # SO is now 'to approve'; Rajshri or Manohar must approve (2-step SO approval)
     try:
-        await approve_sales_order(helper, so_name, approver="rajshri")
+        await _dual_approve_so(helper, so_name)
     except AssertionError:
-        pytest.skip("SO approval button not found — verify sale_order_approval is enabled")
+        pytest.skip("Dual approval buttons not found — verify module is upgraded")
     await helper.screenshot("crm_so_approved")
 
 
@@ -515,75 +493,6 @@ async def test_mark_opportunity_won(helper, shared_state):
     await helper.screenshot("crm_won")
 
 
-# ---------------------------------------------------------------------------
-# Suite 2b: Sales Order 2-Step Approval Flow
-# ---------------------------------------------------------------------------
-
-@pytest.mark.asyncio
-async def test_so_goes_to_approve_state(helper, shared_state):
-    """Tushar's SO submit puts it in 'To Approve' state, not directly 'Sale'."""
-    await helper.login_as("tushar")
-    so_name = await create_sales_order(helper)
-    shared_state["approval_so_name"] = so_name
-    page_content = await helper.page.content()
-    # Odoo renders the 'to approve' state as 'To Approve' in the status bar
-    assert (
-        "To Approve" in page_content
-        or "to approve" in page_content.lower()
-        or so_name in page_content
-    ), f"Expected SO to be in 'To Approve' state; url={helper.page.url}"
-    await helper.screenshot("so_to_approve_state")
-
-
-@pytest.mark.asyncio
-async def test_rajshri_approves_so(helper, shared_state):
-    """Rajshri (group_sale_manager) approves the SO from the previous test."""
-    so_name = shared_state.get("approval_so_name")
-    if not so_name:
-        pytest.skip("SO not available from prior test.")
-    await helper.login_as("rajshri")
-    await open_sales(helper)
-    await helper.page.fill("input.o_searchview_input", so_name)
-    await helper.page.keyboard.press("Enter")
-    await helper.click_if_visible(f"text={so_name}", timeout=5000)
-    await helper.page.wait_for_timeout(800)
-    try:
-        await helper.require_click_any([
-            'button[name="action_approve_draft"]',
-            'button:has-text("Approve Order")',
-            'button:has-text("Approve")',
-        ], timeout=6000)
-    except AssertionError:
-        pytest.skip("Approve button not found — verify SO approval is enabled and Rajshri has sale_manager group")
-    await helper.page.wait_for_timeout(1000)
-    page_content = await helper.page.content()
-    assert "Sales Order" in page_content
-    await helper.screenshot("rajshri_approves_so_suite2b")
-
-
-@pytest.mark.asyncio
-async def test_manohar_can_also_approve_so(helper):
-    """Manohar (Sales Manager + Admin) can also approve Sales Orders."""
-    await helper.login_as("tushar")
-    so_name = await create_sales_order(helper)
-    await helper.login_as("manohar")
-    await open_sales(helper)
-    await helper.page.fill("input.o_searchview_input", so_name)
-    await helper.page.keyboard.press("Enter")
-    await helper.click_if_visible(f"text={so_name}", timeout=5000)
-    await helper.page.wait_for_timeout(800)
-    try:
-        await helper.require_click_any([
-            'button[name="action_approve_draft"]',
-            'button:has-text("Approve Order")',
-            'button:has-text("Approve")',
-        ], timeout=6000)
-    except AssertionError:
-        pytest.skip("Approve button not found for Manohar — verify SO approval settings")
-    await helper.page.wait_for_timeout(1000)
-    page_content = await helper.page.content()
-    assert "Sales Order" in page_content
-    await helper.screenshot("manohar_approves_so")
 
 
 # ---------------------------------------------------------------------------
@@ -1012,18 +921,14 @@ async def test_tushar_creates_sales_order(helper, shared_state):
 
 @pytest.mark.asyncio
 async def test_so_approved_for_delivery(helper, shared_state):
-    """Rajshri approves the SO so the delivery order is generated (SO → 'sale' state)."""
+    """Rajshri and Manohar both approve the SO so delivery order is generated (SO → 'sale')."""
     so_name = shared_state.get("delivery_so_name")
     if not so_name:
         pytest.skip("SO not available from prior test.")
     try:
-        await approve_sales_order(helper, so_name, approver="rajshri")
+        await _dual_approve_so(helper, so_name)
     except AssertionError:
-        # Manohar as fallback approver
-        try:
-            await approve_sales_order(helper, so_name, approver="manohar")
-        except AssertionError:
-            pytest.skip("SO approval button not found for either approver")
+        pytest.skip("Dual approval buttons not found — verify module is upgraded")
     shared_state["delivery_so_approved"] = True
 
 
@@ -1043,11 +948,7 @@ async def test_picking_slip_created(helper, shared_state):
     so_name = shared_state.get("delivery_so_name")
     if not so_name:
         pytest.skip("SO not available from prior test.")
-    await open_sales(helper)
-    await helper.page.fill("input.o_searchview_input", so_name)
-    await helper.page.keyboard.press("Enter")
-    await helper.click_if_visible(f"text={so_name}", timeout=5000)
-    await helper.page.wait_for_timeout(800)
+    await _open_so_by_name(helper, so_name)
 
     # Click the delivery smart button
     delivery_opened = False
@@ -1162,11 +1063,11 @@ async def test_full_e2e_inquiry_to_invoice(helper, shared_state):
     await helper.page.fill('input[name="name"]', shared_state["e2e_lead"])
     await helper.click_if_visible("button:has-text('Save')", timeout=3000)
     shared_state["e2e_so"] = await create_sales_order(helper)
-    # 2-step SO approval: Rajshri must approve before delivery can be created
+    # Dual SO approval: both Rajshri and Manohar must approve before delivery is created
     try:
-        await approve_sales_order(helper, shared_state["e2e_so"], approver="rajshri")
+        await _dual_approve_so(helper, shared_state["e2e_so"])
     except AssertionError:
-        pass  # If approval not yet enabled, continue; delivery may still work
+        pass  # Continue; delivery check below will reflect actual state
     await helper.login_as("prashant")
     shared_state["e2e_po"] = await create_purchase_order(helper)
     await helper.login_as("manohar")
@@ -1198,10 +1099,7 @@ async def test_full_e2e_inquiry_to_invoice(helper, shared_state):
         "EGO/Finished Goods",
     )
     await helper.login_as("amit")
-    await open_sales(helper)
-    await helper.page.fill("input.o_searchview_input", shared_state["e2e_so"])
-    await helper.page.keyboard.press("Enter")
-    await helper.click_if_visible(f"text={shared_state['e2e_so']}", timeout=5000)
+    await _open_so_by_name(helper, shared_state["e2e_so"])
     await helper.click_if_visible('button[name="action_view_delivery"]', timeout=5000)
     if await helper.page.locator("tr.o_data_row").count() > 0:
         await helper.page.locator("tr.o_data_row").first.click()
@@ -1286,18 +1184,14 @@ async def test_customer_invoice_subscribes_rajshri_tushar(helper):
     """Customer invoice creation subscribes Rajshri (Finance), Tushar (Sales), and Amit (Store)."""
     await helper.login_as("tushar")
     so_name = await create_sales_order(helper)
-    # SO must be approved before 'Create Invoice' button appears
+    # Both approvals needed before 'Create Invoice' button appears
     try:
-        await approve_sales_order(helper, so_name, approver="rajshri")
-        # Navigate back to the SO as Tushar to click Create Invoice
-        await helper.login_as("tushar")
-        await open_sales(helper)
-        await helper.page.fill("input.o_searchview_input", so_name)
-        await helper.page.keyboard.press("Enter")
-        await helper.click_if_visible(f"text={so_name}", timeout=5000)
-        await helper.page.wait_for_timeout(800)
+        await _dual_approve_so(helper, so_name)
     except AssertionError:
         pass  # Continue anyway; button check below may still work
+    # Navigate back to the SO as Tushar to click Create Invoice
+    await helper.login_as("tushar")
+    await _open_so_by_name(helper, so_name)
     await helper.click_if_visible("button:has-text('Create Invoice')", timeout=3000)
     try:
         await helper.followers_contains("Rajshri")
@@ -1327,26 +1221,16 @@ async def test_vendor_bill_subscribes_rajshri_prashant(helper):
 
 
 @pytest.mark.asyncio
-async def test_notify_so_to_approve(helper):
-    """After Tushar submits SO, chatter shows 'Sales Order Awaiting Approval' notification."""
-    await helper.login_as("tushar")
-    await create_sales_order(helper)
-    try:
-        await helper.chatter_contains("Sales Order Awaiting Approval")
-    except AssertionError:
-        pytest.skip("SO 'to approve' notification not found — sale_order_approval may be disabled")
-
-
-@pytest.mark.asyncio
 async def test_notify_so_confirmed(helper):
-    """After Rajshri (or Manohar) approves the SO, chatter shows 'Sales Order Confirmed'."""
+    """After both approvals complete, chatter shows 'Sales Order Confirmed' notification."""
     await helper.login_as("tushar")
     so_name = await create_sales_order(helper)
-    # SO is 'to approve'; approval triggers the 'Confirmed' notification
     try:
-        await approve_sales_order(helper, so_name, approver="rajshri")
+        await _dual_approve_so(helper, so_name)
     except AssertionError:
-        pytest.skip("SO approval button not found — verify sale_order_approval is enabled")
+        pytest.skip("Dual approval buttons not found — verify module is upgraded")
+    await helper.login_as("tushar")
+    await _open_so_by_name(helper, so_name)
     await helper.chatter_contains("Sales Order Confirmed")
 
 
@@ -2369,11 +2253,11 @@ async def test_fg_available_yes_branch(helper, shared_state):
     so_name = await create_sales_order(helper)
     shared_state["fg_yes_so"] = so_name
 
-    # Rajshri approves the SO
+    # Both Rajshri and Manohar must approve the SO
     try:
-        await approve_sales_order(helper, so_name, approver="rajshri")
+        await _dual_approve_so(helper, so_name)
     except AssertionError:
-        pytest.skip("SO approval not working — cannot test FG available YES branch")
+        pytest.skip("Dual SO approval not working — cannot test FG available YES branch")
 
     # Amit checks if a Delivery order was auto-created
     await helper.login_as("amit")
@@ -3396,3 +3280,537 @@ async def test_prashant_cannot_open_quality(helper):
     if "Access Error" not in page_content and "Missing Action" not in page_content:
         pytest.skip("Prashant still has Quality access — Quality Manager group not yet removed")
     await helper.screenshot("prashant_no_quality")
+
+
+# =============================================================================
+# SUITE 12 — Dual Sales Order Approval Workflow
+# =============================================================================
+# Flow: Tushar confirms SO → pending_approval=True (stays Draft) → both
+# Rajshri (Accounts) and Manohar (MD) must approve → SO becomes 'sale'.
+# Either approver can also Reject, resetting the SO back to Draft.
+#
+# Shared state keys used across this suite:
+#   suite12_so_name        — SO waiting for BOTH approvals (P-SO1)
+#   suite12_so_rajshri     — SO used in P-SO2/P-SO3 sequential approval
+#   suite12_so_reverse     — SO for P-SO5 (Manohar first, then Rajshri)
+#   suite12_so_reject_r    — SO for R-SO1 (Rajshri rejects)
+#   suite12_so_reject_m    — SO for R-SO2 (Manohar rejects)
+# =============================================================================
+
+
+# ---------------------------------------------------------------------------
+# Helper — navigate to a specific SO by name from the Sales list
+# ---------------------------------------------------------------------------
+async def _open_so_by_name(helper, so_name: str):
+    """Navigate to a specific SO form by its name (e.g. EGO-SO-00001).
+
+    Handles the "My Quotations" default filter and works for both Draft
+    (pending approval) and confirmed (sale state) records.
+    """
+    await open_sales(helper)  # clears all facets including "My Quotations"
+
+    # Sanity: if any facet is still visible, take a screenshot for debugging
+    leftover = helper.page.locator(".o_searchview_facet")
+    if await leftover.count() > 0:
+        await helper.screenshot(f"facet_not_cleared_{so_name}")
+
+    # Type the exact SO name and confirm search
+    search_inp = helper.page.locator("input.o_searchview_input")
+    await search_inp.click()
+    await search_inp.fill(so_name)
+    await helper.page.wait_for_timeout(600)
+    # Dismiss any autocomplete dropdown first, then press Enter to apply search
+    await helper.page.keyboard.press("Escape")
+    await helper.page.wait_for_timeout(200)
+    await search_inp.fill(so_name)
+    await helper.page.keyboard.press("Enter")
+    await helper.page.wait_for_timeout(1200)
+
+    # Click the data row whose Number column matches exactly
+    row = helper.page.locator(
+        f"tr.o_data_row td[name='name']:has-text('{so_name}'), "
+        f"tr.o_data_row td.o_data_cell:has-text('{so_name}')"
+    ).first
+    try:
+        await row.wait_for(state="visible", timeout=8000)
+        await row.click()
+    except Exception:
+        # Fallback: direct text match anywhere on the page
+        fallback = helper.page.locator(f"text='{so_name}'").first
+        await fallback.wait_for(state="visible", timeout=4000)
+        await fallback.click()
+    await helper.page.wait_for_timeout(1000)
+
+
+# ---------------------------------------------------------------------------
+# Helper — create a fresh quotation as Tushar and click Confirm.
+# Returns the SO name (which remains in Draft / pending state after confirm).
+# ---------------------------------------------------------------------------
+async def _tushar_create_and_submit_so(helper) -> str:
+    await helper.login_as("tushar")
+    await helper.open_menu_url("/odoo/sales/new")
+    await helper.page.wait_for_timeout(1500)
+    partner_cell = helper.page.locator('div[name="partner_id"]').first
+    await partner_cell.click()
+    await helper.page.wait_for_timeout(400)
+    inp = helper.page.locator('div[name="partner_id"] input').first
+    await inp.fill("Azure Interior")
+    await helper.page.wait_for_timeout(1200)
+    opt = helper.page.locator(
+        ".o_m2o_dropdown_option:has-text('Azure Interior'), [role='option']:has-text('Azure Interior')"
+    ).first
+    try:
+        await opt.wait_for(state="visible", timeout=5000)
+        await opt.click()
+    except Exception:
+        await helper.page.keyboard.press("ArrowDown")
+        await helper.page.keyboard.press("Enter")
+    await helper.page.wait_for_timeout(1000)
+    await helper.require_click_any([
+        "text=Add a product",
+        "a.o_field_x2many_list_row_add",
+        "a:has-text('Add a line')",
+        "button:has-text('Add a line')",
+    ], timeout=10000)
+    await helper.page.wait_for_timeout(800)
+    prod_inp = 'div[name="product_id"] input'
+    if await helper.page.locator(prod_inp).count() > 0:
+        await helper.page.fill(prod_inp, "ElegoMotors EV Scooter EGO-S1")
+        await helper.page.wait_for_timeout(600)
+        await helper.page.keyboard.press("ArrowDown")
+        await helper.page.keyboard.press("Enter")
+    await helper.page.wait_for_timeout(600)
+    await helper.require_click_any([
+        "button:has-text('Save manually')",
+        "button:has-text('Save')",
+        "button.o_form_button_save",
+    ], timeout=5000)
+    await helper.page.wait_for_timeout(1000)
+    await helper.require_click('button[name="action_confirm"]', timeout=8000)
+    await helper.page.wait_for_timeout(1500)
+    for modal_sel in [".modal button:has-text('Confirm')", ".o_dialog .btn-primary"]:
+        await helper.click_if_visible(modal_sel, timeout=1500)
+    await helper.page.wait_for_timeout(800)
+    name_loc = helper.page.locator(".o_field_widget[name='name']").first
+    so_name = (await name_loc.text_content() or "").strip()
+    assert so_name and so_name.lower() != "new", f"SO name not saved; url={helper.page.url}"
+    return so_name
+
+
+# ---------------------------------------------------------------------------
+# P-SO1: Tushar confirms → SO stays Draft + pending_approval banner visible
+# ---------------------------------------------------------------------------
+@pytest.mark.asyncio
+async def test_p_so1_tushar_confirm_triggers_pending(helper, shared_state):
+    """P-SO1: Tushar confirms a Quotation; SO held in Draft with pending banner.
+
+    The SO must NOT reach state='sale'. No approval buttons visible to Tushar.
+    """
+    so_name = await _tushar_create_and_submit_so(helper)
+    shared_state["suite12_so_name"] = so_name
+    shared_state["suite12_so_rajshri"] = so_name
+
+    page_content = await helper.page.content()
+    assert "Awaiting Dual Approval" in page_content, (
+        "Expected pending approval banner to be visible after Tushar confirms"
+    )
+    assert await helper.page.locator("button[name='action_approve_accounts']").count() == 0
+    assert await helper.page.locator("button[name='action_approve_manohar']").count() == 0
+    assert await helper.page.locator("button[name='action_reject']").count() == 0
+    await helper.screenshot("p_so1_pending_as_tushar")
+
+
+# ---------------------------------------------------------------------------
+# P-SO2: Rajshri approves Accounts — SO still Draft (Manohar hasn't approved)
+# ---------------------------------------------------------------------------
+@pytest.mark.asyncio
+async def test_p_so2_rajshri_approves_accounts(helper, shared_state):
+    """P-SO2: Rajshri clicks Approve (Accounts); partial approval, SO still Draft."""
+    so_name = shared_state.get("suite12_so_rajshri")
+    if not so_name:
+        pytest.skip("P-SO1 did not run")
+
+    await helper.login_as("rajshri")
+    await _open_so_by_name(helper, so_name)
+
+    accts_btn = helper.page.locator("button[name='action_approve_accounts']")
+    assert await accts_btn.count() > 0, "Rajshri cannot see Approve (Accounts) button"
+    assert await helper.page.locator("button[name='action_approve_manohar']").count() == 0, (
+        "Rajshri should NOT see Approve (MD) button"
+    )
+    assert await helper.page.locator("button[name='action_reject']").count() > 0
+
+    await accts_btn.click()
+    await helper.page.wait_for_timeout(1500)
+    await helper.screenshot("p_so2_rajshri_approved_accounts")
+
+    await helper.chatter_contains("Accounts approval recorded")
+
+    page_content = await helper.page.content()
+    assert "Sales Order" not in page_content, "SO should still be Draft after 1/2 approvals"
+
+
+# ---------------------------------------------------------------------------
+# P-SO3: Manohar approves MD → both approved → SO confirmed (state=sale)
+# ---------------------------------------------------------------------------
+@pytest.mark.asyncio
+async def test_p_so3_manohar_approves_md_so_confirmed(helper, shared_state):
+    """P-SO3: Manohar clicks Approve (MD); both approvals done → SO = 'sale'."""
+    so_name = shared_state.get("suite12_so_rajshri")
+    if not so_name:
+        pytest.skip("P-SO2 did not run")
+
+    await helper.login_as("manohar")
+    await _open_so_by_name(helper, so_name)
+
+    md_btn = helper.page.locator("button[name='action_approve_manohar']")
+    assert await md_btn.count() > 0, "Manohar cannot see Approve (MD) button"
+    await md_btn.click()
+    await helper.page.wait_for_timeout(2000)
+    await helper.screenshot("p_so3_manohar_approved_md")
+
+    await helper.chatter_contains("MD approval recorded")
+    page_content = await helper.page.content()
+    assert "Sales Order" in page_content, "SO should be confirmed (Sales Order) after both approvals"
+    assert await helper.page.locator("button[name='action_approve_manohar']").count() == 0
+    assert await helper.page.locator("button[name='action_reject']").count() == 0
+
+
+# ---------------------------------------------------------------------------
+# P-SO4: After full approval, Tushar and Amit see the confirmed SO
+# ---------------------------------------------------------------------------
+@pytest.mark.asyncio
+async def test_p_so4_confirmed_so_visible_to_tushar_and_amit(helper, shared_state):
+    """P-SO4: Confirmed SO is visible as Sales Order to Tushar and Amit."""
+    so_name = shared_state.get("suite12_so_rajshri")
+    if not so_name:
+        pytest.skip("P-SO3 did not run")
+
+    await helper.login_as("tushar")
+    await _open_so_by_name(helper, so_name)
+    assert "Sales Order" in await helper.page.content()
+    await helper.screenshot("p_so4_tushar_sees_confirmed_so")
+
+    await helper.login_as("amit")
+    await _open_so_by_name(helper, so_name)
+    assert "Sales Order" in await helper.page.content()
+    await helper.screenshot("p_so4_amit_sees_confirmed_so")
+
+
+# ---------------------------------------------------------------------------
+# P-SO5: Reverse order — Manohar approves first, then Rajshri
+# ---------------------------------------------------------------------------
+@pytest.mark.asyncio
+async def test_p_so5_reverse_approval_order(helper, shared_state):
+    """P-SO5: Manohar approves (MD) first; SO stays Draft. Rajshri approves → confirmed."""
+    so_name = await _tushar_create_and_submit_so(helper)
+    shared_state["suite12_so_reverse"] = so_name
+
+    await helper.login_as("manohar")
+    await _open_so_by_name(helper, so_name)
+    md_btn = helper.page.locator("button[name='action_approve_manohar']")
+    assert await md_btn.count() > 0
+    await md_btn.click()
+    await helper.page.wait_for_timeout(1500)
+
+    page_content = await helper.page.content()
+    assert "Sales Order" not in page_content, "SO should still be Draft after only Manohar's approval"
+    await helper.screenshot("p_so5_manohar_approved_first")
+
+    await helper.login_as("rajshri")
+    await _open_so_by_name(helper, so_name)
+    accts_btn = helper.page.locator("button[name='action_approve_accounts']")
+    assert await accts_btn.count() > 0
+    await accts_btn.click()
+    await helper.page.wait_for_timeout(2000)
+
+    assert "Sales Order" in await helper.page.content(), (
+        "SO should be confirmed after Rajshri's second approval"
+    )
+    await helper.screenshot("p_so5_fully_approved_reverse_order")
+
+
+# ---------------------------------------------------------------------------
+# R-SO1: Rajshri rejects → SO back to Draft, fields reset
+# ---------------------------------------------------------------------------
+@pytest.mark.asyncio
+async def test_r_so1_rajshri_rejects(helper, shared_state):
+    """R-SO1: Rajshri rejects the pending SO; SO returns to Draft."""
+    so_name = await _tushar_create_and_submit_so(helper)
+    shared_state["suite12_so_reject_r"] = so_name
+
+    await helper.login_as("rajshri")
+    await _open_so_by_name(helper, so_name)
+    reject_btn = helper.page.locator("button[name='action_reject']")
+    assert await reject_btn.count() > 0
+    await reject_btn.click()
+    for confirm_sel in [".modal button:has-text('OK')", ".modal button:has-text('Confirm')", ".o_dialog .btn-primary"]:
+        await helper.click_if_visible(confirm_sel, timeout=2000)
+    await helper.page.wait_for_timeout(2000)
+    await helper.screenshot("r_so1_rajshri_rejected")
+
+    await helper.chatter_contains("rejected")
+    page_content = await helper.page.content()
+    assert "Awaiting Dual Approval" not in page_content, "Approval panel should be gone"
+
+
+# ---------------------------------------------------------------------------
+# R-SO2: Manohar rejects → SO back to Draft
+# ---------------------------------------------------------------------------
+@pytest.mark.asyncio
+async def test_r_so2_manohar_rejects(helper, shared_state):
+    """R-SO2: Manohar rejects the pending SO; SO returns to Draft."""
+    so_name = await _tushar_create_and_submit_so(helper)
+    shared_state["suite12_so_reject_m"] = so_name
+
+    await helper.login_as("manohar")
+    await _open_so_by_name(helper, so_name)
+    reject_btn = helper.page.locator("button[name='action_reject']")
+    assert await reject_btn.count() > 0
+    await reject_btn.click()
+    for confirm_sel in [".modal button:has-text('OK')", ".modal button:has-text('Confirm')", ".o_dialog .btn-primary"]:
+        await helper.click_if_visible(confirm_sel, timeout=2000)
+    await helper.page.wait_for_timeout(2000)
+    await helper.screenshot("r_so2_manohar_rejected")
+
+    await helper.chatter_contains("rejected")
+    assert "Awaiting Dual Approval" not in await helper.page.content()
+
+
+# ---------------------------------------------------------------------------
+# R-SO3: After rejection, Tushar re-confirms → triggers pending again
+# ---------------------------------------------------------------------------
+@pytest.mark.asyncio
+async def test_r_so3_reconfirm_after_rejection(helper, shared_state):
+    """R-SO3: Tushar re-confirms a rejected SO; pending approval triggered again."""
+    so_name = shared_state.get("suite12_so_reject_r") or shared_state.get("suite12_so_reject_m")
+    if not so_name:
+        pytest.skip("R-SO1/R-SO2 did not run")
+
+    await helper.login_as("tushar")
+    await _open_so_by_name(helper, so_name)
+    confirm_btn = helper.page.locator("button[name='action_confirm']")
+    if await confirm_btn.count() == 0:
+        pytest.skip("Confirm button not available — SO may not be in Draft")
+    await confirm_btn.click()
+    await helper.page.wait_for_timeout(1500)
+    await helper.screenshot("r_so3_resubmitted_after_rejection")
+
+    page_content = await helper.page.content()
+    assert "Awaiting Dual Approval" in page_content, (
+        "SO should be pending dual approval again after re-confirm"
+    )
+    assert await helper.page.locator("button[name='action_approve_accounts']").count() == 0
+    assert await helper.page.locator("button[name='action_approve_manohar']").count() == 0
+
+
+# ---------------------------------------------------------------------------
+# N-SO1: Amit sees NO approval buttons on pending SO
+# ---------------------------------------------------------------------------
+@pytest.mark.asyncio
+async def test_n_so1_amit_no_approval_buttons(helper, shared_state):
+    """N-SO1: Amit (group_sale_viewer) cannot see any approval buttons."""
+    so_name = shared_state.get("suite12_so_name")
+    if not so_name:
+        pytest.skip("P-SO1 did not run")
+
+    await helper.login_as("amit")
+    await _open_so_by_name(helper, so_name)
+    assert await helper.page.locator("button[name='action_approve_accounts']").count() == 0
+    assert await helper.page.locator("button[name='action_approve_manohar']").count() == 0
+    assert await helper.page.locator("button[name='action_reject']").count() == 0
+    await helper.screenshot("n_so1_amit_no_approval_buttons")
+
+
+# ---------------------------------------------------------------------------
+# N-SO2: Tushar sees NO approval buttons on his own pending SO
+# ---------------------------------------------------------------------------
+@pytest.mark.asyncio
+async def test_n_so2_tushar_no_approval_buttons(helper, shared_state):
+    """N-SO2: Tushar cannot see approval buttons on a pending SO he created."""
+    so_name = shared_state.get("suite12_so_name")
+    if not so_name:
+        pytest.skip("P-SO1 did not run")
+
+    await helper.login_as("tushar")
+    await _open_so_by_name(helper, so_name)
+    assert await helper.page.locator("button[name='action_approve_accounts']").count() == 0
+    assert await helper.page.locator("button[name='action_approve_manohar']").count() == 0
+    assert await helper.page.locator("button[name='action_reject']").count() == 0
+    await helper.screenshot("n_so2_tushar_no_approval_buttons")
+
+
+# ---------------------------------------------------------------------------
+# N-SO3: Rajshri sees Approve (Accounts) + Reject, but NOT Approve (MD)
+# ---------------------------------------------------------------------------
+@pytest.mark.asyncio
+async def test_n_so3_rajshri_sees_only_accounts_button(helper, shared_state):
+    """N-SO3: Rajshri sees Approve (Accounts) and Reject, but not Approve (MD)."""
+    so_name = shared_state.get("suite12_so_name")
+    if not so_name:
+        pytest.skip("P-SO1 did not run")
+
+    await helper.login_as("rajshri")
+    await _open_so_by_name(helper, so_name)
+    page_content = await helper.page.content()
+    if "Awaiting Dual Approval" not in page_content:
+        # SO already fully approved or not in pending — create a fresh one
+        so_name = await _tushar_create_and_submit_so(helper)
+        shared_state["suite12_so_name"] = so_name
+        await helper.login_as("rajshri")
+        await _open_so_by_name(helper, so_name)
+
+    assert await helper.page.locator("button[name='action_approve_accounts']").count() > 0
+    assert await helper.page.locator("button[name='action_approve_manohar']").count() == 0
+    assert await helper.page.locator("button[name='action_reject']").count() > 0
+    await helper.screenshot("n_so3_rajshri_only_accounts_button")
+
+
+# ---------------------------------------------------------------------------
+# N-SO4: Manohar sees Approve (MD) + Reject, but NOT Approve (Accounts)
+# ---------------------------------------------------------------------------
+@pytest.mark.asyncio
+async def test_n_so4_manohar_sees_only_md_button(helper, shared_state):
+    """N-SO4: Manohar sees Approve (MD) and Reject, but not Approve (Accounts)."""
+    so_name = shared_state.get("suite12_so_name")
+    if not so_name:
+        pytest.skip("P-SO1 did not run")
+
+    await helper.login_as("manohar")
+    await _open_so_by_name(helper, so_name)
+    page_content = await helper.page.content()
+    if "Awaiting Dual Approval" not in page_content:
+        so_name = await _tushar_create_and_submit_so(helper)
+        shared_state["suite12_so_name"] = so_name
+        await helper.login_as("manohar")
+        await _open_so_by_name(helper, so_name)
+
+    assert await helper.page.locator("button[name='action_approve_manohar']").count() > 0
+    assert await helper.page.locator("button[name='action_approve_accounts']").count() == 0
+    assert await helper.page.locator("button[name='action_reject']").count() > 0
+    await helper.screenshot("n_so4_manohar_only_md_button")
+
+
+# ---------------------------------------------------------------------------
+# N-SO5: Only one approval does NOT confirm the SO
+# ---------------------------------------------------------------------------
+@pytest.mark.asyncio
+async def test_n_so5_partial_approval_does_not_confirm(helper, shared_state):
+    """N-SO5: A single approval (Rajshri only) does not confirm the SO."""
+    so_name = await _tushar_create_and_submit_so(helper)
+
+    await helper.login_as("rajshri")
+    await _open_so_by_name(helper, so_name)
+    accts_btn = helper.page.locator("button[name='action_approve_accounts']")
+    if await accts_btn.count() == 0:
+        pytest.skip("Approve (Accounts) not visible — SO may not be pending")
+    await accts_btn.click()
+    await helper.page.wait_for_timeout(1500)
+
+    await helper.login_as("tushar")
+    await _open_so_by_name(helper, so_name)
+    page_content = await helper.page.content()
+    assert "Sales Order" not in page_content, "SO should still be Draft after only Rajshri's approval"
+    await helper.screenshot("n_so5_partial_approval_still_draft")
+
+
+# ---------------------------------------------------------------------------
+# C-SO1: Chatter contains pending approval notification after Tushar confirms
+# ---------------------------------------------------------------------------
+@pytest.mark.asyncio
+async def test_c_so1_chatter_pending_notification(helper, shared_state):
+    """C-SO1: Chatter shows awaiting-approval notification when SO enters pending."""
+    await _tushar_create_and_submit_so(helper)
+    await helper.chatter_contains("awaiting your approval")
+    await helper.screenshot("c_so1_chatter_pending")
+
+
+# ---------------------------------------------------------------------------
+# C-SO2: Rajshri and Manohar are followers after SO is created
+# ---------------------------------------------------------------------------
+@pytest.mark.asyncio
+async def test_c_so2_approvers_are_followers(helper, shared_state):
+    """C-SO2: Rajshri and Manohar are auto-subscribed as followers on the SO."""
+    so_name = shared_state.get("suite12_so_name") or shared_state.get("suite12_so_rajshri")
+    if not so_name:
+        pytest.skip("No SO available from prior tests")
+
+    await helper.login_as("tushar")
+    await _open_so_by_name(helper, so_name)
+    await helper.followers_contains("Rajshri")
+    await helper.followers_contains("Manohar")
+    await helper.screenshot("c_so2_approvers_as_followers")
+
+
+# ---------------------------------------------------------------------------
+# C-SO3: Chatter records each individual approval
+# ---------------------------------------------------------------------------
+@pytest.mark.asyncio
+async def test_c_so3_chatter_records_individual_approvals(helper, shared_state):
+    """C-SO3: Chatter logs Accounts approval and MD approval messages."""
+    so_name = shared_state.get("suite12_so_rajshri")
+    if not so_name:
+        pytest.skip("P-SO3 did not run — no fully-approved SO")
+
+    await helper.login_as("manohar")
+    await _open_so_by_name(helper, so_name)
+    await helper.chatter_contains("Accounts approval")
+    await helper.chatter_contains("MD approval")
+    await helper.screenshot("c_so3_chatter_both_approvals")
+
+
+# ---------------------------------------------------------------------------
+# SI-SO1: Confirmed SO has NO approval buttons for any user
+# ---------------------------------------------------------------------------
+@pytest.mark.asyncio
+async def test_si_so1_confirmed_so_no_buttons(helper, shared_state):
+    """SI-SO1: Once SO state=sale, no approval buttons are visible to anyone."""
+    so_name = shared_state.get("suite12_so_rajshri")
+    if not so_name:
+        pytest.skip("P-SO3 did not run — no confirmed SO")
+
+    for user in ("rajshri", "manohar"):
+        await helper.login_as(user)
+        await _open_so_by_name(helper, so_name)
+        assert await helper.page.locator("button[name='action_approve_accounts']").count() == 0
+        assert await helper.page.locator("button[name='action_approve_manohar']").count() == 0
+        assert await helper.page.locator("button[name='action_reject']").count() == 0
+        await helper.screenshot(f"si_so1_{user}_no_buttons_on_confirmed_so")
+
+
+# ---------------------------------------------------------------------------
+# SI-SO2: Approval fields reset after partial approval + rejection
+# ---------------------------------------------------------------------------
+@pytest.mark.asyncio
+async def test_si_so2_fields_reset_on_rejection(helper, shared_state):
+    """SI-SO2: Rajshri approves (partial) then Manohar rejects → all fields reset."""
+    so_name = await _tushar_create_and_submit_so(helper)
+
+    # Rajshri partially approves
+    await helper.login_as("rajshri")
+    await _open_so_by_name(helper, so_name)
+    accts_btn = helper.page.locator("button[name='action_approve_accounts']")
+    if await accts_btn.count() > 0:
+        await accts_btn.click()
+        await helper.page.wait_for_timeout(1000)
+
+    # Manohar rejects
+    await helper.login_as("manohar")
+    await _open_so_by_name(helper, so_name)
+    reject_btn = helper.page.locator("button[name='action_reject']")
+    assert await reject_btn.count() > 0, "Manohar should see Reject after partial approval"
+    await reject_btn.click()
+    for confirm_sel in [".modal button:has-text('OK')", ".modal button:has-text('Confirm')", ".o_dialog .btn-primary"]:
+        await helper.click_if_visible(confirm_sel, timeout=2000)
+    await helper.page.wait_for_timeout(2000)
+    await helper.screenshot("si_so2_fields_reset_after_rejection")
+
+    assert "Awaiting Dual Approval" not in await helper.page.content(), (
+        "Approval panel should be gone after rejection"
+    )
+    # Rajshri's Approve button should not show (SO not pending)
+    await helper.login_as("rajshri")
+    await _open_so_by_name(helper, so_name)
+    assert await helper.page.locator("button[name='action_approve_accounts']").count() == 0, (
+        "Approve (Accounts) should not appear on non-pending SO"
+    )
