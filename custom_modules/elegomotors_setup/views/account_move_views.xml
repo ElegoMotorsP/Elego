@@ -1,24 +1,28 @@
 <?xml version="1.0" encoding="utf-8"?>
 <odoo>
     <!--
-        ElegoMotors Account Move Form — Price Readonly for Store Billing Group
+        ElegoMotors Account Move Form Overrides
 
-        When Amit (group_store_billing) opens a customer invoice, the unit
-        price and discount fields are displayed as read-only. This ensures
-        that prices from the Sales Order cannot be altered by the store
-        manager when raising the invoice post-PDI.
+        1. store_billing_readonly (Amit / group_store_billing)
+           When Amit opens a customer invoice, unit price and discount are
+           read-only so prices from the Sales Order cannot be altered.
+
+        2. vendor_bill_lines_readonly (Rajshri / all non-manager accounting users)
+           On vendor bills, quantity and unit price are read-only for lines
+           that are linked to a Purchase Order line (purchase_line_id is set).
+           This locks billed qty/amount to the values received at gate entry.
+           ERP Managers and Purchase Managers are exempt.
+
+        3. gate_entry_reference
+           A computed field showing the stock picking (Gate Entry) references
+           associated with this vendor bill, so the accounts user can trace:
+           Gate Entry → PO → Bill.
 
         Implementation note:
-        Static view-level approaches (groups_id on record, <data groups="...">
-        wrapper, groups="..." on position element) all apply readonly=True to
-        ALL users in Odoo 17, breaking Odoo's own account test suite.
-
-        The correct approach is a computed Boolean field `store_billing_readonly`
-        on account.move (see models/account_move.py) decorated with
-        @api.depends_context('uid'). This evaluates to True only for
-        group_store_billing users at runtime. The field is then referenced via
-        parent.store_billing_readonly inside the invoice lines list, making
-        price_unit and discount readonly only for Amit.
+        All readonly conditions are combined in a single view record to avoid
+        attribute override conflicts when multiple view records target the same
+        field. Computed Boolean fields with @api.depends_context('uid') ensure
+        each user sees their own evaluated value at runtime.
     -->
 
     <record id="account_move_form_store_billing_readonly" model="ir.ui.view">
@@ -27,24 +31,40 @@
         <field name="inherit_id" ref="account.view_move_form"/>
         <field name="arch" type="xml">
 
-            <!-- Inject the readonly indicator into the parent form.
-                 The expression is non-constant so Odoo 17 does not flag it as
-                 "always invisible"; the field is still hidden from the UI but
-                 its value remains accessible via parent.store_billing_readonly
-                 in the invoice_line_ids list. -->
+            <!-- Inject both readonly indicator fields into the parent form.
+                 Non-constant invisible expressions keep the fields hidden from
+                 the UI while their values remain accessible via parent.* inside
+                 the invoice_line_ids list. -->
             <field name="invoice_line_ids" position="before">
                 <field name="store_billing_readonly"
                        invisible="store_billing_readonly or not store_billing_readonly"/>
+                <field name="vendor_bill_lines_readonly"
+                       invisible="vendor_bill_lines_readonly or not vendor_bill_lines_readonly"/>
             </field>
 
-            <!-- Unit price — readonly when parent.store_billing_readonly is True -->
+            <!-- Gate Entry reference — shown on vendor bills only, above line items -->
+            <field name="invoice_line_ids" position="before">
+                <field name="gate_entry_reference"
+                       string="Gate Entry Reference"
+                       readonly="1"
+                       invisible="move_type not in ('in_invoice', 'in_refund')"/>
+            </field>
+
+            <!-- Unit price — readonly for:
+                 (a) Amit (store_billing_readonly), or
+                 (b) non-manager users on PO-linked vendor bill lines -->
             <field name="price_unit" position="attributes">
-                <attribute name="readonly">parent.store_billing_readonly</attribute>
+                <attribute name="readonly">parent.store_billing_readonly or (parent.vendor_bill_lines_readonly and purchase_line_id)</attribute>
             </field>
 
-            <!-- Discount — readonly when parent.store_billing_readonly is True -->
+            <!-- Discount — readonly for Amit only (store billing) -->
             <field name="discount" position="attributes">
                 <attribute name="readonly">parent.store_billing_readonly</attribute>
+            </field>
+
+            <!-- Quantity — readonly for non-manager users on PO-linked vendor bill lines -->
+            <field name="quantity" position="attributes">
+                <attribute name="readonly">parent.vendor_bill_lines_readonly and purchase_line_id</attribute>
             </field>
 
         </field>

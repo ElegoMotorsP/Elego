@@ -93,6 +93,10 @@
              NOTE: quality group REMOVED — Amit has no quality access.
              NOTE: group_qc_pass_operator NOT assigned (13-Mar) — Amit can no
              longer validate QC Pass → Store transfers (only Pratik/Manohar).
+             NOTE: group_purchase_viewer REMOVED — Purchase menu no longer
+             visible to Amit (customer request: remove Purchase/Sales/Mfg menus).
+             NOTE: group_sale_viewer REMOVED — Sales menu no longer visible
+             to Amit (customer request).
              Products must be created by Manohar (Admin), not Amit.
              ============================================================ -->
         <record id="user_ego_amit" model="res.users">
@@ -107,8 +111,6 @@
                 (6, 0, [
                     ref('base.group_user'),
                     ref('stock.group_stock_manager'),
-                    ref('elegomotors_setup.group_purchase_viewer'),
-                    ref('elegomotors_setup.group_sale_viewer'),
                     ref('account.group_account_invoice'),
                     ref('elegomotors_setup.group_store_billing'),
                     ref('elegomotors_setup.group_inbound_operator'),
@@ -181,6 +183,9 @@
              NOTE: mrp.group_mrp_user REMOVED — Rajshri has no manufacturing
              access. Production menus are not visible to her.
              NOTE: quality group NOT added — Rajshri has no quality access.
+             NOTE: Upgraded from group_account_user → group_account_manager
+             (customer request: full accounting functions — balance sheet, P&L,
+             cash flow reports, accounting dashboard).
              ============================================================ -->
         <record id="user_ego_rajshri" model="res.users">
             <field name="name">Rajshri Kadam</field>
@@ -193,7 +198,7 @@
             <field name="groups_id" eval="[
                 (6, 0, [
                     ref('base.group_user'),
-                    ref('account.group_account_user'),
+                    ref('account.group_account_manager'),
                     ref('elegomotors_setup.group_purchase_viewer'),
                     ref('sales_team.group_sale_manager'),
                     ref('stock.group_stock_user'),
