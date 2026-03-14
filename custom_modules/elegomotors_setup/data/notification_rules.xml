@@ -221,7 +221,6 @@ if partners:
             <field name="model_id" ref="sale.model_sale_order"/>
             <field name="state">code</field>
             <field name="code"><![CDATA[
-from markupsafe import Markup
 sales = env.ref('elegomotors_setup.user_ego_tushar', raise_if_not_found=False)
 store = env.ref('elegomotors_setup.user_ego_amit', raise_if_not_found=False)
 partners = [u.partner_id.id for u in [sales, store] if u]
@@ -261,7 +260,6 @@ for rec in records:
             <field name="model_id" ref="purchase.model_purchase_order"/>
             <field name="state">code</field>
             <field name="code"><![CDATA[
-from markupsafe import Markup
 purchase = env.ref('elegomotors_setup.user_ego_prashant', raise_if_not_found=False)
 admin    = env.ref('elegomotors_setup.user_ego_manohar',  raise_if_not_found=False)
 partners = [u.partner_id.id for u in [purchase, admin] if u]
@@ -299,7 +297,6 @@ for rec in records:
             <field name="model_id" ref="purchase.model_purchase_order"/>
             <field name="state">code</field>
             <field name="code"><![CDATA[
-from markupsafe import Markup
 purchase = env.ref('elegomotors_setup.user_ego_prashant', raise_if_not_found=False)
 store    = env.ref('elegomotors_setup.user_ego_amit',     raise_if_not_found=False)
 admin    = env.ref('elegomotors_setup.user_ego_manohar',  raise_if_not_found=False)
@@ -340,7 +337,6 @@ for rec in records:
             <field name="model_id" ref="mrp.model_mrp_production"/>
             <field name="state">code</field>
             <field name="code"><![CDATA[
-from markupsafe import Markup
 mfg   = env.ref('elegomotors_setup.user_ego_pratik', raise_if_not_found=False)
 store = env.ref('elegomotors_setup.user_ego_amit',         raise_if_not_found=False)
 partners = [u.partner_id.id for u in [mfg, store] if u]
@@ -381,7 +377,6 @@ for rec in records:
             <field name="model_id" ref="mrp.model_mrp_production"/>
             <field name="state">code</field>
             <field name="code"><![CDATA[
-from markupsafe import Markup
 store    = env.ref('elegomotors_setup.user_ego_amit',     raise_if_not_found=False)
 quality  = env.ref('elegomotors_setup.user_ego_pratik',   raise_if_not_found=False)
 purchase = env.ref('elegomotors_setup.user_ego_prashant', raise_if_not_found=False)
@@ -427,7 +422,6 @@ for rec in records:
             <field name="model_id" ref="stock.model_stock_picking"/>
             <field name="state">code</field>
             <field name="code"><![CDATA[
-from markupsafe import Markup
 store    = env.ref('elegomotors_setup.user_ego_amit',     raise_if_not_found=False)
 purchase = env.ref('elegomotors_setup.user_ego_prashant', raise_if_not_found=False)
 accounts = env.ref('elegomotors_setup.user_ego_rajshri',  raise_if_not_found=False)
@@ -473,7 +467,6 @@ for rec in records.filtered(lambda p: p.picking_type_code == 'incoming'):
             <field name="model_id" ref="account.model_account_move"/>
             <field name="state">code</field>
             <field name="code"><![CDATA[
-from markupsafe import Markup
 finance = env.ref('elegomotors_setup.user_ego_rajshri', raise_if_not_found=False)
 sales   = env.ref('elegomotors_setup.user_ego_tushar',  raise_if_not_found=False)
 store   = env.ref('elegomotors_setup.user_ego_amit',    raise_if_not_found=False)
@@ -525,7 +518,6 @@ for rec in records.filtered(lambda m: m.move_type == 'out_invoice'):
             <field name="model_id" ref="account.model_account_move"/>
             <field name="state">code</field>
             <field name="code"><![CDATA[
-from markupsafe import Markup
 finance  = env.ref('elegomotors_setup.user_ego_rajshri',  raise_if_not_found=False)
 purchase = env.ref('elegomotors_setup.user_ego_prashant', raise_if_not_found=False)
 admin    = env.ref('elegomotors_setup.user_ego_manohar',  raise_if_not_found=False)
@@ -574,7 +566,6 @@ for rec in records.filtered(lambda m: m.move_type == 'in_invoice'):
             <field name="model_id" ref="stock.model_stock_picking"/>
             <field name="state">code</field>
             <field name="code"><![CDATA[
-from markupsafe import Markup
 mfg = env.ref('elegomotors_setup.user_ego_pratik', raise_if_not_found=False)
 partners = [mfg.partner_id.id] if mfg else []
 for rec in records.filtered(lambda p: p.picking_type_id.sequence_code == 'PI'):
@@ -613,7 +604,6 @@ for rec in records.filtered(lambda p: p.picking_type_id.sequence_code == 'PI'):
             <field name="model_id" ref="stock.model_stock_picking"/>
             <field name="state">code</field>
             <field name="code"><![CDATA[
-from markupsafe import Markup
 store = env.ref('elegomotors_setup.user_ego_amit', raise_if_not_found=False)
 partners = [store.partner_id.id] if store else []
 for rec in records.filtered(lambda p: p.picking_type_id.sequence_code == 'QCS'):
@@ -651,7 +641,6 @@ for rec in records.filtered(lambda p: p.picking_type_id.sequence_code == 'QCS'):
             <field name="model_id" ref="stock.model_stock_picking"/>
             <field name="state">code</field>
             <field name="code"><![CDATA[
-from markupsafe import Markup
 store    = env.ref('elegomotors_setup.user_ego_amit',    raise_if_not_found=False)
 accounts = env.ref('elegomotors_setup.user_ego_rajshri', raise_if_not_found=False)
 partners = [u.partner_id.id for u in [store, accounts] if u]
