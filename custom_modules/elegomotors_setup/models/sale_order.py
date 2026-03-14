@@ -1,4 +1,5 @@
 # -*- coding: utf-8 -*-
+from markupsafe import Markup
 from odoo import api, fields, models
 from odoo.exceptions import AccessError
 
@@ -63,7 +64,7 @@ class SaleOrder(models.Model):
                 if manohar:
                     partner_ids.append(manohar.partner_id.id)
                 order.message_post(
-                    body=(
+                    body=Markup(
                         "This Sales Order is awaiting your approval before it can be confirmed. "
                         "Please review and click <b>Approve (Accounts)</b> or <b>Approve (MD)</b>."
                     ),
