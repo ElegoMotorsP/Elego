@@ -221,12 +221,13 @@ if partners:
             <field name="model_id" ref="sale.model_sale_order"/>
             <field name="state">code</field>
             <field name="code"><![CDATA[
+from markupsafe import Markup
 sales = env.ref('elegomotors_setup.user_ego_tushar', raise_if_not_found=False)
 store = env.ref('elegomotors_setup.user_ego_amit', raise_if_not_found=False)
 partners = [u.partner_id.id for u in [sales, store] if u]
 for rec in records:
     rec.message_post(
-        body=(
+        body=Markup(
             "<b>Sales Order Confirmed</b><br/>"
             "Sales Order <b>%s</b> has been confirmed.<br/>"
             "Please verify Finished Goods availability "
@@ -260,12 +261,13 @@ for rec in records:
             <field name="model_id" ref="purchase.model_purchase_order"/>
             <field name="state">code</field>
             <field name="code"><![CDATA[
+from markupsafe import Markup
 purchase = env.ref('elegomotors_setup.user_ego_prashant', raise_if_not_found=False)
 admin    = env.ref('elegomotors_setup.user_ego_manohar',  raise_if_not_found=False)
 partners = [u.partner_id.id for u in [purchase, admin] if u]
 for rec in records:
     rec.message_post(
-        body=(
+        body=Markup(
             "<b>Purchase Order Awaiting Approval</b><br/>"
             "PO <b>%s</b> has been submitted and is waiting for manager approval.<br/>"
             "<b>Purchase (Prashant):</b> PO is pending — awaiting Admin sign-off.<br/>"
@@ -297,13 +299,14 @@ for rec in records:
             <field name="model_id" ref="purchase.model_purchase_order"/>
             <field name="state">code</field>
             <field name="code"><![CDATA[
+from markupsafe import Markup
 purchase = env.ref('elegomotors_setup.user_ego_prashant', raise_if_not_found=False)
 store    = env.ref('elegomotors_setup.user_ego_amit',     raise_if_not_found=False)
 admin    = env.ref('elegomotors_setup.user_ego_manohar',  raise_if_not_found=False)
 partners = [u.partner_id.id for u in [purchase, store, admin] if u]
 for rec in records:
     rec.message_post(
-        body=(
+        body=Markup(
             "<b>Purchase Order Approved</b><br/>"
             "PO <b>%s</b> has been approved and confirmed.<br/>"
             "<b>Purchase (Prashant):</b> Send PO to vendor and track delivery date.<br/>"
@@ -337,12 +340,13 @@ for rec in records:
             <field name="model_id" ref="mrp.model_mrp_production"/>
             <field name="state">code</field>
             <field name="code"><![CDATA[
+from markupsafe import Markup
 mfg   = env.ref('elegomotors_setup.user_ego_pratik', raise_if_not_found=False)
 store = env.ref('elegomotors_setup.user_ego_amit',         raise_if_not_found=False)
 partners = [u.partner_id.id for u in [mfg, store] if u]
 for rec in records:
     rec.message_post(
-        body=(
+        body=Markup(
             "<b>Manufacturing Order Confirmed</b><br/>"
             "MO <b>%s</b> for <b>%s</b> (qty: %s) is confirmed.<br/>"
             "<b>Store (Amit):</b> Create and validate an <b>Issue to Production</b> transfer "
@@ -377,13 +381,14 @@ for rec in records:
             <field name="model_id" ref="mrp.model_mrp_production"/>
             <field name="state">code</field>
             <field name="code"><![CDATA[
+from markupsafe import Markup
 store    = env.ref('elegomotors_setup.user_ego_amit',     raise_if_not_found=False)
 quality  = env.ref('elegomotors_setup.user_ego_pratik',   raise_if_not_found=False)
 purchase = env.ref('elegomotors_setup.user_ego_prashant', raise_if_not_found=False)
 partners = [u.partner_id.id for u in [store, quality, purchase] if u]
 for rec in records:
     rec.message_post(
-        body=(
+        body=Markup(
             "<b>Manufacturing Complete — Production QC Required</b><br/>"
             "MO <b>%s</b> is done. <b>%s</b> (qty: %s) is manufactured.<br/>"
             "<b>Quality (Pratik):</b> Perform QC check of produced material "
@@ -422,6 +427,7 @@ for rec in records:
             <field name="model_id" ref="stock.model_stock_picking"/>
             <field name="state">code</field>
             <field name="code"><![CDATA[
+from markupsafe import Markup
 store    = env.ref('elegomotors_setup.user_ego_amit',     raise_if_not_found=False)
 purchase = env.ref('elegomotors_setup.user_ego_prashant', raise_if_not_found=False)
 accounts = env.ref('elegomotors_setup.user_ego_rajshri',  raise_if_not_found=False)
@@ -430,7 +436,7 @@ partners = [u.partner_id.id for u in [store, purchase, accounts, quality] if u]
 for rec in records.filtered(lambda p: p.picking_type_code == 'incoming'):
     po_name = rec.origin or 'N/A'
     rec.message_post(
-        body=(
+        body=Markup(
             "<b>Material Gate Entry Validated</b><br/>"
             "Receipt <b>%s</b> (ref: <b>%s</b>) is done — material is now at <b>EGO/QC Inward</b>.<br/>"
             "<b>Store (Amit):</b> Inward QC inspection will be performed by Quality (Pratik).<br/>"
@@ -467,6 +473,7 @@ for rec in records.filtered(lambda p: p.picking_type_code == 'incoming'):
             <field name="model_id" ref="account.model_account_move"/>
             <field name="state">code</field>
             <field name="code"><![CDATA[
+from markupsafe import Markup
 finance = env.ref('elegomotors_setup.user_ego_rajshri', raise_if_not_found=False)
 sales   = env.ref('elegomotors_setup.user_ego_tushar',  raise_if_not_found=False)
 store   = env.ref('elegomotors_setup.user_ego_amit',    raise_if_not_found=False)
@@ -474,7 +481,7 @@ admin   = env.ref('elegomotors_setup.user_ego_manohar', raise_if_not_found=False
 partners = [u.partner_id.id for u in [finance, sales, store, admin] if u]
 for rec in records.filtered(lambda m: m.move_type == 'out_invoice'):
     rec.message_post(
-        body=(
+        body=Markup(
             "<b>Customer Invoice Posted</b><br/>"
             "Invoice <b>%s</b> for <b>%s</b> — Amount: <b>%s %s</b><br/>"
             "<b>Finance (Rajshri):</b> Invoice is posted. Track payment and follow up if overdue.<br/>"
@@ -518,13 +525,14 @@ for rec in records.filtered(lambda m: m.move_type == 'out_invoice'):
             <field name="model_id" ref="account.model_account_move"/>
             <field name="state">code</field>
             <field name="code"><![CDATA[
+from markupsafe import Markup
 finance  = env.ref('elegomotors_setup.user_ego_rajshri',  raise_if_not_found=False)
 purchase = env.ref('elegomotors_setup.user_ego_prashant', raise_if_not_found=False)
 admin    = env.ref('elegomotors_setup.user_ego_manohar',  raise_if_not_found=False)
 partners = [u.partner_id.id for u in [finance, purchase, admin] if u]
 for rec in records.filtered(lambda m: m.move_type == 'in_invoice'):
     rec.message_post(
-        body=(
+        body=Markup(
             "<b>Vendor Bill Posted</b><br/>"
             "Bill <b>%s</b> from <b>%s</b> — Amount: <b>%s %s</b><br/>"
             "<b>Finance (Rajshri):</b> Vendor bill is posted. Schedule payment as per agreed terms.<br/>"
@@ -566,11 +574,12 @@ for rec in records.filtered(lambda m: m.move_type == 'in_invoice'):
             <field name="model_id" ref="stock.model_stock_picking"/>
             <field name="state">code</field>
             <field name="code"><![CDATA[
+from markupsafe import Markup
 mfg = env.ref('elegomotors_setup.user_ego_pratik', raise_if_not_found=False)
 partners = [mfg.partner_id.id] if mfg else []
 for rec in records.filtered(lambda p: p.picking_type_id.sequence_code == 'PI'):
     rec.message_post(
-        body=(
+        body=Markup(
             "<b>Material Issued to Production Floor</b><br/>"
             "Transfer <b>%s</b> has been validated by Store.<br/>"
             "Raw materials are now at <b>EGO/Production WIP</b>.<br/>"
@@ -604,11 +613,12 @@ for rec in records.filtered(lambda p: p.picking_type_id.sequence_code == 'PI'):
             <field name="model_id" ref="stock.model_stock_picking"/>
             <field name="state">code</field>
             <field name="code"><![CDATA[
+from markupsafe import Markup
 store = env.ref('elegomotors_setup.user_ego_amit', raise_if_not_found=False)
 partners = [store.partner_id.id] if store else []
 for rec in records.filtered(lambda p: p.picking_type_id.sequence_code == 'QCS'):
     rec.message_post(
-        body=(
+        body=Markup(
             "<b>Inward QC Passed — Material Added to Store</b><br/>"
             "Transfer <b>%s</b> validated by Quality (Pratik).<br/>"
             "Raw material has passed inward inspection and is now in <b>EGO/Store</b>.<br/>"
@@ -641,12 +651,13 @@ for rec in records.filtered(lambda p: p.picking_type_id.sequence_code == 'QCS'):
             <field name="model_id" ref="stock.model_stock_picking"/>
             <field name="state">code</field>
             <field name="code"><![CDATA[
+from markupsafe import Markup
 store    = env.ref('elegomotors_setup.user_ego_amit',    raise_if_not_found=False)
 accounts = env.ref('elegomotors_setup.user_ego_rajshri', raise_if_not_found=False)
 partners = [u.partner_id.id for u in [store, accounts] if u]
 for rec in records.filtered(lambda p: p.picking_type_id.sequence_code == 'QCQ'):
     rec.message_post(
-        body=(
+        body=Markup(
             "<b>Inward QC Failed — Material Moved to Quarantine</b><br/>"
             "Transfer <b>%s</b> validated — material is now in <b>EGO/Quarantine</b>.<br/>"
             "<b>Store (Amit):</b> Choose next action:<br/>"
