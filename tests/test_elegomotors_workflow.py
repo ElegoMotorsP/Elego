@@ -9,6 +9,22 @@ def uid(prefix: str) -> str:
 
 async def open_sales(helper):
     await helper.open_menu_url("/odoo/sales")
+    await helper.page.wait_for_timeout(800)
+    # Odoo 18 applies "My Quotations" by default.  The × remove button lives inside
+    # .o_searchview_facet as <span class="o_facet_remove"> (OWL-based search bar).
+    # We try several selector variants so this works across minor Odoo version diffs.
+    FACET_REMOVE = (
+        ".o_searchview_facet .o_facet_remove, "
+        ".o_searchview_facet span.o_facet_remove, "
+        ".o_searchview_facet i.o_facet_remove, "
+        ".o_searchview_facet .o_delete"
+    )
+    for _ in range(10):
+        btn = helper.page.locator(FACET_REMOVE).first
+        if await btn.count() == 0:
+            break
+        await btn.click()
+        await helper.page.wait_for_timeout(500)
 
 
 async def open_purchase(helper):
@@ -169,30 +185,20 @@ async def create_sales_order(helper, customer="Azure Interior", product="ElegoMo
 async def _dual_approve_so(helper, so_name: str):
     """Perform both approvals (Accounts + MD) to confirm a pending Sales Order.
 
-    Replaces the old single-approver approve_sales_order() helper.
-    Rajshri clicks Approve (Accounts), then Manohar clicks Approve (MD).
-    Raises AssertionError if either approval button is not found.
+    Uses _open_so_by_name which robustly clears all search filters before
+    navigating to the record.
+    Raises AssertionError if the SO is not confirmed after both approvals.
     """
     # Rajshri — Accounts approval
     await helper.login_as("rajshri")
-    await open_sales(helper)
-    await helper.page.fill("input.o_searchview_input", so_name)
-    await helper.page.keyboard.press("Enter")
-    await helper.page.wait_for_timeout(800)
-    await helper.click_if_visible(f"text={so_name}", timeout=5000)
-    await helper.page.wait_for_timeout(800)
+    await _open_so_by_name(helper, so_name)
     accts_btn = helper.page.locator("button[name='action_approve_accounts']")
     if await accts_btn.count() > 0:
         await accts_btn.click()
         await helper.page.wait_for_timeout(1000)
     # Manohar — MD approval
     await helper.login_as("manohar")
-    await open_sales(helper)
-    await helper.page.fill("input.o_searchview_input", so_name)
-    await helper.page.keyboard.press("Enter")
-    await helper.page.wait_for_timeout(800)
-    await helper.click_if_visible(f"text={so_name}", timeout=5000)
-    await helper.page.wait_for_timeout(800)
+    await _open_so_by_name(helper, so_name)
     md_btn = helper.page.locator("button[name='action_approve_manohar']")
     if await md_btn.count() > 0:
         await md_btn.click()
@@ -942,11 +948,7 @@ async def test_picking_slip_created(helper, shared_state):
     so_name = shared_state.get("delivery_so_name")
     if not so_name:
         pytest.skip("SO not available from prior test.")
-    await open_sales(helper)
-    await helper.page.fill("input.o_searchview_input", so_name)
-    await helper.page.keyboard.press("Enter")
-    await helper.click_if_visible(f"text={so_name}", timeout=5000)
-    await helper.page.wait_for_timeout(800)
+    await _open_so_by_name(helper, so_name)
 
     # Click the delivery smart button
     delivery_opened = False
@@ -1097,10 +1099,7 @@ async def test_full_e2e_inquiry_to_invoice(helper, shared_state):
         "EGO/Finished Goods",
     )
     await helper.login_as("amit")
-    await open_sales(helper)
-    await helper.page.fill("input.o_searchview_input", shared_state["e2e_so"])
-    await helper.page.keyboard.press("Enter")
-    await helper.click_if_visible(f"text={shared_state['e2e_so']}", timeout=5000)
+    await _open_so_by_name(helper, shared_state["e2e_so"])
     await helper.click_if_visible('button[name="action_view_delivery"]', timeout=5000)
     if await helper.page.locator("tr.o_data_row").count() > 0:
         await helper.page.locator("tr.o_data_row").first.click()
@@ -1192,11 +1191,7 @@ async def test_customer_invoice_subscribes_rajshri_tushar(helper):
         pass  # Continue anyway; button check below may still work
     # Navigate back to the SO as Tushar to click Create Invoice
     await helper.login_as("tushar")
-    await open_sales(helper)
-    await helper.page.fill("input.o_searchview_input", so_name)
-    await helper.page.keyboard.press("Enter")
-    await helper.click_if_visible(f"text={so_name}", timeout=5000)
-    await helper.page.wait_for_timeout(800)
+    await _open_so_by_name(helper, so_name)
     await helper.click_if_visible("button:has-text('Create Invoice')", timeout=3000)
     try:
         await helper.followers_contains("Rajshri")
@@ -1235,11 +1230,7 @@ async def test_notify_so_confirmed(helper):
     except AssertionError:
         pytest.skip("Dual approval buttons not found — verify module is upgraded")
     await helper.login_as("tushar")
-    await open_sales(helper)
-    await helper.page.fill("input.o_searchview_input", so_name)
-    await helper.page.keyboard.press("Enter")
-    await helper.click_if_visible(f"text={so_name}", timeout=5000)
-    await helper.page.wait_for_timeout(800)
+    await _open_so_by_name(helper, so_name)
     await helper.chatter_contains("Sales Order Confirmed")
 
 
@@ -3311,16 +3302,43 @@ async def test_prashant_cannot_open_quality(helper):
 # Helper — navigate to a specific SO by name from the Sales list
 # ---------------------------------------------------------------------------
 async def _open_so_by_name(helper, so_name: str):
-    await open_sales(helper)
-    await helper.page.fill("input.o_searchview_input", so_name)
+    """Navigate to a specific SO form by its name (e.g. EGO-SO-00001).
+
+    Handles the "My Quotations" default filter and works for both Draft
+    (pending approval) and confirmed (sale state) records.
+    """
+    await open_sales(helper)  # clears all facets including "My Quotations"
+
+    # Sanity: if any facet is still visible, take a screenshot for debugging
+    leftover = helper.page.locator(".o_searchview_facet")
+    if await leftover.count() > 0:
+        await helper.screenshot(f"facet_not_cleared_{so_name}")
+
+    # Type the exact SO name and confirm search
+    search_inp = helper.page.locator("input.o_searchview_input")
+    await search_inp.click()
+    await search_inp.fill(so_name)
+    await helper.page.wait_for_timeout(600)
+    # Dismiss any autocomplete dropdown first, then press Enter to apply search
+    await helper.page.keyboard.press("Escape")
+    await helper.page.wait_for_timeout(200)
+    await search_inp.fill(so_name)
     await helper.page.keyboard.press("Enter")
-    await helper.page.wait_for_timeout(1000)
-    row = helper.page.locator(f"td:has-text('{so_name}'), tr:has-text('{so_name}')").first
+    await helper.page.wait_for_timeout(1200)
+
+    # Click the data row whose Number column matches exactly
+    row = helper.page.locator(
+        f"tr.o_data_row td[name='name']:has-text('{so_name}'), "
+        f"tr.o_data_row td.o_data_cell:has-text('{so_name}')"
+    ).first
     try:
-        await row.wait_for(state="visible", timeout=6000)
+        await row.wait_for(state="visible", timeout=8000)
         await row.click()
     except Exception:
-        await helper.click_if_visible(f"text={so_name}", timeout=3000)
+        # Fallback: direct text match anywhere on the page
+        fallback = helper.page.locator(f"text='{so_name}'").first
+        await fallback.wait_for(state="visible", timeout=4000)
+        await fallback.click()
     await helper.page.wait_for_timeout(1000)
 
 
@@ -3426,14 +3444,10 @@ async def test_p_so2_rajshri_approves_accounts(helper, shared_state):
     await helper.page.wait_for_timeout(1500)
     await helper.screenshot("p_so2_rajshri_approved_accounts")
 
-    assert await helper.chatter_contains("Accounts approval recorded")
+    await helper.chatter_contains("Accounts approval recorded")
 
-    # SO must NOT yet be confirmed
-    status_bar = helper.page.locator(".o_statusbar_status button.o_arrow_button.o_status_current")
-    current_status = (await status_bar.first.text_content() or "").strip()
-    assert current_status != "Sales Order", (
-        f"SO should still be Draft after 1/2 approvals; got: {current_status}"
-    )
+    page_content = await helper.page.content()
+    assert "Sales Order" not in page_content, "SO should still be Draft after 1/2 approvals"
 
 
 # ---------------------------------------------------------------------------
@@ -3455,7 +3469,7 @@ async def test_p_so3_manohar_approves_md_so_confirmed(helper, shared_state):
     await helper.page.wait_for_timeout(2000)
     await helper.screenshot("p_so3_manohar_approved_md")
 
-    assert await helper.chatter_contains("MD approval recorded")
+    await helper.chatter_contains("MD approval recorded")
     page_content = await helper.page.content()
     assert "Sales Order" in page_content, "SO should be confirmed (Sales Order) after both approvals"
     assert await helper.page.locator("button[name='action_approve_manohar']").count() == 0
@@ -3499,11 +3513,8 @@ async def test_p_so5_reverse_approval_order(helper, shared_state):
     await md_btn.click()
     await helper.page.wait_for_timeout(1500)
 
-    status_bar = helper.page.locator(".o_statusbar_status button.o_arrow_button.o_status_current")
-    current_status = (await status_bar.first.text_content() or "").strip()
-    assert current_status != "Sales Order", (
-        f"SO should still be Draft after only Manohar's approval; got: {current_status}"
-    )
+    page_content = await helper.page.content()
+    assert "Sales Order" not in page_content, "SO should still be Draft after only Manohar's approval"
     await helper.screenshot("p_so5_manohar_approved_first")
 
     await helper.login_as("rajshri")
@@ -3538,7 +3549,7 @@ async def test_r_so1_rajshri_rejects(helper, shared_state):
     await helper.page.wait_for_timeout(2000)
     await helper.screenshot("r_so1_rajshri_rejected")
 
-    assert await helper.chatter_contains("rejected")
+    await helper.chatter_contains("rejected")
     page_content = await helper.page.content()
     assert "Awaiting Dual Approval" not in page_content, "Approval panel should be gone"
 
@@ -3562,7 +3573,7 @@ async def test_r_so2_manohar_rejects(helper, shared_state):
     await helper.page.wait_for_timeout(2000)
     await helper.screenshot("r_so2_manohar_rejected")
 
-    assert await helper.chatter_contains("rejected")
+    await helper.chatter_contains("rejected")
     assert "Awaiting Dual Approval" not in await helper.page.content()
 
 
@@ -3698,11 +3709,8 @@ async def test_n_so5_partial_approval_does_not_confirm(helper, shared_state):
 
     await helper.login_as("tushar")
     await _open_so_by_name(helper, so_name)
-    status_bar = helper.page.locator(".o_statusbar_status button.o_arrow_button.o_status_current")
-    current_status = (await status_bar.first.text_content() or "").strip()
-    assert current_status != "Sales Order", (
-        f"SO should still be Draft after only Rajshri's approval; got: {current_status}"
-    )
+    page_content = await helper.page.content()
+    assert "Sales Order" not in page_content, "SO should still be Draft after only Rajshri's approval"
     await helper.screenshot("n_so5_partial_approval_still_draft")
 
 
@@ -3713,9 +3721,7 @@ async def test_n_so5_partial_approval_does_not_confirm(helper, shared_state):
 async def test_c_so1_chatter_pending_notification(helper, shared_state):
     """C-SO1: Chatter shows awaiting-approval notification when SO enters pending."""
     await _tushar_create_and_submit_so(helper)
-    assert await helper.chatter_contains("awaiting your approval"), (
-        "Chatter should contain pending approval notification"
-    )
+    await helper.chatter_contains("awaiting your approval")
     await helper.screenshot("c_so1_chatter_pending")
 
 
@@ -3731,8 +3737,8 @@ async def test_c_so2_approvers_are_followers(helper, shared_state):
 
     await helper.login_as("tushar")
     await _open_so_by_name(helper, so_name)
-    assert await helper.followers_contains("Rajshri"), "Rajshri should be a follower"
-    assert await helper.followers_contains("Manohar"), "Manohar should be a follower"
+    await helper.followers_contains("Rajshri")
+    await helper.followers_contains("Manohar")
     await helper.screenshot("c_so2_approvers_as_followers")
 
 
@@ -3748,8 +3754,8 @@ async def test_c_so3_chatter_records_individual_approvals(helper, shared_state):
 
     await helper.login_as("manohar")
     await _open_so_by_name(helper, so_name)
-    assert await helper.chatter_contains("Accounts approval"), "Chatter should log Accounts approval"
-    assert await helper.chatter_contains("MD approval"), "Chatter should log MD approval"
+    await helper.chatter_contains("Accounts approval")
+    await helper.chatter_contains("MD approval")
     await helper.screenshot("c_so3_chatter_both_approvals")
 
 
