@@ -206,56 +206,11 @@ if partners:
              inbox notification immediately.
              =========================================================== -->
 
-        <!-- 2a. Sales Order Submitted for Approval → notify Accounts + Admin
-             Trigger: sale.order.state → 'to approve'
-             Who:     Rajshri (Accounts) and Manohar (Admin) — both hold
-                      group_sale_manager and must approve before the SO is
-                      confirmed. Salesman (Tushar) receives a note as well
-                      so he knows the SO is waiting for approval.
-             Note:    sale_order_approval = True is set at company level, so
-                      all SOs created by Tushar (group_sale_salesman, not
-                      group_sale_manager) will move to 'to approve' on
-                      action_confirm(). -->
-        <record id="act_notify_so_to_approve" model="ir.actions.server">
-            <field name="name">EGO: Notify SO Awaiting Approval</field>
-            <field name="model_id" ref="sale.model_sale_order"/>
-            <field name="state">code</field>
-            <field name="code"><![CDATA[
-accounts = env.ref('elegomotors_setup.user_ego_rajshri', raise_if_not_found=False)
-admin    = env.ref('elegomotors_setup.user_ego_manohar', raise_if_not_found=False)
-sales    = env.ref('elegomotors_setup.user_ego_tushar',  raise_if_not_found=False)
-approver_partners = [u.partner_id.id for u in [accounts, admin] if u]
-all_partners      = [u.partner_id.id for u in [accounts, admin, sales] if u]
-for rec in records:
-    rec.message_post(
-        body=(
-            "<b>Sales Order Awaiting Approval</b><br/>"
-            "SO <b>%s</b> for <b>%s</b> — Amount: <b>%s %s</b><br/>"
-            "The quotation has been submitted by <b>Sales</b> and is pending approval.<br/>"
-            "<b>Accounts (Rajshri) / Admin (Manohar):</b> Please review and approve "
-            "this Sales Order to confirm it."
-        ) % (
-            rec.name,
-            rec.partner_id.name,
-            rec.amount_total,
-            rec.currency_id.name,
-        ),
-        message_type='notification',
-        subtype_xmlid='mail.mt_note',
-        partner_ids=all_partners,
-    )
-]]></field>
-        </record>
-
-        <record id="auto_so_to_approve" model="base.automation">
-            <field name="name">EGO: SO Submitted — Notify Accounts &amp; Admin for Approval</field>
-            <field name="model_id" ref="sale.model_sale_order"/>
-            <field name="trigger">on_write</field>
-            <field name="filter_pre_domain">[('state', 'not in', ['to approve', 'sale', 'done'])]</field>
-            <field name="filter_domain">[('state', '=', 'to approve')]</field>
-            <field name="active" eval="True"/>
-            <field name="action_server_ids" eval="[(4, ref('act_notify_so_to_approve'))]"/>
-        </record>
+        <!-- 2a. (removed) SO Submitted for Approval automation rule has been replaced
+             by Python logic in models/sale_order.py (action_confirm override).
+             The Python method posts the chatter notification directly and sets
+             pending_approval = True, which keeps the SO in Draft until both
+             Rajshri (Accounts) and Manohar (MD) have clicked their approval buttons. -->
 
         <!-- 2b. Sales Order Confirmed (Approved) → notify Sales + Store
              Trigger: sale.order.state NOT in (sale, done) → IN (sale, done)

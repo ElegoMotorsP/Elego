@@ -54,6 +54,7 @@
         'data/notification_rules.xml',   # automated workflow notifications
         # View overrides (loaded last so base views exist)
         'views/account_move_views.xml',
+        'views/sale_order_views.xml',
     ],
     'installable': True,
     'application': False,

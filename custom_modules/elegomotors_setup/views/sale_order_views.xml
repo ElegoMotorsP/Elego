@@ -1,0 +1,86 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+    <!--
+        ElegoMotors Sales Order — Dual Approval Workflow
+
+        When Tushar confirms a Quotation, the SO is held in Draft with
+        pending_approval = True.  Two designated approvers must each click
+        their approval button before the SO is actually confirmed:
+
+          • Approve (Accounts) — visible only to group_sale_approver (Rajshri)
+          • Approve (MD)       — visible only to base.group_erp_manager (Manohar)
+          • Reject Order       — visible to either approver
+
+        Once both approvals are recorded the SO moves to state='sale' and
+        the existing auto_so_confirmed automation notifies Tushar + Amit.
+    -->
+
+    <record id="sale_order_form_dual_approval" model="ir.ui.view">
+        <field name="name">sale.order.form.dual.approval</field>
+        <field name="model">sale.order</field>
+        <field name="inherit_id" ref="sale.view_quotation_form"/>
+        <field name="arch" type="xml">
+
+            <!-- Inject the three hidden approval fields so the view can
+                 reference them in invisible/readonly expressions. -->
+            <field name="state" position="after">
+                <field name="pending_approval" invisible="1"/>
+                <field name="approval_accounts" invisible="1"/>
+                <field name="approval_manohar" invisible="1"/>
+            </field>
+
+            <!-- Approval action buttons in the form header -->
+            <xpath expr="//header/button[@name='action_confirm']" position="after">
+
+                <!-- Accounts approval — only Rajshri (group_sale_approver) -->
+                <button name="action_approve_accounts"
+                        string="Approve (Accounts)"
+                        type="object"
+                        class="btn-success"
+                        groups="elegomotors_setup.group_sale_approver"
+                        invisible="not pending_approval or approval_accounts"/>
+
+                <!-- MD approval — only Manohar (group_erp_manager) -->
+                <button name="action_approve_manohar"
+                        string="Approve (MD)"
+                        type="object"
+                        class="btn-success"
+                        groups="base.group_erp_manager"
+                        invisible="not pending_approval or approval_manohar"/>
+
+                <!-- Reject — visible to either approver while pending -->
+                <button name="action_reject"
+                        string="Reject Order"
+                        type="object"
+                        class="btn-danger"
+                        confirm="Are you sure you want to reject this Sales Order? It will be returned to Draft."
+                        groups="elegomotors_setup.group_sale_approver,base.group_erp_manager"
+                        invisible="not pending_approval"/>
+
+            </xpath>
+
+            <!-- Approval status panel — shown only while pending -->
+            <xpath expr="//sheet" position="before">
+                <div class="alert alert-warning mb-0"
+                     invisible="not pending_approval"
+                     role="alert">
+                    <strong>Awaiting Dual Approval</strong> — this Sales Order cannot be confirmed until both approvers have signed off.
+                    <ul class="mb-0 mt-1">
+                        <li>
+                            Accounts (Rajshri):
+                            <span invisible="not approval_accounts" class="text-success"><strong>&#10003; Approved</strong></span>
+                            <span invisible="approval_accounts" class="text-muted">Pending…</span>
+                        </li>
+                        <li>
+                            MD (Manohar):
+                            <span invisible="not approval_manohar" class="text-success"><strong>&#10003; Approved</strong></span>
+                            <span invisible="approval_manohar" class="text-muted">Pending…</span>
+                        </li>
+                    </ul>
+                </div>
+            </xpath>
+
+        </field>
+    </record>
+
+</odoo>
