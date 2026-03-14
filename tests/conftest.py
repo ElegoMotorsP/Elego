@@ -7,7 +7,7 @@ import pytest_asyncio
 from playwright.async_api import async_playwright
 
 
-BASE_URL = os.getenv("ODOO_URL", "https://elegomotors-updates-13-march-29668140.dev.odoo.com")
+BASE_URL = os.getenv("ODOO_URL", "https://elegomotors-14mar-sheet-29699106.dev.odoo.com")
 DATABASE = os.getenv("ODOO_DB", "elegomotors")
 SCREENSHOTS_DIR = os.getenv("EGO_SCREENSHOTS_DIR", "logs/screenshots")
 SCREENSHOTS_ENABLED = os.getenv("EGO_SCREENSHOTS", "0") == "1"

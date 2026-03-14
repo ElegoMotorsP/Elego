@@ -68,10 +68,17 @@
     <!-- noupdate="0" — applied every upgrade so settings are always enforced -->
     <data noupdate="0">
 
-        <!-- Activate INR currency so it can be set as the company default.
-             INR is not active by default in Odoo; this enables it. -->
+        <!-- Activate INR currency and set as company default.
+             INR is not active by default in Odoo; activating it first is
+             required before it can be assigned as the company currency.
+             noupdate="0" ensures this is enforced on every module upgrade. -->
         <record id="base.INR" model="res.currency">
             <field name="active" eval="True"/>
+        </record>
+
+        <!-- Set INR as the default currency for the main company. -->
+        <record id="base.main_company" model="res.company">
+            <field name="currency_id" ref="base.INR"/>
         </record>
 
         <!-- REMOVE Work Orders / MRP Routings from all internal users.
