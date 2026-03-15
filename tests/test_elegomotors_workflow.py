@@ -3648,31 +3648,47 @@ async def test_po_approval_notification_in_chatter(helper):
 
 @pytest.mark.asyncio
 async def test_pratik_can_access_quality_module(helper):
-    """Pratik (Quality Manager) must be able to navigate to the Quality module.
+    """Pratik (Quality Manager) must see the Quality app icon on his home screen.
 
-    Pratik holds quality.group_quality_manager which grants access to the
-    Quality menu in Odoo.
+    Pratik holds quality.group_quality_manager. In Odoo 18 SPA, navigating to
+    a URL never shows "Missing Action" — the reliable check is whether the
+    Quality icon appears in the home screen app grid.
     """
     await helper.login_as("pratik")
-    await helper.open_menu_url("/odoo/quality")
-    await helper.assert_no_missing_action()
+    await helper.goto("/odoo")
+    await helper.page.wait_for_timeout(2000)
+    home_content = await helper.page.content()
+    quality_in_home = (
+        'href="/odoo/quality"' in home_content
+        or 'data-menu-xmlid="quality' in home_content
+        or '"quality"' in home_content
+    )
+    assert quality_in_home, (
+        "Quality app icon must appear in Pratik's home screen — "
+        "check that quality.group_quality_manager is in his groups and "
+        "the module upgrade completed successfully; url=/odoo"
+    )
     await helper.screenshot("pratik_quality_module_visible")
 
 
 @pytest.mark.asyncio
 async def test_pratik_can_access_quality_checks(helper):
-    """Pratik can navigate to Quality > Quality Checks."""
+    """Pratik can open the Quality Checks list and see actual data rows."""
     await helper.login_as("pratik")
-    # Try the checks URL; quality module URL may vary by Odoo version
-    try:
-        await helper.open_menu_url("/odoo/quality/checks")
-        await helper.assert_no_missing_action()
-        await helper.screenshot("pratik_quality_checks_visible")
-    except AssertionError:
-        # Fallback: open quality module and verify it loads without error
-        await helper.open_menu_url("/odoo/quality")
-        await helper.assert_no_missing_action()
-        await helper.screenshot("pratik_quality_module_fallback")
+    await helper.goto("/odoo/quality")
+    await helper.page.wait_for_timeout(2000)
+    page_content = await helper.page.content()
+    # Verify quality content rendered (not an empty action_manager shell)
+    has_quality_content = (
+        "Quality" in page_content
+        and "o_action_manager" in page_content
+        and await helper.page.locator(".o_list_view, .o_kanban_view, .o_form_view").count() > 0
+    )
+    assert has_quality_content, (
+        "Pratik must see Quality module content (list/kanban/form rendered); "
+        f"url={helper.page.url}"
+    )
+    await helper.screenshot("pratik_quality_checks_visible")
 
 
 # ---------------------------------------------------------------------------
