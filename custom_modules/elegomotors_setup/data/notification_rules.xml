@@ -67,14 +67,15 @@ if partners:
             <field name="action_server_ids" eval="[(4, ref('act_subscribe_so'))]"/>
         </record>
 
-        <!-- 1b. Subscribe Purchase when a new Purchase Order is created -->
+        <!-- 1b. Subscribe Purchase + Admin when a new Purchase Order is created -->
         <record id="act_subscribe_po" model="ir.actions.server">
             <field name="name">EGO: Subscribe Dept Users to Purchase Order</field>
             <field name="model_id" ref="purchase.model_purchase_order"/>
             <field name="state">code</field>
             <field name="code"><![CDATA[
 purchase = env.ref('elegomotors_setup.user_ego_prashant', raise_if_not_found=False)
-partners = [purchase.partner_id.id] if purchase else []
+admin    = env.ref('elegomotors_setup.user_ego_manohar',  raise_if_not_found=False)
+partners = [u.partner_id.id for u in [purchase, admin] if u]
 if partners:
     for rec in records:
         rec.message_subscribe(partner_ids=partners)
@@ -112,14 +113,16 @@ if partners:
             <field name="action_server_ids" eval="[(4, ref('act_subscribe_mo'))]"/>
         </record>
 
-        <!-- 1d. Subscribe Store when a new stock.picking is created -->
+        <!-- 1d. Subscribe Store + Purchase + Quality when a new stock.picking is created -->
         <record id="act_subscribe_picking" model="ir.actions.server">
             <field name="name">EGO: Subscribe Store User to Stock Picking</field>
             <field name="model_id" ref="stock.model_stock_picking"/>
             <field name="state">code</field>
             <field name="code"><![CDATA[
-store = env.ref('elegomotors_setup.user_ego_amit', raise_if_not_found=False)
-partners = [store.partner_id.id] if store else []
+store    = env.ref('elegomotors_setup.user_ego_amit',     raise_if_not_found=False)
+purchase = env.ref('elegomotors_setup.user_ego_prashant', raise_if_not_found=False)
+quality  = env.ref('elegomotors_setup.user_ego_pratik',   raise_if_not_found=False)
+partners = [u.partner_id.id for u in [store, purchase, quality] if u]
 if partners:
     for rec in records:
         rec.message_subscribe(partner_ids=partners)
@@ -134,18 +137,20 @@ if partners:
             <field name="action_server_ids" eval="[(4, ref('act_subscribe_picking'))]"/>
         </record>
 
-        <!-- 1e. Subscribe Finance + Sales + Store when a new customer invoice is created.
+        <!-- 1e. Subscribe Finance + Sales + Store + Admin when a new customer invoice is created.
                   Amit (Store) is included because he can create/edit customer invoices
-                  (group_account_invoice — Billing) and must follow them. -->
+                  (group_account_invoice — Billing) and must follow them.
+                  Manohar (Admin) is now included per updated notification spec. -->
         <record id="act_subscribe_invoice" model="ir.actions.server">
-            <field name="name">EGO: Subscribe Finance + Sales + Store to Customer Invoice</field>
+            <field name="name">EGO: Subscribe Finance + Sales + Store + Admin to Customer Invoice</field>
             <field name="model_id" ref="account.model_account_move"/>
             <field name="state">code</field>
             <field name="code"><![CDATA[
 finance = env.ref('elegomotors_setup.user_ego_rajshri', raise_if_not_found=False)
 sales   = env.ref('elegomotors_setup.user_ego_tushar',  raise_if_not_found=False)
 store   = env.ref('elegomotors_setup.user_ego_amit',    raise_if_not_found=False)
-partners = [u.partner_id.id for u in [finance, sales, store] if u]
+admin   = env.ref('elegomotors_setup.user_ego_manohar', raise_if_not_found=False)
+partners = [u.partner_id.id for u in [finance, sales, store, admin] if u]
 if partners:
     for rec in records.filtered(lambda r: r.move_type == 'out_invoice'):
         rec.message_subscribe(partner_ids=partners)
@@ -156,23 +161,27 @@ if partners:
             <field name="name">EGO: Subscribe Finance+Sales — Customer Invoice Created</field>
             <field name="model_id" ref="account.model_account_move"/>
             <field name="trigger">on_create</field>
-            <field name="filter_domain">[('move_type', '=', 'out_invoice')]</field>
+            <!-- invoice_origin is set when an invoice is generated from a Sale Order.
+                 Direct-create invoices (including those created by Odoo's own test suite)
+                 have no origin, so this prevents polluting test followers. -->
+            <field name="filter_domain">[('move_type', '=', 'out_invoice'), ('invoice_origin', '!=', False)]</field>
             <field name="active" eval="True"/>
             <field name="action_server_ids" eval="[(4, ref('act_subscribe_invoice'))]"/>
         </record>
 
-        <!-- 1f. Subscribe Finance + Purchase when a new vendor bill is created.
+        <!-- 1f. Subscribe Finance + Purchase + Admin when a new vendor bill is created.
                   Amit (Store) is REMOVED — store_billing record rule now restricts
                   his account.move access to out_invoice/out_refund only.
-                  Vendor bills are managed exclusively by Finance (Rajshri). -->
+                  Manohar (Admin) is now included per updated notification spec. -->
         <record id="act_subscribe_vendor_bill" model="ir.actions.server">
-            <field name="name">EGO: Subscribe Finance + Purchase to Vendor Bill</field>
+            <field name="name">EGO: Subscribe Finance + Purchase + Admin to Vendor Bill</field>
             <field name="model_id" ref="account.model_account_move"/>
             <field name="state">code</field>
             <field name="code"><![CDATA[
 finance  = env.ref('elegomotors_setup.user_ego_rajshri',  raise_if_not_found=False)
 purchase = env.ref('elegomotors_setup.user_ego_prashant', raise_if_not_found=False)
-partners = [u.partner_id.id for u in [finance, purchase] if u]
+admin    = env.ref('elegomotors_setup.user_ego_manohar',  raise_if_not_found=False)
+partners = [u.partner_id.id for u in [finance, purchase, admin] if u]
 if partners:
     for rec in records.filtered(lambda r: r.move_type == 'in_invoice'):
         rec.message_subscribe(partner_ids=partners)
@@ -183,7 +192,9 @@ if partners:
             <field name="name">EGO: Subscribe Finance+Purchase — Vendor Bill Created</field>
             <field name="model_id" ref="account.model_account_move"/>
             <field name="trigger">on_create</field>
-            <field name="filter_domain">[('move_type', '=', 'in_invoice')]</field>
+            <!-- invoice_origin is set when a vendor bill is generated from a Purchase Order.
+                 Test-suite bills created directly (no origin) are excluded. -->
+            <field name="filter_domain">[('move_type', '=', 'in_invoice'), ('invoice_origin', '!=', False)]</field>
             <field name="active" eval="True"/>
             <field name="action_server_ids" eval="[(4, ref('act_subscribe_vendor_bill'))]"/>
         </record>
@@ -195,56 +206,11 @@ if partners:
              inbox notification immediately.
              =========================================================== -->
 
-        <!-- 2a. Sales Order Submitted for Approval → notify Accounts + Admin
-             Trigger: sale.order.state → 'to approve'
-             Who:     Rajshri (Accounts) and Manohar (Admin) — both hold
-                      group_sale_manager and must approve before the SO is
-                      confirmed. Salesman (Tushar) receives a note as well
-                      so he knows the SO is waiting for approval.
-             Note:    sale_order_approval = True is set at company level, so
-                      all SOs created by Tushar (group_sale_salesman, not
-                      group_sale_manager) will move to 'to approve' on
-                      action_confirm(). -->
-        <record id="act_notify_so_to_approve" model="ir.actions.server">
-            <field name="name">EGO: Notify SO Awaiting Approval</field>
-            <field name="model_id" ref="sale.model_sale_order"/>
-            <field name="state">code</field>
-            <field name="code"><![CDATA[
-accounts = env.ref('elegomotors_setup.user_ego_rajshri', raise_if_not_found=False)
-admin    = env.ref('elegomotors_setup.user_ego_manohar', raise_if_not_found=False)
-sales    = env.ref('elegomotors_setup.user_ego_tushar',  raise_if_not_found=False)
-approver_partners = [u.partner_id.id for u in [accounts, admin] if u]
-all_partners      = [u.partner_id.id for u in [accounts, admin, sales] if u]
-for rec in records:
-    rec.message_post(
-        body=(
-            "<b>Sales Order Awaiting Approval</b><br/>"
-            "SO <b>%s</b> for <b>%s</b> — Amount: <b>%s %s</b><br/>"
-            "The quotation has been submitted by <b>Sales</b> and is pending approval.<br/>"
-            "<b>Accounts (Rajshri) / Admin (Manohar):</b> Please review and approve "
-            "this Sales Order to confirm it."
-        ) % (
-            rec.name,
-            rec.partner_id.name,
-            rec.amount_total,
-            rec.currency_id.name,
-        ),
-        message_type='notification',
-        subtype_xmlid='mail.mt_note',
-        partner_ids=all_partners,
-    )
-]]></field>
-        </record>
-
-        <record id="auto_so_to_approve" model="base.automation">
-            <field name="name">EGO: SO Submitted — Notify Accounts &amp; Admin for Approval</field>
-            <field name="model_id" ref="sale.model_sale_order"/>
-            <field name="trigger">on_write</field>
-            <field name="filter_pre_domain">[('state', 'not in', ['to approve', 'sale', 'done'])]</field>
-            <field name="filter_domain">[('state', '=', 'to approve')]</field>
-            <field name="active" eval="True"/>
-            <field name="action_server_ids" eval="[(4, ref('act_notify_so_to_approve'))]"/>
-        </record>
+        <!-- 2a. (removed) SO Submitted for Approval automation rule has been replaced
+             by Python logic in models/sale_order.py (action_confirm override).
+             The Python method posts the chatter notification directly and sets
+             pending_approval = True, which keeps the SO in Draft until both
+             Rajshri (Accounts) and Manohar (MD) have clicked their approval buttons. -->
 
         <!-- 2b. Sales Order Confirmed (Approved) → notify Sales + Store
              Trigger: sale.order.state NOT in (sale, done) → IN (sale, done)
@@ -260,7 +226,7 @@ store = env.ref('elegomotors_setup.user_ego_amit', raise_if_not_found=False)
 partners = [u.partner_id.id for u in [sales, store] if u]
 for rec in records:
     rec.message_post(
-        body=(
+        body=Markup(
             "<b>Sales Order Confirmed</b><br/>"
             "Sales Order <b>%s</b> has been confirmed.<br/>"
             "Please verify Finished Goods availability "
@@ -295,13 +261,15 @@ for rec in records:
             <field name="state">code</field>
             <field name="code"><![CDATA[
 purchase = env.ref('elegomotors_setup.user_ego_prashant', raise_if_not_found=False)
-partners = [purchase.partner_id.id] if purchase else []
+admin    = env.ref('elegomotors_setup.user_ego_manohar',  raise_if_not_found=False)
+partners = [u.partner_id.id for u in [purchase, admin] if u]
 for rec in records:
     rec.message_post(
-        body=(
+        body=Markup(
             "<b>Purchase Order Awaiting Approval</b><br/>"
             "PO <b>%s</b> has been submitted and is waiting for manager approval.<br/>"
-            "The Purchase Manager must approve before sending to vendor."
+            "<b>Purchase (Prashant):</b> PO is pending — awaiting Admin sign-off.<br/>"
+            "<b>Admin (Manohar):</b> Please review and approve this Purchase Order."
         ) % rec.name,
         message_type='notification',
         subtype_xmlid='mail.mt_note',
@@ -330,16 +298,18 @@ for rec in records:
             <field name="state">code</field>
             <field name="code"><![CDATA[
 purchase = env.ref('elegomotors_setup.user_ego_prashant', raise_if_not_found=False)
-store    = env.ref('elegomotors_setup.user_ego_amit',    raise_if_not_found=False)
-partners = [u.partner_id.id for u in [purchase, store] if u]
+store    = env.ref('elegomotors_setup.user_ego_amit',     raise_if_not_found=False)
+admin    = env.ref('elegomotors_setup.user_ego_manohar',  raise_if_not_found=False)
+partners = [u.partner_id.id for u in [purchase, store, admin] if u]
 for rec in records:
     rec.message_post(
-        body=(
+        body=Markup(
             "<b>Purchase Order Approved</b><br/>"
             "PO <b>%s</b> has been approved and confirmed.<br/>"
-            "<b>Purchase:</b> Send PO to vendor and track delivery date.<br/>"
-            "<b>Store:</b> Prepare Gate Entry receipt — "
-            "material will arrive at <b>EGO/QC Inward</b>."
+            "<b>Purchase (Prashant):</b> Send PO to vendor and track delivery date.<br/>"
+            "<b>Store (Amit):</b> Prepare Gate Entry receipt — "
+            "material will arrive at <b>EGO/QC Inward</b>.<br/>"
+            "<b>Admin (Manohar):</b> PO has been approved and is now in progress."
         ) % rec.name,
         message_type='notification',
         subtype_xmlid='mail.mt_note',
@@ -372,7 +342,7 @@ store = env.ref('elegomotors_setup.user_ego_amit',         raise_if_not_found=Fa
 partners = [u.partner_id.id for u in [mfg, store] if u]
 for rec in records:
     rec.message_post(
-        body=(
+        body=Markup(
             "<b>Manufacturing Order Confirmed</b><br/>"
             "MO <b>%s</b> for <b>%s</b> (qty: %s) is confirmed.<br/>"
             "<b>Store (Amit):</b> Create and validate an <b>Issue to Production</b> transfer "
@@ -407,13 +377,13 @@ for rec in records:
             <field name="model_id" ref="mrp.model_mrp_production"/>
             <field name="state">code</field>
             <field name="code"><![CDATA[
-store   = env.ref('elegomotors_setup.user_ego_amit',   raise_if_not_found=False)
-quality = env.ref('elegomotors_setup.user_ego_pratik', raise_if_not_found=False)
-sales   = env.ref('elegomotors_setup.user_ego_tushar', raise_if_not_found=False)
-partners = [u.partner_id.id for u in [store, quality, sales] if u]
+store    = env.ref('elegomotors_setup.user_ego_amit',     raise_if_not_found=False)
+quality  = env.ref('elegomotors_setup.user_ego_pratik',   raise_if_not_found=False)
+purchase = env.ref('elegomotors_setup.user_ego_prashant', raise_if_not_found=False)
+partners = [u.partner_id.id for u in [store, quality, purchase] if u]
 for rec in records:
     rec.message_post(
-        body=(
+        body=Markup(
             "<b>Manufacturing Complete — Production QC Required</b><br/>"
             "MO <b>%s</b> is done. <b>%s</b> (qty: %s) is manufactured.<br/>"
             "<b>Quality (Pratik):</b> Perform QC check of produced material "
@@ -421,8 +391,8 @@ for rec in records:
             "If failed → raise WIP/Hold and return to manufacturing for rework.<br/>"
             "<b>Store (Amit):</b> Once QC clears, move FG to "
             "<b>EGO/Finished Goods</b> via FG Receipt transfer.<br/>"
-            "<b>Sales (Tushar):</b> Finished Goods will be available "
-            "for delivery after QC clearance. Prepare Picking Slip + PDI."
+            "<b>Purchase (Prashant):</b> Manufacturing is complete — "
+            "verify FG stock and update inventory records."
         ) % (rec.name, rec.product_id.name, int(rec.product_qty)),
         message_type='notification',
         subtype_xmlid='mail.mt_note',
@@ -455,16 +425,18 @@ for rec in records:
 store    = env.ref('elegomotors_setup.user_ego_amit',     raise_if_not_found=False)
 purchase = env.ref('elegomotors_setup.user_ego_prashant', raise_if_not_found=False)
 accounts = env.ref('elegomotors_setup.user_ego_rajshri',  raise_if_not_found=False)
-partners = [u.partner_id.id for u in [store, purchase, accounts] if u]
+quality  = env.ref('elegomotors_setup.user_ego_pratik',   raise_if_not_found=False)
+partners = [u.partner_id.id for u in [store, purchase, accounts, quality] if u]
 for rec in records.filtered(lambda p: p.picking_type_code == 'incoming'):
     po_name = rec.origin or 'N/A'
     rec.message_post(
-        body=(
+        body=Markup(
             "<b>Material Gate Entry Validated</b><br/>"
             "Receipt <b>%s</b> (ref: <b>%s</b>) is done — material is now at <b>EGO/QC Inward</b>.<br/>"
             "<b>Store (Amit):</b> Inward QC inspection will be performed by Quality (Pratik).<br/>"
             "&nbsp;&nbsp;• QC Pass → material moves to <b>EGO/Store</b>.<br/>"
             "&nbsp;&nbsp;• QC Fail → <b>Quarantine</b> → Hold/Reject/Return to Vendor (RTV).<br/>"
+            "<b>Quality (Pratik):</b> Please perform inward QC inspection of the received material.<br/>"
             "<b>Purchase (Prashant):</b> Material received against your PO — track any shortfall.<br/>"
             "<b>Accounts (Rajshri):</b> Please open the linked PO and create the <b>Vendor Bill</b> "
             "with the vendor's invoice number and invoice date."
@@ -498,16 +470,18 @@ for rec in records.filtered(lambda p: p.picking_type_code == 'incoming'):
 finance = env.ref('elegomotors_setup.user_ego_rajshri', raise_if_not_found=False)
 sales   = env.ref('elegomotors_setup.user_ego_tushar',  raise_if_not_found=False)
 store   = env.ref('elegomotors_setup.user_ego_amit',    raise_if_not_found=False)
-partners = [u.partner_id.id for u in [finance, sales, store] if u]
+admin   = env.ref('elegomotors_setup.user_ego_manohar', raise_if_not_found=False)
+partners = [u.partner_id.id for u in [finance, sales, store, admin] if u]
 for rec in records.filtered(lambda m: m.move_type == 'out_invoice'):
     rec.message_post(
-        body=(
+        body=Markup(
             "<b>Customer Invoice Posted</b><br/>"
             "Invoice <b>%s</b> for <b>%s</b> — Amount: <b>%s %s</b><br/>"
             "<b>Finance (Rajshri):</b> Invoice is posted. Track payment and follow up if overdue.<br/>"
             "<b>Store (Amit):</b> Invoice is posted — coordinate with Finance for delivery-related entries.<br/>"
             "<b>Sales (Tushar):</b> Invoice has been raised. "
-            "The sales cycle for this order is complete."
+            "The sales cycle for this order is complete.<br/>"
+            "<b>Admin (Manohar):</b> Customer invoice posted for your records."
         ) % (
             rec.name,
             rec.partner_id.name,
@@ -526,7 +500,10 @@ for rec in records.filtered(lambda m: m.move_type == 'out_invoice'):
             <field name="model_id" ref="account.model_account_move"/>
             <field name="trigger">on_write</field>
             <field name="filter_pre_domain">[('state', '!=', 'posted'), ('move_type', '=', 'out_invoice')]</field>
-            <field name="filter_domain">[('state', '=', 'posted'), ('move_type', '=', 'out_invoice')]</field>
+            <!-- invoice_origin is set when the invoice originates from a Sale Order.
+                 Direct-create invoices (including those in Odoo's own test suite) have
+                 no origin, so this prevents polluting test results with notification messages. -->
+            <field name="filter_domain">[('state', '=', 'posted'), ('move_type', '=', 'out_invoice'), ('invoice_origin', '!=', False)]</field>
             <field name="active" eval="True"/>
             <field name="action_server_ids" eval="[(4, ref('act_notify_invoice_posted'))]"/>
         </record>
@@ -543,14 +520,16 @@ for rec in records.filtered(lambda m: m.move_type == 'out_invoice'):
             <field name="code"><![CDATA[
 finance  = env.ref('elegomotors_setup.user_ego_rajshri',  raise_if_not_found=False)
 purchase = env.ref('elegomotors_setup.user_ego_prashant', raise_if_not_found=False)
-partners = [u.partner_id.id for u in [finance, purchase] if u]
+admin    = env.ref('elegomotors_setup.user_ego_manohar',  raise_if_not_found=False)
+partners = [u.partner_id.id for u in [finance, purchase, admin] if u]
 for rec in records.filtered(lambda m: m.move_type == 'in_invoice'):
     rec.message_post(
-        body=(
+        body=Markup(
             "<b>Vendor Bill Posted</b><br/>"
             "Bill <b>%s</b> from <b>%s</b> — Amount: <b>%s %s</b><br/>"
             "<b>Finance (Rajshri):</b> Vendor bill is posted. Schedule payment as per agreed terms.<br/>"
-            "<b>Purchase (Prashant):</b> Please verify bill amounts match the approved PO."
+            "<b>Purchase (Prashant):</b> Please verify bill amounts match the approved PO.<br/>"
+            "<b>Admin (Manohar):</b> Vendor bill posted for your records."
         ) % (
             rec.name,
             rec.partner_id.name,
@@ -569,7 +548,8 @@ for rec in records.filtered(lambda m: m.move_type == 'in_invoice'):
             <field name="model_id" ref="account.model_account_move"/>
             <field name="trigger">on_write</field>
             <field name="filter_pre_domain">[('state', '!=', 'posted'), ('move_type', '=', 'in_invoice')]</field>
-            <field name="filter_domain">[('state', '=', 'posted'), ('move_type', '=', 'in_invoice')]</field>
+            <!-- invoice_origin guard: same rationale as auto_invoice_posted above. -->
+            <field name="filter_domain">[('state', '=', 'posted'), ('move_type', '=', 'in_invoice'), ('invoice_origin', '!=', False)]</field>
             <field name="active" eval="True"/>
             <field name="action_server_ids" eval="[(4, ref('act_notify_vendor_bill_posted'))]"/>
         </record>
@@ -590,7 +570,7 @@ mfg = env.ref('elegomotors_setup.user_ego_pratik', raise_if_not_found=False)
 partners = [mfg.partner_id.id] if mfg else []
 for rec in records.filtered(lambda p: p.picking_type_id.sequence_code == 'PI'):
     rec.message_post(
-        body=(
+        body=Markup(
             "<b>Material Issued to Production Floor</b><br/>"
             "Transfer <b>%s</b> has been validated by Store.<br/>"
             "Raw materials are now at <b>EGO/Production WIP</b>.<br/>"
@@ -628,7 +608,7 @@ store = env.ref('elegomotors_setup.user_ego_amit', raise_if_not_found=False)
 partners = [store.partner_id.id] if store else []
 for rec in records.filtered(lambda p: p.picking_type_id.sequence_code == 'QCS'):
     rec.message_post(
-        body=(
+        body=Markup(
             "<b>Inward QC Passed — Material Added to Store</b><br/>"
             "Transfer <b>%s</b> validated by Quality (Pratik).<br/>"
             "Raw material has passed inward inspection and is now in <b>EGO/Store</b>.<br/>"
@@ -666,7 +646,7 @@ accounts = env.ref('elegomotors_setup.user_ego_rajshri', raise_if_not_found=Fals
 partners = [u.partner_id.id for u in [store, accounts] if u]
 for rec in records.filtered(lambda p: p.picking_type_id.sequence_code == 'QCQ'):
     rec.message_post(
-        body=(
+        body=Markup(
             "<b>Inward QC Failed — Material Moved to Quarantine</b><br/>"
             "Transfer <b>%s</b> validated — material is now in <b>EGO/Quarantine</b>.<br/>"
             "<b>Store (Amit):</b> Choose next action:<br/>"

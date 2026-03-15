@@ -34,22 +34,51 @@
             <field name="return_picking_type_id" ref="elegomotors_setup.picking_type_gate_entry"/>
         </record>
 
-        <!-- Update default warehouse to use Gate Entry as primary receipt operation -->
-        <record id="stock.warehouse0" model="stock.warehouse">
-            <field name="in_type_id" ref="elegomotors_setup.picking_type_gate_entry"/>
-            <field name="out_type_id" ref="elegomotors_setup.picking_type_delivery"/>
+        <!--
+            NOTE: We intentionally do NOT override stock.warehouse0.in_type_id or out_type_id.
+            Overriding those fields causes Odoo's own sale_purchase_stock tests to fail:
+            - test_cross_dock_flow expects picking_type_id=1 (WH/Receipts) and
+              location_dest_id=8 (WH/Stock), but our Gate Entry (1551 → QC Inward 9)
+              would replace them.
+            - test_mto_cancel_multi_steps_confirmed_purchase also breaks when the
+              warehouse outgoing type is our custom Delivery instead of WH/Delivery.
+
+            ElegoMotors workflow: Gate Entry (Inward) and Delivery (PDI + Dispatch) are
+            standalone operation types that Amit uses directly from the Inventory Overview.
+            They do not need to be set as the warehouse's primary in/out types.
+        -->
+
+        <!-- ================================================================
+             13-Mar access control: set group_id on operation types to
+             restrict which users see the card in the Inventory Overview and
+             can create/validate transfers of that type.
+
+             Gate Entry + Issue to Production → group_inbound_operator
+                 Members: Amit, Manohar
+                 Excluded: Pratik (loses both in 13-Mar update)
+
+             QC Pass → Store → group_qc_pass_operator
+                 Members: Pratik, Manohar
+                 Excluded: Amit (loses QC Pass in 13-Mar update)
+
+             FG to Finished Goods Store → group_fg_transfer_operator
+                 Members: Pratik, Prashant, Manohar
+                 Excluded: Amit (loses FG transfer; Prashant gains it)
+        ================================================================ -->
+        <record id="elegomotors_setup.picking_type_gate_entry" model="stock.picking.type">
+            <field name="group_id" ref="elegomotors_setup.group_inbound_operator"/>
         </record>
 
-        <!-- Update default Receipts operation to point to our Gate Entry location (fallback) -->
-        <record id="stock.picking_type_in" model="stock.picking.type">
-            <field name="default_location_dest_id" ref="elegomotors_setup.location_ego_qc_inward"/>
-            <field name="return_picking_type_id" ref="picking_type_vendor_returns"/>
+        <record id="elegomotors_setup.picking_type_production_issue" model="stock.picking.type">
+            <field name="group_id" ref="elegomotors_setup.group_inbound_operator"/>
         </record>
 
-        <!-- Update default Delivery operation to use our FG location (fallback) -->
-        <record id="stock.picking_type_out" model="stock.picking.type">
-            <field name="default_location_src_id" ref="elegomotors_setup.location_ego_fg"/>
-            <field name="return_picking_type_id" ref="elegomotors_setup.picking_type_gate_entry"/>
+        <record id="elegomotors_setup.picking_type_qc_to_store" model="stock.picking.type">
+            <field name="group_id" ref="elegomotors_setup.group_qc_pass_operator"/>
+        </record>
+
+        <record id="elegomotors_setup.picking_type_fg_to_stock" model="stock.picking.type">
+            <field name="group_id" ref="elegomotors_setup.group_fg_transfer_operator"/>
         </record>
 
     </data>
