@@ -68,8 +68,14 @@
     <!-- noupdate="0" — applied every upgrade so settings are always enforced -->
     <data noupdate="0">
 
-        <!-- Activate INR currency so it can be set as the company default.
-             INR is not active by default in Odoo; this enables it. -->
+        <!-- Activate INR currency so it is available in the currency list.
+             INR is not active by default in Odoo.
+             NOTE: currency_id cannot be set via XML once journal items exist
+             (Odoo raises UserError). Set the company currency to INR manually:
+               Settings → General Settings → Companies → ElegoMotors → Currency = INR
+             Or via psql on Odoo.sh shell:
+               UPDATE res_company SET currency_id =
+                 (SELECT id FROM res_currency WHERE name='INR') WHERE id=1; -->
         <record id="base.INR" model="res.currency">
             <field name="active" eval="True"/>
         </record>
