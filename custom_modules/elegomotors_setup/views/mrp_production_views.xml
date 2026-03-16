@@ -52,7 +52,7 @@
                         type="object"
                         class="btn-primary"
                         groups="elegomotors_setup.group_inbound_operator"
-                        invisible="elego_state != 'mat_requested' or all_components_issued == False"
+                        invisible="elego_state != 'mat_requested'"
                         confirm="Confirm that all components have been physically dispatched to the production floor?"/>
 
                 <!-- Pratik: Acknowledge Material Received

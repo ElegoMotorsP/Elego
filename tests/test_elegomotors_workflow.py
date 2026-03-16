@@ -3841,7 +3841,12 @@ async def _open_mo_by_name(helper, mo_name: str) -> None:
     await helper.page.keyboard.press("Enter")
     await helper.page.wait_for_timeout(800)
     await helper.click_if_visible(f"text={mo_name}", timeout=6000)
-    await helper.page.wait_for_timeout(800)
+    # Wait for form view to fully render (not just the list)
+    try:
+        await helper.page.wait_for_selector(".o_form_view", state="visible", timeout=6000)
+    except Exception:
+        pass
+    await helper.page.wait_for_timeout(500)
 
 
 # ---------------------------------------------------------------------------
@@ -3991,13 +3996,10 @@ async def test_mo_p03_issue_picking_auto_created(helper, shared_state):
     await helper.open_picking_type_transfers("Issue to Production")
     await helper.page.wait_for_timeout(600)
 
-    search = helper.page.locator("input.o_searchview_input")
-    if await search.count() > 0:
-        await search.fill(mo_name)
-        await helper.page.keyboard.press("Enter")
-        await helper.page.wait_for_timeout(600)
-
-    row_count = await helper.page.locator("tr.o_data_row").count()
+    # Filter visible rows by MO name (origin column) — search bar may use
+    # "Reference" facet which doesn't match origin, so use has_text filter.
+    matching_rows = helper.page.locator("tr.o_data_row").filter(has_text=mo_name)
+    row_count = await matching_rows.count()
     assert row_count > 0, (
         f"No Issue-to-Production picking found for MO '{mo_name}'. "
         "_auto_create_issue_picking() must create a PI picking on action_confirm."
@@ -4022,16 +4024,13 @@ async def test_mo_p04_issue_picking_locations(helper, shared_state):
         pytest.skip("MO-P03 did not run — no Issue picking available")
 
     await helper.open_picking_type_transfers("Issue to Production")
-    search = helper.page.locator("input.o_searchview_input")
-    if await search.count() > 0:
-        await search.fill(mo_name)
-        await helper.page.keyboard.press("Enter")
-        await helper.page.wait_for_timeout(600)
+    await helper.page.wait_for_timeout(600)
+    await helper.dismiss_popups()
 
-    row = helper.page.locator("tr.o_data_row").first
+    row = helper.page.locator("tr.o_data_row").filter(has_text=mo_name).first
     if await row.count() == 0:
         pytest.skip("No Issue-to-Production row found — MO-P03 may have skipped")
-    await row.click()
+    await row.click(timeout=15000)
     await helper.page.wait_for_timeout(800)
 
     content = await helper.page.content()
@@ -4060,16 +4059,13 @@ async def test_mo_p05_issue_picking_has_components(helper, shared_state):
         pytest.skip("MO-P03 did not run")
 
     await helper.open_picking_type_transfers("Issue to Production")
-    search = helper.page.locator("input.o_searchview_input")
-    if await search.count() > 0:
-        await search.fill(mo_name)
-        await helper.page.keyboard.press("Enter")
-        await helper.page.wait_for_timeout(600)
+    await helper.page.wait_for_timeout(600)
+    await helper.dismiss_popups()
 
-    row = helper.page.locator("tr.o_data_row").first
+    row = helper.page.locator("tr.o_data_row").filter(has_text=mo_name).first
     if await row.count() == 0:
         pytest.skip("No Issue-to-Production row found")
-    await row.click()
+    await row.click(timeout=15000)
     await helper.page.wait_for_timeout(800)
 
     # At least one product move line must be present
@@ -4246,14 +4242,13 @@ async def test_mo_n01_pratik_blocked_produce_at_mat_requested(helper, shared_sta
         await produce_btn.first.click()
         await helper.page.wait_for_timeout(1000)
         # Should see an error dialog, not proceed to Done
-        error_visible = await helper.page.locator(
-            '.o_dialog .o_error_dialog, '
-            '.modal .alert-danger, '
-            '.o_notification.bg-danger, '
-            'text=Materials have not been issued, '
-            'text=not been issued, '
-            'text=Issue-to-Production'
-        ).count() > 0
+        error_loc = (
+            helper.page.locator('.o_dialog .o_error_dialog, .modal .alert-danger, .o_notification.bg-danger')
+            .or_(helper.page.get_by_text("Materials have not been issued", exact=False))
+            .or_(helper.page.get_by_text("not been issued", exact=False))
+            .or_(helper.page.get_by_text("Issue-to-Production", exact=False))
+        )
+        error_visible = await error_loc.count() > 0
         still_not_done = "Done" not in await helper.page.content() or "Confirmed" in await helper.page.content()
         assert error_visible or still_not_done, (
             "Pratik must be blocked (UserError) from Produce All when "
@@ -4809,14 +4804,14 @@ async def test_mo_p13_wip_return_picking_type_exists(helper):
     Validates the stock_picking_types_data.xml entry for the WR operation type.
     This type is the mechanism for the WIP/Hold → re-manufacture loop.
     """
-    await helper.login_as("amit")
+    # Use manohar (admin) — Amit does not have access to Configuration > Operation Types
+    await helper.login_as("manohar")
     await helper.open_inventory_operation_types()
     await helper.page.wait_for_timeout(600)
 
     content = await helper.page.content()
     assert (
         "Return from Hold" in content
-        or "WR" in content
         or "Return from Hold to Production" in content
     ), (
         "Operation type 'Return from Hold to Production' (WR) must exist — "
@@ -4838,16 +4833,13 @@ async def test_mo_n06_no_duplicate_issue_pickings(helper):
     await helper.login_as("prashant")
     mo_name = await create_manufacturing_order(helper)
 
-    # Count Issue pickings for this MO
+    # Count Issue pickings for this specific MO only (filter by origin = mo_name)
     await helper.login_as("amit")
     await helper.open_picking_type_transfers("Issue to Production")
-    search = helper.page.locator("input.o_searchview_input")
-    if await search.count() > 0:
-        await search.fill(mo_name)
-        await helper.page.keyboard.press("Enter")
-        await helper.page.wait_for_timeout(600)
+    await helper.page.wait_for_timeout(600)
 
-    count = await helper.page.locator("tr.o_data_row").count()
+    # Use has_text filter on rows — the origin column shows the MO name
+    count = await helper.page.locator("tr.o_data_row").filter(has_text=mo_name).count()
     assert count <= 1, (
         f"MO '{mo_name}' has {count} Issue pickings — must have at most 1. "
         "_auto_create_issue_picking() must check for existing pickings before creating."
