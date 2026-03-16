@@ -118,6 +118,13 @@ class OdooTestHelper:
         await self.page.wait_for_selector('input[name="login"]', timeout=10000)
 
     async def dismiss_popups(self) -> None:
+        # First dismiss floating popovers (activity list, etc.) with Escape
+        try:
+            if await self.page.locator(".o_popover, .o-mail-ActivityListPopover, .o-mail-activitylistpopover").count() > 0:
+                await self.page.keyboard.press("Escape")
+                await self.page.wait_for_timeout(300)
+        except Exception:
+            pass
         candidates = [
             '.o_tour_pointer_tip button',
             'button.btn-close',

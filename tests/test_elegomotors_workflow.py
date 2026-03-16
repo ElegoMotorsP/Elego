@@ -221,12 +221,23 @@ async def create_manufacturing_order(helper, product="ElegoMotors EV Scooter EGO
     await helper.page.keyboard.press("Tab")
     await helper.screenshot("mo_filled")
     await helper.require_click('button[name="action_confirm"]', timeout=5000)
-    await helper.page.wait_for_timeout(1000)
-    mo_name = await helper.page.locator(".o_field_widget[name='name']").first.text_content()
-    assert (mo_name or "").strip()
+    await helper.page.wait_for_timeout(2000)
+    # Retry reading the MO name — Odoo assigns it from sequence on first save/confirm,
+    # so wait until it is no longer the placeholder value "New"
+    mo_name = ""
+    for _ in range(5):
+        mo_name = (
+            await helper.page.locator(".o_field_widget[name='name']").first.text_content() or ""
+        ).strip()
+        if mo_name and mo_name != "New":
+            break
+        await helper.page.wait_for_timeout(1500)
+    assert mo_name and mo_name != "New", (
+        f"MO name should be set from sequence after confirm, got '{mo_name}'; url={helper.page.url}"
+    )
     await helper.assert_text_visible("Confirmed")
     await helper.screenshot("mo_confirmed")
-    return (mo_name or "").strip()
+    return mo_name
 
 
 # ---------------------------------------------------------------------------
@@ -3837,10 +3848,20 @@ async def test_si_so2_fields_reset_on_rejection(helper, shared_state):
 # ---------------------------------------------------------------------------
 async def _open_mo_by_name(helper, mo_name: str) -> None:
     await open_mrp(helper)
+    await helper.dismiss_popups()
+    # Switch to list view — kanban has no tr.o_data_row elements
+    list_btn = helper.page.locator(
+        "button.o_switch_view.o_list:not(.active), "
+        "a.o_switch_view.o_list:not(.active)"
+    )
+    if await list_btn.count() > 0:
+        await list_btn.first.click()
+        await helper.page.wait_for_timeout(600)
     await helper.page.fill("input.o_searchview_input", mo_name)
     await helper.page.keyboard.press("Enter")
-    await helper.page.wait_for_timeout(1000)
-    # Click the matching data row — NOT text= which would match the search facet
+    await helper.page.wait_for_timeout(1200)
+    await helper.dismiss_popups()
+    # Click the matching data row
     row = helper.page.locator("tr.o_data_row").filter(has_text=mo_name).first
     try:
         await row.wait_for(state="visible", timeout=5000)
