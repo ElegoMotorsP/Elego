@@ -90,5 +90,29 @@
             <field name="sequence">50</field>
         </record>
 
+        <!-- 7. QC Fail (post-production): Production WIP → Quarantine (WIP/Hold) -->
+        <record id="picking_type_qc_fail_production" model="stock.picking.type">
+            <field name="name">QC Fail</field>
+            <field name="code">internal</field>
+            <field name="sequence_code">QCF</field>
+            <field name="warehouse_id" ref="stock.warehouse0"/>
+            <field name="default_location_src_id" ref="elegomotors_setup.location_ego_production_wip"/>
+            <field name="default_location_dest_id" ref="elegomotors_setup.location_ego_quarantine"/>
+            <field name="color">1</field>
+            <field name="sequence">55</field>
+        </record>
+
+        <!-- 8. Return from Hold: Quarantine → Production WIP (rework loop) -->
+        <record id="picking_type_wip_return" model="stock.picking.type">
+            <field name="name">Return from Hold to Production</field>
+            <field name="code">internal</field>
+            <field name="sequence_code">WR</field>
+            <field name="warehouse_id" ref="stock.warehouse0"/>
+            <field name="default_location_src_id" ref="elegomotors_setup.location_ego_quarantine"/>
+            <field name="default_location_dest_id" ref="elegomotors_setup.location_ego_production_wip"/>
+            <field name="color">4</field>
+            <field name="sequence">60</field>
+        </record>
+
     </data>
 </odoo>

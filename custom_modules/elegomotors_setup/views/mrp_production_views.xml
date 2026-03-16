@@ -1,0 +1,105 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+    <!--
+        ElegoMotors Manufacturing Order — Material Issuance Workflow
+
+        Adds the custom elego_state status bar and the two handoff buttons:
+
+          • Mark Material Issued      (Amit — group_inbound_operator)
+            Visible when elego_state = mat_requested AND all_components_issued = True
+
+          • Acknowledge Material Received  (Pratik — group_manufacturing_operator)
+            Visible when elego_state = mat_issued
+
+        Also adds:
+          • Warning banner — shown while materials are not yet issued
+          • Issue Transfers smart button — links to the auto-created PI pickings
+    -->
+
+    <record id="view_mrp_production_elego_form" model="ir.ui.view">
+        <field name="name">mrp.production.elego.form</field>
+        <field name="model">mrp.production</field>
+        <field name="inherit_id" ref="mrp.mrp_production_form_view"/>
+        <field name="arch" type="xml">
+
+            <!-- ── Inject computed / helper fields so view expressions can read them ── -->
+            <field name="state" position="after">
+                <field name="elego_state"        invisible="1"/>
+                <field name="all_components_issued" invisible="1"/>
+                <field name="issue_picking_count"   invisible="1"/>
+            </field>
+
+            <!-- ── Custom status bar ────────────────────────────────────────────────── -->
+            <xpath expr="//header" position="inside">
+                <field name="elego_state"
+                       widget="statusbar"
+                       statusbar_visible="confirmed,mat_requested,mat_issued,mat_received,in_production,done"
+                       readonly="1"/>
+            </xpath>
+
+            <!-- ── Action buttons ────────────────────────────────────────────────────
+                 Both buttons sit inside the header, after the native Confirm button.
+            ─────────────────────────────────────────────────────────────────────── -->
+            <xpath expr="//header/button[@name='action_confirm']" position="after">
+
+                <!-- Amit: Mark Material Issued
+                     Shown only when:
+                       - elego_state = mat_requested  (Amit's turn)
+                       - all_components_issued = True (transfer is Done)
+                     Restricted to group_inbound_operator (Amit + Manohar). -->
+                <button name="action_mark_material_issued"
+                        string="Mark Material Issued"
+                        type="object"
+                        class="btn-primary"
+                        groups="elegomotors_setup.group_inbound_operator"
+                        invisible="elego_state != 'mat_requested' or all_components_issued == False"
+                        confirm="Confirm that all components have been physically dispatched to the production floor?"/>
+
+                <!-- Pratik: Acknowledge Material Received
+                     Shown only when elego_state = mat_issued (Amit has confirmed dispatch).
+                     Restricted to group_manufacturing_operator (Pratik only). -->
+                <button name="action_acknowledge_material_received"
+                        string="Acknowledge Material Received"
+                        type="object"
+                        class="btn-primary"
+                        groups="elegomotors_setup.group_manufacturing_operator"
+                        invisible="elego_state != 'mat_issued'"
+                        confirm="Confirm that all components have been received on the production floor?"/>
+
+            </xpath>
+
+            <!-- ── Issue Transfers smart button ──────────────────────────────────────
+                 Shows the count of linked PI pickings.
+                 Clicking opens the list of Issue-to-Production transfers.
+            ─────────────────────────────────────────────────────────────────────── -->
+            <xpath expr="//div[hasclass('oe_button_box')]" position="inside">
+                <button class="oe_stat_button"
+                        type="object"
+                        name="action_view_issue_transfers"
+                        icon="fa-truck"
+                        invisible="issue_picking_count == 0">
+                    <field name="issue_picking_count"
+                           widget="statinfo"
+                           string="Issue Transfers"/>
+                </button>
+            </xpath>
+
+            <!-- ── Warning banner ─────────────────────────────────────────────────────
+                 Shown while materials are pending (mat_requested and not yet issued).
+                 Disappears once state advances to mat_issued or beyond.
+            ─────────────────────────────────────────────────────────────────────── -->
+            <xpath expr="//sheet" position="before">
+                <div class="alert alert-warning mb-0"
+                     role="alert"
+                     invisible="elego_state not in ('confirmed', 'mat_requested')">
+                    <strong>Materials not yet issued to production.</strong>
+                    Amit must validate the <strong>Issue to Production</strong> transfer
+                    in Inventory, then click <strong>Mark Material Issued</strong> on
+                    this order before Pratik can start manufacturing.
+                </div>
+            </xpath>
+
+        </field>
+    </record>
+
+</odoo>

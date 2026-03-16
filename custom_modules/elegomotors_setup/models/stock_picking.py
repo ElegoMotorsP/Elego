@@ -1,10 +1,18 @@
 # -*- coding: utf-8 -*-
-from odoo import models
+from odoo import models, fields
 from odoo.exceptions import AccessError
 
 
 class StockPicking(models.Model):
     _inherit = 'stock.picking'
+
+    elego_mo_id = fields.Many2one(
+        'mrp.production',
+        string='Manufacturing Order',
+        ondelete='set null',
+        index=True,
+        help='The Manufacturing Order this Issue-to-Production transfer was created for.',
+    )
 
     def button_validate(self):
         """Enforce picking-type group restriction on validation.

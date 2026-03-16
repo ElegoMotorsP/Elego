@@ -55,6 +55,7 @@
         # View overrides (loaded last so base views exist)
         'views/account_move_views.xml',
         'views/sale_order_views.xml',
+        'views/mrp_production_views.xml',
     ],
     'installable': True,
     'application': False,
