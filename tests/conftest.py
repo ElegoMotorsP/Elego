@@ -350,11 +350,14 @@ class OdooTestHelper:
                 raise AssertionError("Could not navigate to Locations page")
 
     async def open_inventory_operation_types(self) -> None:
+        # Try direct URL first — most reliable in Odoo 18
+        await self.open_menu_url("/odoo/inventory/configuration/operations-types")
+        await self.page.wait_for_timeout(800)
+        if "Missing Action" not in await self.page.content() and "Operation" in await self.page.content():
+            return
+        # Fallback: navigate through Configuration dropdown menu
         await self.open_inventory_configuration()
-        # Wait for the Configuration dropdown/submenu to fully render
         await self.page.wait_for_timeout(600)
-        # Use specific selectors — avoid "text=..." which matches non-link elements
-        # and silently clicks breadcrumbs/labels instead of navigating
         await self.require_click_any([
             ".dropdown-menu a:has-text('Operations Types')",
             ".dropdown-menu a:has-text('Operation Types')",

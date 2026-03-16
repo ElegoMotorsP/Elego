@@ -102,6 +102,13 @@
             <field name="sequence">55</field>
         </record>
 
+    </data>
+
+    <!-- noupdate="0": always (re)create on module upgrade so the WR type is
+         guaranteed to exist even if the module was installed before this record
+         was added to the XML. -->
+    <data noupdate="0">
+
         <!-- 8. Return from Hold: Quarantine → Production WIP (rework loop) -->
         <record id="picking_type_wip_return" model="stock.picking.type">
             <field name="name">Return from Hold to Production</field>

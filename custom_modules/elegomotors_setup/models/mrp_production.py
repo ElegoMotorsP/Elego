@@ -157,11 +157,13 @@ class MrpProduction(models.Model):
     # ── Override action_confirm ───────────────────────────────────────────────
     def action_confirm(self):
         result = super().action_confirm()
+        # Flush all pending ORM writes to the DB cursor, then invalidate the
+        # cache so _auto_create_issue_picking reads the moves just created by
+        # super().action_confirm() rather than the pre-confirm empty state.
+        self.env.flush_all()
+        self.invalidate_recordset()
         for mo in self.filtered(lambda m: m.state == 'confirmed'):
             if mo.elego_state in ('draft', 'confirmed'):
-                # Invalidate ORM cache so move_raw_ids reflects what
-                # super().action_confirm() just wrote in this transaction.
-                mo.invalidate_recordset(['move_raw_ids'])
                 mo.write({'elego_state': 'confirmed'})
                 mo.action_request_material()
         return result

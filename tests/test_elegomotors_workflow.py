@@ -215,6 +215,7 @@ async def create_manufacturing_order(helper, product="ElegoMotors EV Scooter EGO
     await helper.page.click('div[name="product_id"] input')
     await helper.page.fill('div[name="product_id"] input', product)
     await helper.page.keyboard.press("Enter")
+    await helper.page.wait_for_timeout(1500)  # wait for BOM onchange to populate move_raw_ids
     await helper.page.click('div[name="product_qty"] input')
     await helper.page.keyboard.press("Control+A")
     await helper.page.keyboard.type(qty)
@@ -3865,7 +3866,7 @@ async def _open_mo_by_name(helper, mo_name: str) -> None:
     row = helper.page.locator("tr.o_data_row").filter(has_text=mo_name).first
     try:
         await row.wait_for(state="visible", timeout=5000)
-        await row.click()
+        await row.click(force=True)  # force bypasses table pointer-events loading overlay
     except Exception:
         # Fallback: click the name/reference cell specifically
         await helper.click_if_visible(
@@ -3934,7 +3935,8 @@ async def _amit_validate_issue_transfer(helper, mo_name: str) -> bool:
     if await row.count() == 0:
         return False
 
-    await row.click()
+    await helper.dismiss_popups()
+    await row.click(force=True)  # force bypasses table pointer-events loading overlay
     await helper.page.wait_for_timeout(800)
 
     # Set "Done" qty if needed
@@ -4860,13 +4862,16 @@ async def test_mo_p13_wip_return_picking_type_exists(helper):
     content = await helper.page.content()
 
     if "Return from Hold" not in content:
-        # Second check: Configuration > Operation Types menu (may fail on some layouts)
+        # Second check: navigate to Operation Types list
         try:
             await helper.open_inventory_operation_types()
             await helper.page.wait_for_timeout(800)
             content = await helper.page.content()
         except AssertionError:
-            pass  # Menu navigation failed — use Overview content from above
+            # Menu navigation failed — try direct URL as last resort
+            await helper.open_menu_url("/odoo/inventory/configuration/operations-types")
+            await helper.page.wait_for_timeout(800)
+            content = await helper.page.content()
 
     assert (
         "Return from Hold" in content
