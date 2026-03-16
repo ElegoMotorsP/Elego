@@ -225,16 +225,12 @@ sales = env.ref('elegomotors_setup.user_ego_tushar', raise_if_not_found=False)
 store = env.ref('elegomotors_setup.user_ego_amit', raise_if_not_found=False)
 partners = [u.partner_id.id for u in [sales, store] if u]
 for rec in records:
-    rec.message_post(
-        body=Markup(
-            "<b>Sales Order Confirmed</b><br/>"
-            "Sales Order <b>%s</b> has been confirmed.<br/>"
-            "Please verify Finished Goods availability "
-            "in <b>EGO/Finished Goods</b> store.<br/>"
-            "If FG is not available, a Manufacturing Order must be raised."
-        ) % rec.name,
-        message_type='notification',
-        subtype_xmlid='mail.mt_note',
+    rec._elego_post_note(
+        "<b>Sales Order Confirmed</b><br/>"
+        "Sales Order <b>%s</b> has been confirmed.<br/>"
+        "Please verify Finished Goods availability "
+        "in <b>EGO/Finished Goods</b> store.<br/>"
+        "If FG is not available, a Manufacturing Order must be raised." % rec.name,
         partner_ids=partners,
     )
 ]]></field>
@@ -264,15 +260,11 @@ purchase = env.ref('elegomotors_setup.user_ego_prashant', raise_if_not_found=Fal
 admin    = env.ref('elegomotors_setup.user_ego_manohar',  raise_if_not_found=False)
 partners = [u.partner_id.id for u in [purchase, admin] if u]
 for rec in records:
-    rec.message_post(
-        body=Markup(
-            "<b>Purchase Order Awaiting Approval</b><br/>"
-            "PO <b>%s</b> has been submitted and is waiting for manager approval.<br/>"
-            "<b>Purchase (Prashant):</b> PO is pending — awaiting Admin sign-off.<br/>"
-            "<b>Admin (Manohar):</b> Please review and approve this Purchase Order."
-        ) % rec.name,
-        message_type='notification',
-        subtype_xmlid='mail.mt_note',
+    rec._elego_post_note(
+        "<b>Purchase Order Awaiting Approval</b><br/>"
+        "PO <b>%s</b> has been submitted and is waiting for manager approval.<br/>"
+        "<b>Purchase (Prashant):</b> PO is pending — awaiting Admin sign-off.<br/>"
+        "<b>Admin (Manohar):</b> Please review and approve this Purchase Order." % rec.name,
         partner_ids=partners,
     )
 ]]></field>
@@ -302,17 +294,13 @@ store    = env.ref('elegomotors_setup.user_ego_amit',     raise_if_not_found=Fal
 admin    = env.ref('elegomotors_setup.user_ego_manohar',  raise_if_not_found=False)
 partners = [u.partner_id.id for u in [purchase, store, admin] if u]
 for rec in records:
-    rec.message_post(
-        body=Markup(
-            "<b>Purchase Order Approved</b><br/>"
-            "PO <b>%s</b> has been approved and confirmed.<br/>"
-            "<b>Purchase (Prashant):</b> Send PO to vendor and track delivery date.<br/>"
-            "<b>Store (Amit):</b> Prepare Gate Entry receipt — "
-            "material will arrive at <b>EGO/QC Inward</b>.<br/>"
-            "<b>Admin (Manohar):</b> PO has been approved and is now in progress."
-        ) % rec.name,
-        message_type='notification',
-        subtype_xmlid='mail.mt_note',
+    rec._elego_post_note(
+        "<b>Purchase Order Approved</b><br/>"
+        "PO <b>%s</b> has been approved and confirmed.<br/>"
+        "<b>Purchase (Prashant):</b> Send PO to vendor and track delivery date.<br/>"
+        "<b>Store (Amit):</b> Prepare Gate Entry receipt — "
+        "material will arrive at <b>EGO/QC Inward</b>.<br/>"
+        "<b>Admin (Manohar):</b> PO has been approved and is now in progress." % rec.name,
         partner_ids=partners,
     )
 ]]></field>
@@ -341,18 +329,14 @@ mfg   = env.ref('elegomotors_setup.user_ego_pratik', raise_if_not_found=False)
 store = env.ref('elegomotors_setup.user_ego_amit',         raise_if_not_found=False)
 partners = [u.partner_id.id for u in [mfg, store] if u]
 for rec in records:
-    rec.message_post(
-        body=Markup(
-            "<b>Manufacturing Order Confirmed</b><br/>"
-            "MO <b>%s</b> for <b>%s</b> (qty: %s) is confirmed.<br/>"
-            "<b>Store (Amit):</b> Create and validate an <b>Issue to Production</b> transfer "
-            "from <b>EGO/Store → EGO/Production WIP</b> with all required BOM components.<br/>"
-            "<b>Quality / Manufacturing (Pratik):</b> Validate the Issue to Production "
-            "receipt to acknowledge material at the assembly floor, then click "
-            "<b>Produce All</b> when assembly is complete."
-        ) % (rec.name, rec.product_id.name, int(rec.product_qty)),
-        message_type='notification',
-        subtype_xmlid='mail.mt_note',
+    rec._elego_post_note(
+        "<b>Manufacturing Order Confirmed</b><br/>"
+        "MO <b>%s</b> for <b>%s</b> (qty: %s) is confirmed.<br/>"
+        "<b>Store (Amit):</b> Create and validate an <b>Issue to Production</b> transfer "
+        "from <b>EGO/Store &#x2192; EGO/Production WIP</b> with all required BOM components.<br/>"
+        "<b>Quality / Manufacturing (Pratik):</b> Validate the Issue to Production "
+        "receipt to acknowledge material at the assembly floor, then click "
+        "<b>Produce All</b> when assembly is complete." % (rec.name, rec.product_id.name, int(rec.product_qty)),
         partner_ids=partners,
     )
 ]]></field>
@@ -382,20 +366,16 @@ quality  = env.ref('elegomotors_setup.user_ego_pratik',   raise_if_not_found=Fal
 purchase = env.ref('elegomotors_setup.user_ego_prashant', raise_if_not_found=False)
 partners = [u.partner_id.id for u in [store, quality, purchase] if u]
 for rec in records:
-    rec.message_post(
-        body=Markup(
-            "<b>Manufacturing Complete — Production QC Required</b><br/>"
-            "MO <b>%s</b> is done. <b>%s</b> (qty: %s) is manufactured.<br/>"
-            "<b>Quality (Pratik):</b> Perform QC check of produced material "
-            "(WC-QC Testing Station). If passed → release to FG. "
-            "If failed → raise WIP/Hold and return to manufacturing for rework.<br/>"
-            "<b>Store (Amit):</b> Once QC clears, move FG to "
-            "<b>EGO/Finished Goods</b> via FG Receipt transfer.<br/>"
-            "<b>Purchase (Prashant):</b> Manufacturing is complete — "
-            "verify FG stock and update inventory records."
-        ) % (rec.name, rec.product_id.name, int(rec.product_qty)),
-        message_type='notification',
-        subtype_xmlid='mail.mt_note',
+    rec._elego_post_note(
+        "<b>Manufacturing Complete &#x2014; Production QC Required</b><br/>"
+        "MO <b>%s</b> is done. <b>%s</b> (qty: %s) is manufactured.<br/>"
+        "<b>Quality (Pratik):</b> Perform QC check of produced material "
+        "(WC-QC Testing Station). If passed &#x2192; release to FG. "
+        "If failed &#x2192; raise WIP/Hold and return to manufacturing for rework.<br/>"
+        "<b>Store (Amit):</b> Once QC clears, move FG to "
+        "<b>EGO/Finished Goods</b> via FG Receipt transfer.<br/>"
+        "<b>Purchase (Prashant):</b> Manufacturing is complete &#x2014; "
+        "verify FG stock and update inventory records." % (rec.name, rec.product_id.name, int(rec.product_qty)),
         partner_ids=partners,
     )
 ]]></field>
@@ -429,20 +409,16 @@ quality  = env.ref('elegomotors_setup.user_ego_pratik',   raise_if_not_found=Fal
 partners = [u.partner_id.id for u in [store, purchase, accounts, quality] if u]
 for rec in records.filtered(lambda p: p.picking_type_code == 'incoming'):
     po_name = rec.origin or 'N/A'
-    rec.message_post(
-        body=Markup(
-            "<b>Material Gate Entry Validated</b><br/>"
-            "Receipt <b>%s</b> (ref: <b>%s</b>) is done — material is now at <b>EGO/QC Inward</b>.<br/>"
-            "<b>Store (Amit):</b> Inward QC inspection will be performed by Quality (Pratik).<br/>"
-            "&nbsp;&nbsp;• QC Pass → material moves to <b>EGO/Store</b>.<br/>"
-            "&nbsp;&nbsp;• QC Fail → <b>Quarantine</b> → Hold/Reject/Return to Vendor (RTV).<br/>"
-            "<b>Quality (Pratik):</b> Please perform inward QC inspection of the received material.<br/>"
-            "<b>Purchase (Prashant):</b> Material received against your PO — track any shortfall.<br/>"
-            "<b>Accounts (Rajshri):</b> Please open the linked PO and create the <b>Vendor Bill</b> "
-            "with the vendor's invoice number and invoice date."
-        ) % (rec.name, po_name),
-        message_type='notification',
-        subtype_xmlid='mail.mt_note',
+    rec._elego_post_note(
+        "<b>Material Gate Entry Validated</b><br/>"
+        "Receipt <b>%s</b> (ref: <b>%s</b>) is done &#x2014; material is now at <b>EGO/QC Inward</b>.<br/>"
+        "<b>Store (Amit):</b> Inward QC inspection will be performed by Quality (Pratik).<br/>"
+        "&nbsp;&nbsp;&#x2022; QC Pass &#x2192; material moves to <b>EGO/Store</b>.<br/>"
+        "&nbsp;&nbsp;&#x2022; QC Fail &#x2192; <b>Quarantine</b> &#x2192; Hold/Reject/Return to Vendor (RTV).<br/>"
+        "<b>Quality (Pratik):</b> Please perform inward QC inspection of the received material.<br/>"
+        "<b>Purchase (Prashant):</b> Material received against your PO &#x2014; track any shortfall.<br/>"
+        "<b>Accounts (Rajshri):</b> Please open the linked PO and create the <b>Vendor Bill</b> "
+        "with the vendor's invoice number and invoice date." % (rec.name, po_name),
         partner_ids=partners,
     )
 ]]></field>
@@ -473,23 +449,19 @@ store   = env.ref('elegomotors_setup.user_ego_amit',    raise_if_not_found=False
 admin   = env.ref('elegomotors_setup.user_ego_manohar', raise_if_not_found=False)
 partners = [u.partner_id.id for u in [finance, sales, store, admin] if u]
 for rec in records.filtered(lambda m: m.move_type == 'out_invoice'):
-    rec.message_post(
-        body=Markup(
-            "<b>Customer Invoice Posted</b><br/>"
-            "Invoice <b>%s</b> for <b>%s</b> — Amount: <b>%s %s</b><br/>"
-            "<b>Finance (Rajshri):</b> Invoice is posted. Track payment and follow up if overdue.<br/>"
-            "<b>Store (Amit):</b> Invoice is posted — coordinate with Finance for delivery-related entries.<br/>"
-            "<b>Sales (Tushar):</b> Invoice has been raised. "
-            "The sales cycle for this order is complete.<br/>"
-            "<b>Admin (Manohar):</b> Customer invoice posted for your records."
-        ) % (
+    rec._elego_post_note(
+        "<b>Customer Invoice Posted</b><br/>"
+        "Invoice <b>%s</b> for <b>%s</b> &#x2014; Amount: <b>%s %s</b><br/>"
+        "<b>Finance (Rajshri):</b> Invoice is posted. Track payment and follow up if overdue.<br/>"
+        "<b>Store (Amit):</b> Invoice is posted &#x2014; coordinate with Finance for delivery-related entries.<br/>"
+        "<b>Sales (Tushar):</b> Invoice has been raised. "
+        "The sales cycle for this order is complete.<br/>"
+        "<b>Admin (Manohar):</b> Customer invoice posted for your records." % (
             rec.name,
             rec.partner_id.name,
             rec.amount_total,
             rec.currency_id.name,
         ),
-        message_type='notification',
-        subtype_xmlid='mail.mt_note',
         partner_ids=partners,
     )
 ]]></field>
@@ -523,21 +495,17 @@ purchase = env.ref('elegomotors_setup.user_ego_prashant', raise_if_not_found=Fal
 admin    = env.ref('elegomotors_setup.user_ego_manohar',  raise_if_not_found=False)
 partners = [u.partner_id.id for u in [finance, purchase, admin] if u]
 for rec in records.filtered(lambda m: m.move_type == 'in_invoice'):
-    rec.message_post(
-        body=Markup(
-            "<b>Vendor Bill Posted</b><br/>"
-            "Bill <b>%s</b> from <b>%s</b> — Amount: <b>%s %s</b><br/>"
-            "<b>Finance (Rajshri):</b> Vendor bill is posted. Schedule payment as per agreed terms.<br/>"
-            "<b>Purchase (Prashant):</b> Please verify bill amounts match the approved PO.<br/>"
-            "<b>Admin (Manohar):</b> Vendor bill posted for your records."
-        ) % (
+    rec._elego_post_note(
+        "<b>Vendor Bill Posted</b><br/>"
+        "Bill <b>%s</b> from <b>%s</b> &#x2014; Amount: <b>%s %s</b><br/>"
+        "<b>Finance (Rajshri):</b> Vendor bill is posted. Schedule payment as per agreed terms.<br/>"
+        "<b>Purchase (Prashant):</b> Please verify bill amounts match the approved PO.<br/>"
+        "<b>Admin (Manohar):</b> Vendor bill posted for your records." % (
             rec.name,
             rec.partner_id.name,
             rec.amount_total,
             rec.currency_id.name,
         ),
-        message_type='notification',
-        subtype_xmlid='mail.mt_note',
         partner_ids=partners,
     )
 ]]></field>
@@ -569,18 +537,14 @@ for rec in records.filtered(lambda m: m.move_type == 'in_invoice'):
 mfg = env.ref('elegomotors_setup.user_ego_pratik', raise_if_not_found=False)
 partners = [mfg.partner_id.id] if mfg else []
 for rec in records.filtered(lambda p: p.picking_type_id.sequence_code == 'PI'):
-    rec.message_post(
-        body=Markup(
-            "<b>Material Issued to Production Floor</b><br/>"
-            "Transfer <b>%s</b> has been validated by Store.<br/>"
-            "Raw materials are now at <b>EGO/Production WIP</b>.<br/>"
-            "<b>Quality / Manufacturing (Pratik):</b> Please confirm physical receipt "
-            "of materials at the assembly floor, then proceed with manufacturing.<br/>"
-            "Open the linked Manufacturing Order and click <b>Produce All</b> "
-            "once assembly is complete."
-        ) % rec.name,
-        message_type='notification',
-        subtype_xmlid='mail.mt_note',
+    rec._elego_post_note(
+        "<b>Material Issued to Production Floor</b><br/>"
+        "Transfer <b>%s</b> has been validated by Store.<br/>"
+        "Raw materials are now at <b>EGO/Production WIP</b>.<br/>"
+        "<b>Quality / Manufacturing (Pratik):</b> Please confirm physical receipt "
+        "of materials at the assembly floor, then proceed with manufacturing.<br/>"
+        "Open the linked Manufacturing Order and click <b>Produce All</b> "
+        "once assembly is complete." % rec.name,
         partner_ids=partners,
     )
 ]]></field>
@@ -607,16 +571,12 @@ for rec in records.filtered(lambda p: p.picking_type_id.sequence_code == 'PI'):
 store = env.ref('elegomotors_setup.user_ego_amit', raise_if_not_found=False)
 partners = [store.partner_id.id] if store else []
 for rec in records.filtered(lambda p: p.picking_type_id.sequence_code == 'QCS'):
-    rec.message_post(
-        body=Markup(
-            "<b>Inward QC Passed — Material Added to Store</b><br/>"
-            "Transfer <b>%s</b> validated by Quality (Pratik).<br/>"
-            "Raw material has passed inward inspection and is now in <b>EGO/Store</b>.<br/>"
-            "<b>Store (Amit):</b> Please verify stock in EGO/Store and update "
-            "inventory records if needed. Material is available for production issue."
-        ) % rec.name,
-        message_type='notification',
-        subtype_xmlid='mail.mt_note',
+    rec._elego_post_note(
+        "<b>Inward QC Passed &#x2014; Material Added to Store</b><br/>"
+        "Transfer <b>%s</b> validated by Quality (Pratik).<br/>"
+        "Raw material has passed inward inspection and is now in <b>EGO/Store</b>.<br/>"
+        "<b>Store (Amit):</b> Please verify stock in EGO/Store and update "
+        "inventory records if needed. Material is available for production issue." % rec.name,
         partner_ids=partners,
     )
 ]]></field>
@@ -645,19 +605,15 @@ store    = env.ref('elegomotors_setup.user_ego_amit',    raise_if_not_found=Fals
 accounts = env.ref('elegomotors_setup.user_ego_rajshri', raise_if_not_found=False)
 partners = [u.partner_id.id for u in [store, accounts] if u]
 for rec in records.filtered(lambda p: p.picking_type_id.sequence_code == 'QCQ'):
-    rec.message_post(
-        body=Markup(
-            "<b>Inward QC Failed — Material Moved to Quarantine</b><br/>"
-            "Transfer <b>%s</b> validated — material is now in <b>EGO/Quarantine</b>.<br/>"
-            "<b>Store (Amit):</b> Choose next action:<br/>"
-            "&nbsp;&nbsp;• <b>Replacement:</b> Create <b>Returns to Vendors (RTV)</b> transfer "
-            "from Quarantine → Supplier, then create <b>Delivery Challan</b>.<br/>"
-            "&nbsp;&nbsp;• <b>Reject:</b> Inform Accounts to raise a <b>Debit Note</b> against the vendor PO.<br/>"
-            "<b>Accounts (Rajshri):</b> If material is rejected (no replacement), "
-            "please raise a <b>Debit Note</b> (vendor credit note) from the vendor's bill."
-        ) % rec.name,
-        message_type='notification',
-        subtype_xmlid='mail.mt_note',
+    rec._elego_post_note(
+        "<b>Inward QC Failed &#x2014; Material Moved to Quarantine</b><br/>"
+        "Transfer <b>%s</b> validated &#x2014; material is now in <b>EGO/Quarantine</b>.<br/>"
+        "<b>Store (Amit):</b> Choose next action:<br/>"
+        "&nbsp;&nbsp;&#x2022; <b>Replacement:</b> Create <b>Returns to Vendors (RTV)</b> transfer "
+        "from Quarantine &#x2192; Supplier, then create <b>Delivery Challan</b>.<br/>"
+        "&nbsp;&nbsp;&#x2022; <b>Reject:</b> Inform Accounts to raise a <b>Debit Note</b> against the vendor PO.<br/>"
+        "<b>Accounts (Rajshri):</b> If material is rejected (no replacement), "
+        "please raise a <b>Debit Note</b> (vendor credit note) from the vendor's bill." % rec.name,
         partner_ids=partners,
     )
 ]]></field>
