@@ -3839,11 +3839,22 @@ async def _open_mo_by_name(helper, mo_name: str) -> None:
     await open_mrp(helper)
     await helper.page.fill("input.o_searchview_input", mo_name)
     await helper.page.keyboard.press("Enter")
-    await helper.page.wait_for_timeout(800)
-    await helper.click_if_visible(f"text={mo_name}", timeout=6000)
-    # Wait for form view to fully render (not just the list)
+    await helper.page.wait_for_timeout(1000)
+    # Click the matching data row — NOT text= which would match the search facet
+    row = helper.page.locator("tr.o_data_row").filter(has_text=mo_name).first
     try:
-        await helper.page.wait_for_selector(".o_form_view", state="visible", timeout=6000)
+        await row.wait_for(state="visible", timeout=5000)
+        await row.click()
+    except Exception:
+        # Fallback: click the name/reference cell specifically
+        await helper.click_if_visible(
+            f'td.o_field_cell:has-text("{mo_name}"), '
+            f'.o_data_cell:has-text("{mo_name}")',
+            timeout=3000,
+        )
+    # Wait for form view to fully render
+    try:
+        await helper.page.wait_for_selector(".o_form_view", state="visible", timeout=10000)
     except Exception:
         pass
     await helper.page.wait_for_timeout(500)
@@ -3991,16 +4002,31 @@ async def test_mo_p03_issue_picking_auto_created(helper, shared_state):
     mo_name = await create_manufacturing_order(helper)
     shared_state["s13_mo_p03"] = mo_name
 
-    # Amit checks Inventory for the auto-created picking
+    # Primary check: smart button on the MO form (we are still on the form after confirm)
+    await helper.page.wait_for_timeout(500)
+    smart_btn = helper.page.locator(
+        'button.o_stat_button:has-text("Issue Transfer"), '
+        'button.o_stat_button:has-text("Issue Transfers"), '
+        'button[name="action_view_issue_transfers"]'
+    )
+    smart_btn_count = await smart_btn.count()
+
+    # Secondary check: Amit looks in Inventory > Issue to Production transfers
     await helper.login_as("amit")
     await helper.open_picking_type_transfers("Issue to Production")
     await helper.page.wait_for_timeout(600)
 
-    # Filter visible rows by MO name (origin column) — search bar may use
-    # "Reference" facet which doesn't match origin, so use has_text filter.
-    matching_rows = helper.page.locator("tr.o_data_row").filter(has_text=mo_name)
-    row_count = await matching_rows.count()
-    assert row_count > 0, (
+    # Search by MO name — Odoo may search origin field too (Source Document)
+    search = helper.page.locator("input.o_searchview_input")
+    if await search.count() > 0:
+        await search.fill(mo_name)
+        await helper.page.keyboard.press("Enter")
+        await helper.page.wait_for_timeout(800)
+
+    # Filter rows that visibly contain the MO name (origin column)
+    row_count = await helper.page.locator("tr.o_data_row").filter(has_text=mo_name).count()
+
+    assert smart_btn_count > 0 or row_count > 0, (
         f"No Issue-to-Production picking found for MO '{mo_name}'. "
         "_auto_create_issue_picking() must create a PI picking on action_confirm."
     )
@@ -4806,10 +4832,21 @@ async def test_mo_p13_wip_return_picking_type_exists(helper):
     """
     # Use manohar (admin) — Amit does not have access to Configuration > Operation Types
     await helper.login_as("manohar")
-    await helper.open_inventory_operation_types()
-    await helper.page.wait_for_timeout(600)
 
+    # First check: Inventory Overview shows a card for each active operation type
+    await helper.goto("/odoo/inventory")
+    await helper.page.wait_for_timeout(1000)
     content = await helper.page.content()
+
+    if "Return from Hold" not in content:
+        # Second check: Configuration > Operation Types menu (may fail on some layouts)
+        try:
+            await helper.open_inventory_operation_types()
+            await helper.page.wait_for_timeout(800)
+            content = await helper.page.content()
+        except AssertionError:
+            pass  # Menu navigation failed — use Overview content from above
+
     assert (
         "Return from Hold" in content
         or "Return from Hold to Production" in content

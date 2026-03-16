@@ -159,6 +159,9 @@ class MrpProduction(models.Model):
         result = super().action_confirm()
         for mo in self.filtered(lambda m: m.state == 'confirmed'):
             if mo.elego_state in ('draft', 'confirmed'):
+                # Invalidate ORM cache so move_raw_ids reflects what
+                # super().action_confirm() just wrote in this transaction.
+                mo.invalidate_recordset(['move_raw_ids'])
                 mo.write({'elego_state': 'confirmed'})
                 mo.action_request_material()
         return result

@@ -7,7 +7,7 @@ import pytest_asyncio
 from playwright.async_api import async_playwright
 
 
-BASE_URL = os.getenv("ODOO_URL", "https://elegomotors-updates-13-march-29668140.dev.odoo.com")
+BASE_URL = os.getenv("ODOO_URL", "https://elegomotors-shubham-mo-material-issuance-29745830.dev.odoo.com")
 DATABASE = os.getenv("ODOO_DB", "elegomotors")
 SCREENSHOTS_DIR = os.getenv("EGO_SCREENSHOTS_DIR", "logs/screenshots")
 SCREENSHOTS_ENABLED = os.getenv("EGO_SCREENSHOTS", "0") == "1"
@@ -344,16 +344,21 @@ class OdooTestHelper:
 
     async def open_inventory_operation_types(self) -> None:
         await self.open_inventory_configuration()
-        # In Odoo 17 the menu item is "Operations Types" (plural)
+        # Wait for the Configuration dropdown/submenu to fully render
+        await self.page.wait_for_timeout(600)
+        # Use specific selectors — avoid "text=..." which matches non-link elements
+        # and silently clicks breadcrumbs/labels instead of navigating
         await self.require_click_any([
+            ".dropdown-menu a:has-text('Operations Types')",
+            ".dropdown-menu a:has-text('Operation Types')",
+            "a.dropdown-item:has-text('Operations Types')",
+            "a.dropdown-item:has-text('Operation Types')",
+            ".o_menu_sections a:has-text('Operations Types')",
+            ".o_menu_sections a:has-text('Operation Types')",
             "menuitem:has-text('Operations Types')",
             "menuitem:has-text('Operation Types')",
             "a:has-text('Operations Types')",
             "a:has-text('Operation Types')",
-            "button:has-text('Operations Types')",
-            "button:has-text('Operation Types')",
-            "text=Operations Types",
-            "text=Operation Types",
         ], timeout=5000)
 
     async def open_inventory_warehouses(self) -> None:
