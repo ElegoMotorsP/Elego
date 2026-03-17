@@ -215,7 +215,18 @@ async def create_manufacturing_order(helper, product="ElegoMotors EV Scooter EGO
     await helper.page.click('div[name="product_id"] input')
     await helper.page.fill('div[name="product_id"] input', product)
     await helper.page.keyboard.press("Enter")
-    await helper.page.wait_for_timeout(1500)  # wait for BOM onchange to populate move_raw_ids
+    # Wait for BOM onchange to populate move_raw_ids — use visual indicator first,
+    # fall back to a generous fixed wait
+    try:
+        await helper.page.wait_for_selector(
+            'div[name="bom_id"] .o_field_widget input[type="text"],'
+            'div[name="bom_id"] span.o_form_uri,'
+            'div[name="move_raw_ids"] tr.o_data_row',
+            state="visible",
+            timeout=5000,
+        )
+    except Exception:
+        await helper.page.wait_for_timeout(2500)
     await helper.page.click('div[name="product_qty"] input')
     await helper.page.keyboard.press("Control+A")
     await helper.page.keyboard.type(qty)
@@ -3860,25 +3871,33 @@ async def _open_mo_by_name(helper, mo_name: str) -> None:
         await helper.page.wait_for_timeout(600)
     await helper.page.fill("input.o_searchview_input", mo_name)
     await helper.page.keyboard.press("Enter")
-    await helper.page.wait_for_timeout(1200)
+    # Wait for list to fully load (rows visible = no longer in loading state)
+    try:
+        await helper.page.wait_for_selector("tr.o_data_row", state="visible", timeout=10000)
+    except Exception:
+        await helper.page.wait_for_timeout(1500)
+    await helper.page.wait_for_timeout(300)  # let OWL finish rendering
     await helper.dismiss_popups()
-    # Click the matching data row
     row = helper.page.locator("tr.o_data_row").filter(has_text=mo_name).first
-    try:
-        await row.wait_for(state="visible", timeout=5000)
-        await row.click(force=True)  # force bypasses table pointer-events loading overlay
-    except Exception:
-        # Fallback: click the name/reference cell specifically
-        await helper.click_if_visible(
-            f'td.o_field_cell:has-text("{mo_name}"), '
-            f'.o_data_cell:has-text("{mo_name}")',
-            timeout=3000,
-        )
-    # Wait for form view to fully render
-    try:
-        await helper.page.wait_for_selector(".o_form_view", state="visible", timeout=10000)
-    except Exception:
-        pass
+    # Retry clicking until form opens (Odoo list may briefly ignore clicks while loading)
+    for attempt in range(4):
+        try:
+            await row.wait_for(state="visible", timeout=3000)
+        except Exception:
+            break
+        # Try data-id direct URL first (most reliable)
+        row_id = await row.get_attribute("data-id")
+        if row_id:
+            await helper.goto(f"/odoo/manufacturing/{row_id}")
+        else:
+            await row.click(force=True)
+        try:
+            await helper.page.wait_for_selector(".o_form_view", state="visible", timeout=4000)
+            break  # form loaded — done
+        except Exception:
+            pass
+        if attempt < 3:
+            await helper.page.wait_for_timeout(600)
     await helper.page.wait_for_timeout(500)
 
 

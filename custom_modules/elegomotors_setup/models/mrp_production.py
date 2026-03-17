@@ -1,6 +1,10 @@
 # -*- coding: utf-8 -*-
+import logging
+from markupsafe import Markup
 from odoo import models, fields, api, SUPERUSER_ID
 from odoo.exceptions import AccessError, UserError
+
+_logger = logging.getLogger(__name__)
 
 
 class MrpProduction(models.Model):
@@ -50,17 +54,30 @@ class MrpProduction(models.Model):
     # ── State transition: confirm → mat_requested ────────────────────────────
     def action_request_material(self):
         """Auto-called on MO confirm. Creates Issue picking and notifies Store."""
-        self._auto_create_issue_picking()
+        try:
+            self._auto_create_issue_picking()
+        except Exception:
+            _logger.exception(
+                "elegomotors: _auto_create_issue_picking failed for MO(s) %s",
+                self.mapped('name'),
+            )
+        # State write is unconditional — picking creation failure must not block it
         self.write({'elego_state': 'mat_requested'})
-        self.message_post(
-            body=(
-                '<b>Material request sent to Store.</b><br/>'
-                'Amit, please prepare the components and validate the '
-                '<b>Issue to Production</b> transfer in Inventory, '
-                'then click <b>Mark Material Issued</b> on this order.'
-            ),
-            subtype_xmlid='mail.mt_note',
-        )
+        try:
+            self.message_post(
+                body=Markup(
+                    '<b>Material request sent to Store.</b><br/>'
+                    'Amit, please prepare the components and validate the '
+                    '<b>Issue to Production</b> transfer in Inventory, '
+                    'then click <b>Mark Material Issued</b> on this order.'
+                ),
+                subtype_xmlid='mail.mt_note',
+            )
+        except Exception:
+            _logger.warning(
+                "elegomotors: message_post failed for MO(s) %s",
+                self.mapped('name'),
+            )
 
     # ── State transition: mat_requested → mat_issued (Amit) ──────────────────
     def action_mark_material_issued(self):
@@ -74,7 +91,7 @@ class MrpProduction(models.Model):
             )
         self.write({'elego_state': 'mat_issued'})
         self.message_post(
-            body=(
+            body=Markup(
                 '<b>Materials issued to production by Store (Amit).</b><br/>'
                 'Pratik, the components are on the production floor. '
                 'Please click <b>Acknowledge Material Received</b> to confirm receipt.'
@@ -96,7 +113,7 @@ class MrpProduction(models.Model):
             )
         self.write({'elego_state': 'mat_received'})
         self.message_post(
-            body=(
+            body=Markup(
                 '<b>Material receipt acknowledged by Production (Pratik).</b><br/>'
                 'Manufacturing can now begin. Click <b>Produce All</b> to proceed.'
             ),
@@ -184,10 +201,26 @@ class MrpProduction(models.Model):
             if mo.issue_picking_ids:
                 continue  # idempotent: don't create duplicates
 
-            move_vals = []
-            for move in mo.move_raw_ids.filtered(
+            # Read raw material moves — try ORM first, fall back to direct SQL
+            # to handle cases where the ORM cache hasn't caught up to the DB yet
+            # (super().action_confirm() writes moves; flush_all may not be enough)
+            orm_moves = mo.move_raw_ids.filtered(
                 lambda m: m.state not in ('done', 'cancel')
-            ):
+            )
+            if not orm_moves:
+                self.env.cr.execute(
+                    """
+                    SELECT id FROM stock_move
+                    WHERE raw_material_production_id = %s
+                      AND state NOT IN ('done', 'cancel')
+                    """,
+                    (mo.id,),
+                )
+                sql_ids = [r[0] for r in self.env.cr.fetchall()]
+                orm_moves = self.env['stock.move'].browse(sql_ids)
+
+            move_vals = []
+            for move in orm_moves:
                 move_vals.append((0, 0, {
                     'name': move.product_id.display_name,
                     'product_id': move.product_id.id,
