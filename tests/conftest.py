@@ -350,12 +350,26 @@ class OdooTestHelper:
                 raise AssertionError("Could not navigate to Locations page")
 
     async def open_inventory_operation_types(self) -> None:
-        # Try direct URL first — most reliable in Odoo 18
-        await self.open_menu_url("/odoo/inventory/configuration/operations-types")
-        await self.page.wait_for_timeout(800)
-        if "Missing Action" not in await self.page.content() and "Operation" in await self.page.content():
+        # Primary: use OWL action service — immune to URL routing changes
+        await self.open_menu_url("/odoo/inventory")
+        await self.page.wait_for_timeout(600)
+        navigated = await self.page.evaluate("""
+            async () => {
+                try {
+                    const apps = window.__owl__ && window.__owl__.apps;
+                    if (!apps || !apps.size) return false;
+                    const app = [...apps][0];
+                    if (!app || !app.env || !app.env.services || !app.env.services.action) return false;
+                    await app.env.services.action.doAction('stock.action_picking_type_list');
+                    return true;
+                } catch(e) { return false; }
+            }
+        """)
+        await self.page.wait_for_timeout(1000)
+        content = await self.page.content()
+        if navigated and "Operation" in content:
             return
-        # Fallback: navigate through Configuration dropdown menu
+        # Fallback: menu navigation
         await self.open_inventory_configuration()
         await self.page.wait_for_timeout(600)
         await self.require_click_any([
@@ -363,12 +377,8 @@ class OdooTestHelper:
             ".dropdown-menu a:has-text('Operation Types')",
             "a.dropdown-item:has-text('Operations Types')",
             "a.dropdown-item:has-text('Operation Types')",
-            ".o_menu_sections a:has-text('Operations Types')",
-            ".o_menu_sections a:has-text('Operation Types')",
             "menuitem:has-text('Operations Types')",
             "menuitem:has-text('Operation Types')",
-            "a:has-text('Operations Types')",
-            "a:has-text('Operation Types')",
         ], timeout=5000)
 
     async def open_inventory_warehouses(self) -> None:

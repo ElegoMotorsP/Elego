@@ -3861,39 +3861,73 @@ async def test_si_so2_fields_reset_on_rejection(helper, shared_state):
 async def _open_mo_by_name(helper, mo_name: str) -> None:
     await open_mrp(helper)
     await helper.dismiss_popups()
-    # Switch to list view — kanban has no tr.o_data_row elements
-    list_btn = helper.page.locator(
-        "button.o_switch_view.o_list:not(.active), "
-        "a.o_switch_view.o_list:not(.active)"
-    )
-    if await list_btn.count() > 0:
-        await list_btn.first.click()
-        await helper.page.wait_for_timeout(600)
+    # Fill the search bar and wait for autocomplete dropdown
     await helper.page.fill("input.o_searchview_input", mo_name)
+    await helper.page.wait_for_timeout(800)
+    # Primary: click the record quick-result in the autocomplete dropdown.
+    # In Odoo 18 the search shows matching records; clicking one navigates
+    # directly to the form without going through the list view at all.
+    record_item = helper.page.locator(
+        "ul.o_searchview_autocomplete .o_searchview_result,"
+        ".o_searchview_result[data-option-index],"
+        ".o_autocomplete_result"
+    ).filter(has_text=mo_name).first
+    if await record_item.count() > 0:
+        await record_item.click()
+        try:
+            await helper.page.wait_for_selector(".o_form_view", state="visible", timeout=8000)
+            await helper.page.wait_for_timeout(300)
+            return
+        except Exception:
+            pass
+    # Fallback: press Enter to filter the list, then open via OWL action service
     await helper.page.keyboard.press("Enter")
-    # Wait for list to fully load (rows visible = no longer in loading state)
     try:
         await helper.page.wait_for_selector("tr.o_data_row", state="visible", timeout=10000)
     except Exception:
         await helper.page.wait_for_timeout(1500)
-    await helper.page.wait_for_timeout(300)  # let OWL finish rendering
+    await helper.page.wait_for_timeout(300)
     await helper.dismiss_popups()
     row = helper.page.locator("tr.o_data_row").filter(has_text=mo_name).first
-    # Retry clicking until form opens (Odoo list may briefly ignore clicks while loading)
     for attempt in range(4):
         try:
             await row.wait_for(state="visible", timeout=3000)
         except Exception:
             break
-        # Try data-id direct URL first (most reliable)
-        row_id = await row.get_attribute("data-id")
-        if row_id:
-            await helper.goto(f"/odoo/manufacturing/{row_id}")
-        else:
+        # Use OWL action service to open the form by database ID — bypasses
+        # the list click/pointer-events issue entirely
+        opened = await helper.page.evaluate(
+            """(moName) => {
+                try {
+                    const rows = document.querySelectorAll('tr.o_data_row');
+                    let resId = null;
+                    for (const tr of rows) {
+                        if (tr.innerText.includes(moName)) {
+                            resId = parseInt(tr.dataset.id || tr.getAttribute('data-id'));
+                            break;
+                        }
+                    }
+                    if (!resId || isNaN(resId)) return false;
+                    const apps = window.__owl__ && window.__owl__.apps;
+                    if (!apps || !apps.size) return false;
+                    const app = [...apps][0];
+                    if (!app || !app.env || !app.env.services || !app.env.services.action) return false;
+                    app.env.services.action.doAction({
+                        type: 'ir.actions.act_window',
+                        res_model: 'mrp.production',
+                        res_id: resId,
+                        views: [[false, 'form']],
+                    });
+                    return true;
+                } catch(e) { return false; }
+            }""",
+            mo_name,
+        )
+        if not opened:
             await row.click(force=True)
         try:
             await helper.page.wait_for_selector(".o_form_view", state="visible", timeout=4000)
-            break  # form loaded — done
+            break
         except Exception:
             pass
         if attempt < 3:
