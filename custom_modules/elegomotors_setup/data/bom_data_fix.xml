@@ -92,11 +92,9 @@
             <field name="create_variant">always</field>
         </record>
 
-        <record id="attr_line_ego_color" model="product.template.attribute.line">
-            <field name="product_tmpl_id" ref="elegomotors_setup.tmpl_ego_scooter"/>
-            <field name="attribute_id" ref="elegomotors_setup.attr_ego_color"/>
-            <field name="value_ids" eval="[(6, 0, [])]"/>
-        </record>
+        <!-- Color attribute line must be added via the UI once Manohar confirms
+             the colour values (Red, Blue, White, Black, etc.).
+             Odoo 18 requires at least one value to attach an attribute line. -->
 
     </data>
 </odoo>
