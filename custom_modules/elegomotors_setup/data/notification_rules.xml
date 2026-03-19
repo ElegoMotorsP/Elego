@@ -90,15 +90,18 @@ if partners:
             <field name="action_server_ids" eval="[(4, ref('act_subscribe_po'))]"/>
         </record>
 
-        <!-- 1c. Subscribe Manufacturing + Store when a new MO is created -->
+        <!-- 1c. Subscribe Manufacturing + Store + Purchase when a new MO is created.
+                  Prashant (Purchase) added: he must confirm the MO (as the production
+                  planner) so he needs to follow it from creation. -->
         <record id="act_subscribe_mo" model="ir.actions.server">
             <field name="name">EGO: Subscribe Dept Users to Manufacturing Order</field>
             <field name="model_id" ref="mrp.model_mrp_production"/>
             <field name="state">code</field>
             <field name="code"><![CDATA[
-mfg   = env.ref('elegomotors_setup.user_ego_pratik', raise_if_not_found=False)
-store = env.ref('elegomotors_setup.user_ego_amit', raise_if_not_found=False)
-partners = [u.partner_id.id for u in [mfg, store] if u]
+mfg      = env.ref('elegomotors_setup.user_ego_pratik',   raise_if_not_found=False)
+store    = env.ref('elegomotors_setup.user_ego_amit',     raise_if_not_found=False)
+purchase = env.ref('elegomotors_setup.user_ego_prashant', raise_if_not_found=False)
+partners = [u.partner_id.id for u in [mfg, store, purchase] if u]
 if partners:
     for rec in records:
         rec.message_subscribe(partner_ids=partners)
@@ -111,6 +114,41 @@ if partners:
             <field name="trigger">on_create</field>
             <field name="active" eval="True"/>
             <field name="action_server_ids" eval="[(4, ref('act_subscribe_mo'))]"/>
+        </record>
+
+        <!-- 1c-2. When a new MO is created (auto from SO), notify Prashant to confirm it.
+                   MO starts in Draft — Prashant must click Confirm to release the
+                   Picking Slip (Raw Material) auto-creation (2-step manufacturing). -->
+        <record id="act_notify_mo_created" model="ir.actions.server">
+            <field name="name">EGO: Notify Purchase — New MO Requires Confirmation</field>
+            <field name="model_id" ref="mrp.model_mrp_production"/>
+            <field name="state">code</field>
+            <field name="code"><![CDATA[
+purchase = env.ref('elegomotors_setup.user_ego_prashant', raise_if_not_found=False)
+partners = [u.partner_id.id for u in [purchase] if u]
+for rec in records:
+    rec.message_post(
+        body=Markup(
+            "<b>New Manufacturing Order Created</b><br/>"
+            "MO <b>%s</b> for <b>%s</b> (qty: %s) has been auto-created "
+            "from Sales Order <b>%s</b>.<br/>"
+            "<b>Purchase (Prashant):</b> Please review and <b>Confirm</b> this MO. "
+            "Confirming will automatically release the <b>Picking Slip (Raw Material)</b> "
+            "to the store so Amit can issue components to the production floor."
+        ) % (rec.name, rec.product_id.name, int(rec.product_qty), rec.origin or 'N/A'),
+        message_type='notification',
+        subtype_xmlid='mail.mt_note',
+        partner_ids=partners,
+    )
+]]></field>
+        </record>
+
+        <record id="auto_notify_mo_created" model="base.automation">
+            <field name="name">EGO: MO Created — Notify Purchase to Confirm</field>
+            <field name="model_id" ref="mrp.model_mrp_production"/>
+            <field name="trigger">on_create</field>
+            <field name="active" eval="True"/>
+            <field name="action_server_ids" eval="[(4, ref('act_notify_mo_created'))]"/>
         </record>
 
         <!-- 1d. Subscribe Store + Purchase + Quality when a new stock.picking is created -->
@@ -328,28 +366,36 @@ for rec in records:
             <field name="action_server_ids" eval="[(4, ref('act_notify_po_approved'))]"/>
         </record>
 
-        <!-- 2d. Manufacturing Order Confirmed → notify Manufacturing + Store
+        <!-- 2d. Manufacturing Order Confirmed → notify Store + Manufacturing + Purchase
              Trigger: mrp.production.state → 'confirmed'
-             Who:     Manufacturing (work orders ready to start),
-                      Store (issue raw materials via Picking Slip) -->
+             In 2-step manufacturing (pbm), confirming the MO auto-creates a
+             Picking Slip (Raw Material): EGO/Store → EGO/Production WIP.
+             Amit must validate that picking before Pratik can produce. -->
         <record id="act_notify_mo_confirmed" model="ir.actions.server">
             <field name="name">EGO: Notify MO Confirmed</field>
             <field name="model_id" ref="mrp.model_mrp_production"/>
             <field name="state">code</field>
             <field name="code"><![CDATA[
-mfg   = env.ref('elegomotors_setup.user_ego_pratik', raise_if_not_found=False)
-store = env.ref('elegomotors_setup.user_ego_amit',         raise_if_not_found=False)
-partners = [u.partner_id.id for u in [mfg, store] if u]
+store    = env.ref('elegomotors_setup.user_ego_amit',     raise_if_not_found=False)
+mfg      = env.ref('elegomotors_setup.user_ego_pratik',   raise_if_not_found=False)
+purchase = env.ref('elegomotors_setup.user_ego_prashant', raise_if_not_found=False)
+partners = [u.partner_id.id for u in [store, mfg, purchase] if u]
 for rec in records:
     rec.message_post(
         body=Markup(
             "<b>Manufacturing Order Confirmed</b><br/>"
-            "MO <b>%s</b> for <b>%s</b> (qty: %s) is confirmed.<br/>"
-            "<b>Store (Amit):</b> Create and validate an <b>Issue to Production</b> transfer "
-            "from <b>EGO/Store → EGO/Production WIP</b> with all required BOM components.<br/>"
-            "<b>Quality / Manufacturing (Pratik):</b> Validate the Issue to Production "
-            "receipt to acknowledge material at the assembly floor, then click "
-            "<b>Produce All</b> when assembly is complete."
+            "MO <b>%s</b> for <b>%s</b> (qty: %s) has been confirmed. "
+            "A <b>Picking Slip (Raw Material)</b> has been automatically created "
+            "in Inventory — please check your Inventory Overview.<br/>"
+            "<b>Store (Amit):</b> Please validate the <b>Picking Slip (Raw Material)</b> "
+            "to issue BOM components from <b>EGO/Store → EGO/Production WIP</b>. "
+            "Confirm quantities for all components; lot numbers for tracked components.<br/>"
+            "<b>Quality / Manufacturing (Pratik):</b> Please wait for Amit to validate "
+            "the Picking Slip before starting production. Once materials are in "
+            "<b>EGO/Production WIP</b>, assemble each unit and scan component barcodes "
+            "on the serial number record after recording each unit's production.<br/>"
+            "<b>Purchase (Prashant):</b> Please check that raw material stock is sufficient "
+            "for this MO. If any component is short, create a Purchase Order promptly."
         ) % (rec.name, rec.product_id.name, int(rec.product_qty)),
         message_type='notification',
         subtype_xmlid='mail.mt_note',
@@ -409,6 +455,86 @@ for rec in records:
             <field name="filter_domain">[('state', '=', 'done')]</field>
             <field name="active" eval="True"/>
             <field name="action_server_ids" eval="[(4, ref('act_notify_mo_done'))]"/>
+        </record>
+
+        <!-- 2e-2. Raw Material Availability Short → notify Purchase to create PO
+             Trigger: mrp.production.reservation_state → 'confirmed' or 'waiting'
+             These states mean Odoo has checked availability and found stock insufficient.
+               'confirmed' = MO confirmed, availability not yet fully assigned
+               'waiting'   = waiting for a preceding move (e.g. another MO or PO)
+             Prashant should create a PO for missing components.
+             Note: 'assigned' = fully available (no notification needed). -->
+        <record id="act_notify_mo_stock_short" model="ir.actions.server">
+            <field name="name">EGO: Notify Purchase — MO Raw Materials Short</field>
+            <field name="model_id" ref="mrp.model_mrp_production"/>
+            <field name="state">code</field>
+            <field name="code"><![CDATA[
+purchase = env.ref('elegomotors_setup.user_ego_prashant', raise_if_not_found=False)
+partners = [u.partner_id.id for u in [purchase] if u]
+for rec in records:
+    rec.message_post(
+        body=Markup(
+            "<b>Raw Material Availability Alert</b><br/>"
+            "MO <b>%s</b> for <b>%s</b> (qty: %s) does not have sufficient raw materials.<br/>"
+            "<b>Purchase (Prashant):</b> Please check the Components tab of this MO "
+            "to identify which items are short. If a Purchase Order is needed, "
+            "create one now so materials arrive before production is scheduled to start."
+        ) % (rec.name, rec.product_id.name, int(rec.product_qty)),
+        message_type='notification',
+        subtype_xmlid='mail.mt_note',
+        partner_ids=partners,
+    )
+]]></field>
+        </record>
+
+        <record id="auto_notify_mo_stock_short" model="base.automation">
+            <field name="name">EGO: MO Stock Short — Notify Purchase</field>
+            <field name="model_id" ref="mrp.model_mrp_production"/>
+            <field name="trigger">on_write</field>
+            <field name="filter_pre_domain">[('reservation_state', 'not in', ['confirmed', 'waiting'])]</field>
+            <field name="filter_domain">[('reservation_state', 'in', ['confirmed', 'waiting']), ('state', '=', 'confirmed')]</field>
+            <field name="active" eval="True"/>
+            <field name="action_server_ids" eval="[(4, ref('act_notify_mo_stock_short'))]"/>
+        </record>
+
+        <!-- 2e-3. Post-Production QC Check Failed → notify Manufacturing to rework
+             Trigger: quality.check.quality_state → 'fail'
+             This fires when Pratik fails the quality check on an FGS (FG to Finished
+             Goods Store) transfer.  The FGS transfer is blocked; the vehicle stays in
+             EGO/Production WIP.  Pratik must rework and resubmit.
+             quality.check is on mrp.model_quality_check -->
+        <record id="act_notify_qc_fail_rework" model="ir.actions.server">
+            <field name="name">EGO: Notify Manufacturing — Post-Production QC Failed</field>
+            <field name="model_id" ref="quality.model_quality_check"/>
+            <field name="state">code</field>
+            <field name="code"><![CDATA[
+mfg = env.ref('elegomotors_setup.user_ego_pratik', raise_if_not_found=False)
+partners = [u.partner_id.id for u in [mfg] if u]
+for rec in records:
+    rec.message_post(
+        body=Markup(
+            "<b>Post-Production QC Failed — Rework Required</b><br/>"
+            "Quality check <b>%s</b> for product <b>%s</b> has <b>FAILED</b>.<br/>"
+            "The vehicle remains in <b>EGO/Production WIP</b> (WIP/Hold).<br/>"
+            "<b>Quality / Manufacturing (Pratik):</b> Please perform the necessary rework "
+            "and then resubmit the unit for post-production inspection by retrying the "
+            "<b>FG to Finished Goods Store</b> transfer."
+        ) % (rec.name, rec.product_id.name if rec.product_id else 'N/A'),
+        message_type='notification',
+        subtype_xmlid='mail.mt_note',
+        partner_ids=partners,
+    )
+]]></field>
+        </record>
+
+        <record id="auto_notify_qc_fail_rework" model="base.automation">
+            <field name="name">EGO: QC Check Failed — Notify Manufacturing for Rework</field>
+            <field name="model_id" ref="quality.model_quality_check"/>
+            <field name="trigger">on_write</field>
+            <field name="filter_pre_domain">[('quality_state', '!=', 'fail')]</field>
+            <field name="filter_domain">[('quality_state', '=', 'fail')]</field>
+            <field name="active" eval="True"/>
+            <field name="action_server_ids" eval="[(4, ref('act_notify_qc_fail_rework'))]"/>
         </record>
 
         <!-- 2f. Gate Entry (Inward Receipt) Validated → notify Store + Purchase + Accounts

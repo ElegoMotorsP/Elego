@@ -1,0 +1,64 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+    <!--
+        ElegoMotors — Component Traceability Tab on Serial Number Records
+
+        Adds a "Component Traceability" tab to the stock.lot form view.
+        This tab is visible only when the lot/serial belongs to the EGO-S1
+        finished product (or any of its colour variants).
+
+        Pratik fills these fields after post-assembly barcode scanning:
+          - Hub Motor Serial No.         (x_motor_serial)
+          - Battery Pack Serial No.      (x_battery_serial)
+          - Motor Controller Serial No.  (x_controller_serial)
+          - Instrument Cluster Serial No.(x_cluster_serial)
+          - Frame Assembly Serial No.    (x_frame_serial)
+
+        A USB barcode scanner at the production workstation acts as keyboard
+        input to these Char fields — no special app or module required.
+
+        These five components have tracking='none' in Odoo stock so they move
+        through Gate Entry → Store → Production WIP as plain quantities.
+        The physical serial number is only known at assembly time, captured here.
+
+        Use cases:
+          - Warranty: customer gives bike serial → open record → see motor/battery serial
+          - Parts: identify which exact motor is in a bike needing service
+          - Reverse lookup: search x_motor_serial = 'MOT-001' to find the bike
+    -->
+
+    <record id="stock_lot_form_component_traceability" model="ir.ui.view">
+        <field name="name">stock.lot.form.ego.component.traceability</field>
+        <field name="model">stock.lot</field>
+        <field name="inherit_id" ref="stock.view_lot_form"/>
+        <field name="arch" type="xml">
+            <!-- Insert the Component Traceability tab after the standard tabs -->
+            <xpath expr="//notebook" position="inside">
+                <page string="Component Traceability"
+                      attrs="{'invisible': [('product_id.product_tmpl_id', '!=', %(elegomotors_setup.tmpl_ego_scooter)d)]}">
+                    <group string="Warranty-Critical Component Serials">
+                        <group>
+                            <field name="x_motor_serial"
+                                   placeholder="Scan or enter Hub Motor serial no."/>
+                            <field name="x_battery_serial"
+                                   placeholder="Scan or enter Battery Pack serial no."/>
+                            <field name="x_controller_serial"
+                                   placeholder="Scan or enter Motor Controller serial no."/>
+                        </group>
+                        <group>
+                            <field name="x_cluster_serial"
+                                   placeholder="Scan or enter Instrument Cluster serial no."/>
+                            <field name="x_frame_serial"
+                                   placeholder="Scan or enter Frame Assembly serial no."/>
+                        </group>
+                    </group>
+                    <p class="text-muted">
+                        Scan each component barcode after assembly to record
+                        the unit-level traceability for this vehicle.
+                    </p>
+                </page>
+            </xpath>
+        </field>
+    </record>
+
+</odoo>
