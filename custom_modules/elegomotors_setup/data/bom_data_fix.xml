@@ -37,7 +37,6 @@
              flow handles it automatically. -->
         <record id="elegomotors_setup.tmpl_ego_scooter" model="product.template">
             <field name="tracking">serial</field>
-            <field name="lot_sequence_id" ref="elegomotors_setup.seq_ego_s1_serial"/>
         </record>
 
         <!-- ── COMPONENT LOT TRACKING (batch / supplier lot) ─────────────────
