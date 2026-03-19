@@ -49,31 +49,31 @@
              keep tracking='none' in Odoo stock. Their physical serial numbers are
              captured via custom fields on the bike's serial record (stock_lot.py)
              when Pratik scans them post-assembly. -->
-        <record id="elegomotors_setup.comp_front_wheel" model="product.template">
+        <record id="elegomotors_setup.comp_front_wheel" model="product.product">
             <field name="tracking">lot</field>
         </record>
-        <record id="elegomotors_setup.comp_rear_wheel" model="product.template">
+        <record id="elegomotors_setup.comp_rear_wheel" model="product.product">
             <field name="tracking">lot</field>
         </record>
-        <record id="elegomotors_setup.comp_front_fork" model="product.template">
+        <record id="elegomotors_setup.comp_front_fork" model="product.product">
             <field name="tracking">lot</field>
         </record>
-        <record id="elegomotors_setup.comp_brake_kit" model="product.template">
+        <record id="elegomotors_setup.comp_brake_kit" model="product.product">
             <field name="tracking">lot</field>
         </record>
-        <record id="elegomotors_setup.comp_wiring_harness" model="product.template">
+        <record id="elegomotors_setup.comp_wiring_harness" model="product.product">
             <field name="tracking">lot</field>
         </record>
-        <record id="elegomotors_setup.comp_headlight" model="product.template">
+        <record id="elegomotors_setup.comp_headlight" model="product.product">
             <field name="tracking">lot</field>
         </record>
-        <record id="elegomotors_setup.comp_taillight" model="product.template">
+        <record id="elegomotors_setup.comp_taillight" model="product.product">
             <field name="tracking">lot</field>
         </record>
-        <record id="elegomotors_setup.comp_seat" model="product.template">
+        <record id="elegomotors_setup.comp_seat" model="product.product">
             <field name="tracking">lot</field>
         </record>
-        <record id="elegomotors_setup.comp_body_panels" model="product.template">
+        <record id="elegomotors_setup.comp_body_panels" model="product.product">
             <field name="tracking">lot</field>
         </record>
 
