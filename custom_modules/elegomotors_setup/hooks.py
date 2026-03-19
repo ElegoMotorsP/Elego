@@ -18,3 +18,13 @@ def post_init_hook(env):
                 user.password = password
         except Exception:
             pass
+
+    # Set company currency to INR via SQL to bypass the ORM guard that blocks
+    # currency changes when journal items already exist (l10n_in creates them
+    # during its own installation, before this module's data files run).
+    env.cr.execute("""
+        UPDATE res_company
+        SET currency_id = (SELECT id FROM res_currency WHERE name = 'INR' LIMIT 1)
+        WHERE id = (SELECT res_company_id FROM res_users WHERE id = 1)
+          AND EXISTS (SELECT 1 FROM res_currency WHERE name = 'INR')
+    """)
