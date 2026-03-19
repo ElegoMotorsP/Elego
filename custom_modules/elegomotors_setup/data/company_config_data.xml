@@ -63,6 +63,20 @@
             <field name="company_id" ref="base.main_company"/>
         </record>
 
+        <!-- Sequence: EV Scooter Serial Numbers — EGO-S1-YYMM-NNNN, resets monthly.
+             Linked to the EGO-S1 product via lot_sequence_id in bom_data_fix.xml.
+             use_date_range=True resets the counter at each month boundary. -->
+        <record id="seq_ego_s1_serial" model="ir.sequence">
+            <field name="name">ElegoMotors EV Scooter Serial Number</field>
+            <field name="code">ego.s1.serial</field>
+            <field name="prefix">EGO-S1-%(y)s%(month)s-</field>
+            <field name="padding">4</field>
+            <field name="number_next">1</field>
+            <field name="number_increment">1</field>
+            <field name="use_date_range" eval="True"/>
+            <field name="company_id" ref="base.main_company"/>
+        </record>
+
     </data>
 
     <!-- noupdate="0" — applied every upgrade so settings are always enforced -->
@@ -72,6 +86,17 @@
              INR is not active by default in Odoo; this enables it. -->
         <record id="base.INR" model="res.currency">
             <field name="active" eval="True"/>
+        </record>
+
+        <!-- 2-step manufacturing: when Prashant confirms an MO, Odoo auto-creates a
+             Picking Slip (Raw Material) linked to the MO via production.picking_ids.
+             The picking uses our existing "Issue to Production" operation type (PI),
+             moving components from EGO/Store → EGO/Production WIP.
+             manufacture_steps='pbm' = "Pick Before Manufacture".
+             noupdate="0" ensures this is re-applied on every module upgrade. -->
+        <record id="stock.warehouse0" model="stock.warehouse">
+            <field name="manufacture_steps">pbm</field>
+            <field name="pbm_type_id" ref="elegomotors_setup.picking_type_production_issue"/>
         </record>
 
         <!-- REMOVE Work Orders / MRP Routings from all internal users.

@@ -26,5 +26,78 @@
         <delete model="mrp.routing.workcenter" id="elegomotors_setup.op_qc_testing"/>
         <delete model="mrp.routing.workcenter" id="elegomotors_setup.op_packaging"/>
 
+        <!-- ── FINISHED PRODUCT TRACKING ────────────────────────────────────
+             Enable serial tracking on the EGO-S1 scooter.
+             tracking='serial' forces qty_producing=1 per production session,
+             auto-generates one serial number per unit from seq_ego_s1_serial,
+             and records which unit (serial) was produced in each MO.
+
+             This is the foundation of unit-by-unit production and traceability.
+             No custom "Produce One" button is needed — Odoo's native MRP serial
+             flow handles it automatically. -->
+        <record id="elegomotors_setup.tmpl_ego_scooter" model="product.template">
+            <field name="tracking">serial</field>
+            <field name="lot_sequence_id" ref="elegomotors_setup.seq_ego_s1_serial"/>
+        </record>
+
+        <!-- ── COMPONENT LOT TRACKING (batch / supplier lot) ─────────────────
+             These 9 components are tracked by supplier batch lot.
+             Lot number entered at Gate Entry (when Pratik validates QC Pass to Store).
+             Provides batch-level traceability for recalls:
+               e.g. "which bikes used brake kit lot BRK-2503-01?"
+
+             Components NOT listed here (Motor, Battery, Controller, Cluster, Frame)
+             keep tracking='none' in Odoo stock. Their physical serial numbers are
+             captured via custom fields on the bike's serial record (stock_lot.py)
+             when Pratik scans them post-assembly. -->
+        <record id="elegomotors_setup.comp_front_wheel" model="product.template">
+            <field name="tracking">lot</field>
+        </record>
+        <record id="elegomotors_setup.comp_rear_wheel" model="product.template">
+            <field name="tracking">lot</field>
+        </record>
+        <record id="elegomotors_setup.comp_front_fork" model="product.template">
+            <field name="tracking">lot</field>
+        </record>
+        <record id="elegomotors_setup.comp_brake_kit" model="product.template">
+            <field name="tracking">lot</field>
+        </record>
+        <record id="elegomotors_setup.comp_wiring_harness" model="product.template">
+            <field name="tracking">lot</field>
+        </record>
+        <record id="elegomotors_setup.comp_headlight" model="product.template">
+            <field name="tracking">lot</field>
+        </record>
+        <record id="elegomotors_setup.comp_taillight" model="product.template">
+            <field name="tracking">lot</field>
+        </record>
+        <record id="elegomotors_setup.comp_seat" model="product.template">
+            <field name="tracking">lot</field>
+        </record>
+        <record id="elegomotors_setup.comp_body_panels" model="product.template">
+            <field name="tracking">lot</field>
+        </record>
+
+        <!-- ── PRODUCT VARIANT ARCHITECTURE ──────────────────────────────────
+             Create the Color attribute and link it to the EGO-S1 product template.
+             Actual color values (Red, Blue, White, Black, etc.) are added by
+             Manohar via the UI or in a follow-up XML update once confirmed.
+
+             create_variant='always' means each color value becomes a distinct
+             product.product variant (separate SKU for stock and invoicing).
+
+             Variant-specific BOM lines (e.g. Red Body Panels only for Red variant)
+             are configured in the BOM form view using the "Apply on Variants" column. -->
+        <record id="attr_ego_color" model="product.attribute">
+            <field name="name">Color</field>
+            <field name="create_variant">always</field>
+        </record>
+
+        <record id="attr_line_ego_color" model="product.template.attribute.line">
+            <field name="product_tmpl_id" ref="elegomotors_setup.tmpl_ego_scooter"/>
+            <field name="attribute_id" ref="elegomotors_setup.attr_ego_color"/>
+            <field name="value_ids" eval="[(6, 0, [])]"/>
+        </record>
+
     </data>
 </odoo>
