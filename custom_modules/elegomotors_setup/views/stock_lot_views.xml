@@ -35,7 +35,7 @@
             <!-- Insert the Component Traceability tab after the standard tabs -->
             <xpath expr="//notebook" position="inside">
                 <page string="Component Traceability"
-                      attrs="{'invisible': [('product_id.product_tmpl_id', '!=', %(elegomotors_setup.tmpl_ego_scooter)d)]}">
+                      invisible="[('product_id.product_tmpl_id', '!=', %(elegomotors_setup.tmpl_ego_scooter)d)]">
                     <group string="Warranty-Critical Component Serials">
                         <group>
                             <field name="x_motor_serial"
