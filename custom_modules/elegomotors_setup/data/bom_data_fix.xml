@@ -58,7 +58,7 @@
         <record id="elegomotors_setup.comp_front_fork" model="product.product">
             <field name="tracking">lot</field>
         </record>
-        <record id="elegomotors_setup.comp_brake_kit" model="product.product">
+       <!-- <record id="elegomotors_setup.comp_brake_kit" model="product.product">
             <field name="tracking">lot</field>
         </record>
         <record id="elegomotors_setup.comp_wiring_harness" model="product.product">
@@ -76,7 +76,7 @@
         <record id="elegomotors_setup.comp_body_panels" model="product.product">
             <field name="tracking">lot</field>
         </record>
-
+-->
         <!-- ── PRODUCT VARIANT ARCHITECTURE ──────────────────────────────────
              Create the Color attribute and link it to the EGO-S1 product template.
              Actual color values (Red, Blue, White, Black, etc.) are added by
