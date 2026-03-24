@@ -28,7 +28,7 @@
             <xpath expr="//header/field[@name='state']" position="after">
                 <field name="qc_state" widget="statusbar"
                        statusbar_visible="pending,passed,failed"
-                       attrs="{'invisible': [('state', 'not in', ['to_close', 'done'])]}"/>
+                       invisible="state not in ('to_close', 'done')"/>
             </xpath>
 
             <!-- QC action buttons placed before "Mark as Done" -->
@@ -37,24 +37,18 @@
                         string="Pass QC"
                         type="object"
                         class="btn-success"
-                        attrs="{'invisible': ['|',
-                            ('state', '!=', 'to_close'),
-                            ('qc_state', '=', 'passed')
-                        ]}"
+                        invisible="state != 'to_close' or qc_state == 'passed'"
                         groups="quality.group_quality_manager"/>
                 <button name="action_qc_fail"
                         string="Fail QC"
                         type="object"
                         class="btn-danger"
-                        attrs="{'invisible': [('state', '!=', 'to_close')]}"
+                        invisible="state != 'to_close'"
                         groups="quality.group_quality_manager"/>
                 <button name="action_qc_reset"
                         string="Reset QC"
                         type="object"
-                        attrs="{'invisible': ['|',
-                            ('state', '!=', 'to_close'),
-                            ('qc_state', '!=', 'failed')
-                        ]}"
+                        invisible="state != 'to_close' or qc_state != 'failed'"
                         groups="quality.group_quality_manager"/>
             </xpath>
 
