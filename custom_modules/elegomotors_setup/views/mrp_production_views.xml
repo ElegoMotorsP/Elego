@@ -1,0 +1,63 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+    <!--
+        ElegoMotors Manufacturing Order — Post-Production QC Buttons
+
+        Adds "Pass QC" / "Fail QC" / "Reset QC" buttons and a QC status badge
+        to the MO form header. Only visible when the MO is in 'to_close' state
+        (production quantities entered, awaiting QC approval before mark-done).
+
+        Button visibility:
+          Pass QC  — to_close state + not already passed, quality_manager group only
+          Fail QC  — to_close state, quality_manager group only
+          Reset QC — to_close state + currently failed (for rework cycle)
+
+        The "Mark as Done" button is NOT hidden — attempting to click it without
+        QC approval raises a clear UserError from mrp_production.py Guard 3.
+
+        Quality group: quality.group_quality_manager = Pratik
+        (quality.quality_manager group includes Pratik via users_data.xml)
+    -->
+    <record id="mrp_production_form_view_qc" model="ir.ui.view">
+        <field name="name">mrp.production.form.qc.buttons</field>
+        <field name="model">mrp.production</field>
+        <field name="inherit_id" ref="mrp.mrp_production_form_view"/>
+        <field name="arch" type="xml">
+
+            <!-- QC status statusbar in header, only shown in to_close / done states -->
+            <xpath expr="//header/field[@name='state']" position="after">
+                <field name="qc_state" widget="statusbar"
+                       statusbar_visible="pending,passed,failed"
+                       attrs="{'invisible': [('state', 'not in', ['to_close', 'done'])]}"/>
+            </xpath>
+
+            <!-- QC action buttons placed before "Mark as Done" -->
+            <xpath expr="//header/button[@name='button_mark_done']" position="before">
+                <button name="action_qc_pass"
+                        string="Pass QC"
+                        type="object"
+                        class="btn-success"
+                        attrs="{'invisible': ['|',
+                            ('state', '!=', 'to_close'),
+                            ('qc_state', '=', 'passed')
+                        ]}"
+                        groups="quality.group_quality_manager"/>
+                <button name="action_qc_fail"
+                        string="Fail QC"
+                        type="object"
+                        class="btn-danger"
+                        attrs="{'invisible': [('state', '!=', 'to_close')]}"
+                        groups="quality.group_quality_manager"/>
+                <button name="action_qc_reset"
+                        string="Reset QC"
+                        type="object"
+                        attrs="{'invisible': ['|',
+                            ('state', '!=', 'to_close'),
+                            ('qc_state', '!=', 'failed')
+                        ]}"
+                        groups="quality.group_quality_manager"/>
+            </xpath>
+
+        </field>
+    </record>
+</odoo>

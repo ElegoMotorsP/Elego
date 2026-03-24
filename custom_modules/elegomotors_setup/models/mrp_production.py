@@ -1,10 +1,68 @@
 # -*- coding: utf-8 -*-
-from odoo import models, SUPERUSER_ID
+from markupsafe import Markup
+from odoo import api, fields, models, SUPERUSER_ID
 from odoo.exceptions import AccessError, UserError
 
 
 class MrpProduction(models.Model):
     _inherit = 'mrp.production'
+
+    qc_state = fields.Selection([
+        ('pending', 'Pending QC'),
+        ('passed', 'QC Passed'),
+        ('failed', 'QC Failed'),
+    ], default='pending', string='QC Status', copy=False,
+       help="Post-production quality gate. Must be 'passed' before MO can be marked done.")
+
+    def action_qc_pass(self):
+        """Pratik approves post-production QC. Unblocks button_mark_done."""
+        self.ensure_one()
+        if self.state != 'to_close':
+            raise UserError(
+                "QC can only be recorded when production is complete (state: To Close)."
+            )
+        self.qc_state = 'passed'
+        self.message_post(
+            body=Markup(
+                f"Post-production QC <b>passed</b> by {self.env.user.name}. "
+                f"Click <b>Mark as Done</b> to finalise the MO and release to Finished Goods."
+            ),
+            message_type='comment',
+            subtype_xmlid='mail.mt_comment',
+        )
+
+    def action_qc_fail(self):
+        """Pratik fails post-production QC. MO stays in to_close for rework."""
+        self.ensure_one()
+        if self.state != 'to_close':
+            raise UserError("QC can only be recorded when production is complete.")
+        self.qc_state = 'failed'
+        prashant = self.env.ref(
+            'elegomotors_setup.user_ego_prashant', raise_if_not_found=False
+        )
+        partner_ids = [prashant.partner_id.id] if prashant else []
+        self.message_post(
+            body=Markup(
+                f"Post-production QC <b>FAILED</b> by {self.env.user.name}. "
+                f"Rework required — bike remains in Production WIP. "
+                f"Click <b>Reset QC</b> when rework is complete to re-inspect."
+            ),
+            partner_ids=partner_ids,
+            message_type='comment',
+            subtype_xmlid='mail.mt_comment',
+        )
+
+    def action_qc_reset(self):
+        """Reset QC state to pending after rework so Pratik can re-inspect."""
+        self.ensure_one()
+        if self.state != 'to_close':
+            raise UserError("Can only reset QC on an MO that is in 'To Close' state.")
+        self.qc_state = 'pending'
+        self.message_post(
+            body="QC reset to Pending — rework complete, ready for re-inspection.",
+            message_type='comment',
+            subtype_xmlid='mail.mt_comment',
+        )
 
     def button_mark_done(self):
         # Guard 1: only group_manufacturing_operator (Pratik, Prashant) may mark MOs done.
@@ -33,4 +91,81 @@ class MrpProduction(models.Model):
                     f'{production.name}.\nPending transfer(s): {names}'
                 )
 
-        return super().button_mark_done()
+        # Guard 3: post-production QC must be approved by Pratik before closing.
+        # qc_state is copy=False so each backorder MO starts at 'pending' automatically,
+        # giving every serial unit its own QC cycle.
+        for production in self:
+            if production.qc_state != 'passed':
+                state_label = dict(
+                    production._fields['qc_state'].selection
+                ).get(production.qc_state, production.qc_state)
+                raise UserError(
+                    f'{production.name}: Post-production QC is \'{state_label}\'. '
+                    f'Pratik must click \'Pass QC\' before marking done.'
+                )
+
+        result = super().button_mark_done()
+
+        # Auto-create + validate the FG picking (Production WIP → Finished Goods Store).
+        # Runs only after super() succeeds and MO is in 'done' state.
+        for production in self:
+            if production.state == 'done':
+                production._auto_move_fg_to_store()
+
+        return result
+
+    def _auto_move_fg_to_store(self):
+        """Create and immediately validate a 'FG to Finished Goods Store' picking.
+
+        Carries the specific product variant (color) and serial lot_id from the
+        finished move — EGO-S1 is serial-tracked with color variants.
+        QC was already approved via action_qc_pass(), so no further check needed.
+        """
+        picking_type = self.env.ref(
+            'elegomotors_setup.picking_type_fg_to_stock', raise_if_not_found=False
+        )
+        if not picking_type:
+            return
+
+        # Collect finished move lines from the just-closed MO (state=done, not scrapped)
+        finished_lines = self.move_finished_ids.filtered(
+            lambda m: m.state == 'done' and not m.scrapped
+        ).mapped('move_line_ids')
+        if not finished_lines:
+            return
+
+        move_vals = [(0, 0, {
+            'name': ml.product_id.name,
+            'product_id': ml.product_id.id,          # specific variant (e.g. EGO-S1 Red)
+            'product_uom_qty': ml.qty_done,
+            'product_uom': ml.product_uom_id.id,
+            'location_id': picking_type.default_location_src_id.id,
+            'location_dest_id': picking_type.default_location_dest_id.id,
+        }) for ml in finished_lines]
+
+        picking = self.env['stock.picking'].create({
+            'picking_type_id': picking_type.id,
+            'origin': self.name,
+            'location_id': picking_type.default_location_src_id.id,
+            'location_dest_id': picking_type.default_location_dest_id.id,
+            'move_ids': move_vals,
+        })
+        picking.action_confirm()
+        picking.action_assign()
+
+        # Propagate qty_done and serial lot_id to the new picking's move lines
+        for ml, src_ml in zip(picking.move_line_ids, finished_lines):
+            ml.qty_done = src_ml.qty_done
+            ml.lot_id = src_ml.lot_id          # e.g. EGO-S1-2503-0001
+
+        picking.with_context(skip_immediate=True, skip_backorder=True).button_validate()
+
+        serial_name = finished_lines[0].lot_id.name if finished_lines[0].lot_id else ''
+        self.message_post(
+            body=Markup(
+                f"Bike <b>{serial_name}</b> transferred to Finished Goods — "
+                f"<a href='/web#id={picking.id}&model=stock.picking'>{picking.name}</a>"
+            ),
+            message_type='comment',
+            subtype_xmlid='mail.mt_comment',
+        )
