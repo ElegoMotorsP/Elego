@@ -799,5 +799,41 @@ for rec in records.filtered(lambda p: p.picking_type_id.sequence_code == 'QCQ'):
             <field name="action_server_ids" eval="[(4, ref('act_notify_qc_fail_quarantine_done'))]"/>
         </record>
 
+        <!-- ── MO to_close → Notify Pratik (QC inspection required) ──────────────
+             Fires when an MO enters 'to_close' state (Pratik has entered qty_producing
+             but has not yet clicked Mark as Done). Reminds Pratik to inspect the unit
+             and click Pass QC / Fail QC before finalising.
+        -->
+        <record id="act_notify_mo_qc_needed" model="ir.actions.server">
+            <field name="name">EGO: MO to_close — Notify QC Inspector (Pratik)</field>
+            <field name="model_id" ref="mrp.model_mrp_production"/>
+            <field name="state">code</field>
+            <field name="code"><![CDATA[
+pratik = env.ref('elegomotors_setup.user_ego_pratik', raise_if_not_found=False)
+for rec in records:
+    partner_ids = [pratik.partner_id.id] if pratik else []
+    rec.message_post(
+        body=(
+            f"Production complete on <b>{rec.name}</b> ({rec.product_id.display_name}). "
+            f"Please inspect the finished unit and click "
+            f"<b>Pass QC</b> or <b>Fail QC</b> before marking done."
+        ),
+        partner_ids=partner_ids,
+        message_type='comment',
+        subtype_xmlid='mail.mt_comment',
+    )
+]]></field>
+        </record>
+
+        <record id="auto_mo_to_close_qc" model="base.automation">
+            <field name="name">EGO: MO to_close — Notify QC Inspector (Pratik)</field>
+            <field name="model_id" ref="mrp.model_mrp_production"/>
+            <field name="trigger">on_write</field>
+            <field name="filter_pre_domain">[('state', '!=', 'to_close')]</field>
+            <field name="filter_domain">[('state', '=', 'to_close')]</field>
+            <field name="active" eval="True"/>
+            <field name="action_server_ids" eval="[(4, ref('act_notify_mo_qc_needed'))]"/>
+        </record>
+
     </data>
 </odoo>

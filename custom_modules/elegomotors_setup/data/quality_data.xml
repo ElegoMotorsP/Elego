@@ -51,14 +51,19 @@
             <field name="test_type">passfail</field>
         </record>
 
-        <!-- ─── 2. POST-PRODUCTION QUALITY CHECK ──────────────────────── -->
-        <record id="qc_point_production_output" model="quality.point">
-            <field name="name">Post-Production Quality Check (Pre-Dispatch)</field>
-            <field name="picking_type_ids" eval="[(4, ref('elegomotors_setup.picking_type_fg_to_stock'))]"/>
-            <field name="user_id" ref="elegomotors_setup.user_ego_pratik"/>
-            <field name="company_id" ref="base.main_company"/>
-            <field name="test_type">passfail</field>
-        </record>
+        <!--
+            POST-PRODUCTION QUALITY CHECK — removed.
+
+            Replaced by the Python QC gate in mrp_production.py (action_qc_pass /
+            action_qc_fail / action_qc_reset + Guard 3 in button_mark_done).
+
+            The quality.point approach required Pratik to manually create a
+            'FG to Finished Goods Store' transfer — a step that was never performed
+            in practice, so no quality check ever fired.
+
+            The Python gate shows explicit "Pass QC" / "Fail QC" buttons on the MO
+            form and auto-creates + validates the FG transfer on approval.
+        -->
 
     </data>
 </odoo>

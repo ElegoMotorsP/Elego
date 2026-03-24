@@ -1,6 +1,6 @@
 {
     'name': 'ElegoMotors Workflow Setup',
-    'version': '18.0.3.0.0',
+    'version': '18.0.4.0.0',
     'category': 'Manufacturing',
     'summary': 'ElegoMotors EV 2-wheeler end-to-end manufacturing workflow configuration',
     'description': """
@@ -54,6 +54,7 @@
         'data/notification_rules.xml',   # automated workflow notifications
         # View overrides (loaded last so base views exist)
         'views/account_move_views.xml',
+        'views/mrp_production_views.xml',  # Post-production QC buttons on MO form
         'views/sale_order_views.xml',
         'views/stock_lot_views.xml',     # Component Traceability tab on bike serial records
     ],
