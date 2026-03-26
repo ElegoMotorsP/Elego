@@ -814,8 +814,9 @@ for rec in records:
     partner_ids = [pratik.partner_id.id] if pratik else []
     rec.message_post(
         body=(
-            f"Production complete on <b>{rec.name}</b> ({rec.product_id.display_name}). "
-            f"Please inspect the finished unit and click "
+            f"<b>Manufactured → In QC</b>: QC inspection required for <b>{rec.name}</b> "
+            f"({rec.product_id.display_name}). "
+            f"Auto quality request created — please inspect the finished unit and click "
             f"<b>Pass QC</b> or <b>Fail QC</b> before marking done."
         ),
         partner_ids=partner_ids,
