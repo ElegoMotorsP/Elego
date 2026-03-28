@@ -8,7 +8,7 @@ class SaleOrder(models.Model):
     _inherit = 'sale.order'
 
     pending_approval = fields.Boolean(
-        string="Pending Dual Approval", default=False, copy=False
+        string="Pending Approval", default=False, copy=False
     )
     approval_accounts = fields.Boolean(
         string="Accounts Approved", default=False, copy=False
@@ -48,8 +48,8 @@ class SaleOrder(models.Model):
             # Already pending — do not re-trigger; approvers need to act
             if order.pending_approval:
                 return False
-            # Both approvals not yet obtained — hold in draft and notify
-            if not (order.approval_accounts and order.approval_manohar):
+            # No approval yet — hold in draft and notify
+            if not (order.approval_accounts or order.approval_manohar):
                 order.pending_approval = True
                 # Mention approvers in chatter so they receive an inbox notification
                 rajshri = self.env.ref(
@@ -65,8 +65,8 @@ class SaleOrder(models.Model):
                     partner_ids.append(manohar.partner_id.id)
                 order.message_post(
                     body=Markup(
-                        "This Sales Order is awaiting your approval before it can be confirmed. "
-                        "Please review and click <b>Approve (Accounts)</b> or <b>Approve (MD)</b>."
+                        "This Sales Order is awaiting approval before it can be confirmed. "
+                        "Please review and click <b>Approve (Accounts)</b> or <b>Approve (MD)</b> — either approval is sufficient."
                     ),
                     partner_ids=partner_ids,
                     message_type='comment',
@@ -83,14 +83,14 @@ class SaleOrder(models.Model):
         ):
             raise AccessError('Only the Accounts approver (Rajshri) can record Accounts approval.')
         if not self.pending_approval:
-            raise AccessError('This Sales Order is not pending dual approval.')
+            raise AccessError('This Sales Order is not pending approval.')
         self.approval_accounts = True
         self.message_post(
             body=f"Accounts approval recorded by {self.env.user.name}.",
             message_type='comment',
             subtype_xmlid='mail.mt_comment',
         )
-        self._try_confirm_if_both_approved()
+        self._try_confirm_if_approved()
 
     def action_approve_manohar(self):
         self.ensure_one()
@@ -100,18 +100,18 @@ class SaleOrder(models.Model):
         ):
             raise AccessError('Only the MD (Manohar) can record MD approval.')
         if not self.pending_approval:
-            raise AccessError('This Sales Order is not pending dual approval.')
+            raise AccessError('This Sales Order is not pending approval.')
         self.approval_manohar = True
         self.message_post(
             body=f"MD approval recorded by {self.env.user.name}.",
             message_type='comment',
             subtype_xmlid='mail.mt_comment',
         )
-        self._try_confirm_if_both_approved()
+        self._try_confirm_if_approved()
 
-    def _try_confirm_if_both_approved(self):
+    def _try_confirm_if_approved(self):
         self.ensure_one()
-        if self.approval_accounts and self.approval_manohar:
+        if self.approval_accounts or self.approval_manohar:
             self.pending_approval = False
             super(SaleOrder, self).action_confirm()
 
@@ -124,7 +124,7 @@ class SaleOrder(models.Model):
         ):
             raise AccessError('Only the designated approvers can reject a Sales Order.')
         if not self.pending_approval:
-            raise AccessError('This Sales Order is not pending dual approval.')
+            raise AccessError('This Sales Order is not pending approval.')
         self.write({
             'pending_approval': False,
             'approval_accounts': False,
