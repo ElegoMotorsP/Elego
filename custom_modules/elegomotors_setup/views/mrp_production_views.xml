@@ -26,9 +26,10 @@
 
             <!-- QC status statusbar in header, only shown in to_close / done states -->
             <xpath expr="//header/field[@name='state']" position="after">
-                <field name="qc_state" widget="statusbar"
-                       statusbar_visible="pending,passed,failed"
+                <field name="mo_flow_state" widget="statusbar"
+                       statusbar_visible="manufactured,in_qc,done"
                        invisible="state not in ('to_close', 'done')"/>
+                <field name="qc_state" invisible="1"/>
             </xpath>
 
             <!-- QC action buttons placed before "Mark as Done" -->
