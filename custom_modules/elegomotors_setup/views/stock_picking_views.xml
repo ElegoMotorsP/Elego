@@ -1,0 +1,53 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+    <!--
+        ElegoMotors Receipt Form Enhancements
+
+        1. Vendor Invoice Number + Date fields in the header
+           (visible only on incoming receipts)
+        2. QC tracking columns on the Operations tab move lines
+           (Received, QC Passed, QC Failed, Final Quantities)
+    -->
+
+    <!-- Vendor Invoice fields on receipt header -->
+    <record id="stock_picking_form_vendor_invoice" model="ir.ui.view">
+        <field name="name">stock.picking.form.vendor.invoice.fields</field>
+        <field name="model">stock.picking</field>
+        <field name="inherit_id" ref="stock.view_picking_form"/>
+        <field name="arch" type="xml">
+            <xpath expr="//field[@name='origin']" position="after">
+                <field name="x_vendor_invoice_number"
+                       invisible="picking_type_code != 'incoming'"
+                       placeholder="e.g. INV-2024/001"/>
+                <field name="x_vendor_invoice_date"
+                       invisible="picking_type_code != 'incoming'"/>
+            </xpath>
+        </field>
+    </record>
+
+    <!-- QC columns on receipt Operations tab -->
+    <record id="stock_picking_form_qc_columns" model="ir.ui.view">
+        <field name="name">stock.picking.form.qc.columns</field>
+        <field name="model">stock.picking</field>
+        <field name="inherit_id" ref="stock.view_picking_form"/>
+        <field name="arch" type="xml">
+            <xpath expr="//field[@name='move_ids_without_package']//list//field[@name='quantity']" position="after">
+                <field name="x_qty_received"
+                       string="Received"
+                       column_invisible="parent.picking_type_code != 'incoming'"
+                       readonly="parent.state == 'done' and parent.is_locked"/>
+                <field name="x_qty_qc_passed"
+                       string="QC Passed"
+                       column_invisible="parent.picking_type_code != 'incoming'"
+                       readonly="parent.state == 'done' and parent.is_locked"/>
+                <field name="x_qty_qc_failed"
+                       string="QC Failed"
+                       column_invisible="parent.picking_type_code != 'incoming'"/>
+                <field name="x_qty_final"
+                       string="Final Quantities"
+                       column_invisible="parent.picking_type_code != 'incoming'"/>
+            </xpath>
+        </field>
+    </record>
+
+</odoo>
