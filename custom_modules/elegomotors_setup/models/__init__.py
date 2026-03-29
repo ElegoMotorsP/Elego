@@ -1,5 +1,7 @@
 from . import ir_actions_server
 from . import account_move
+from . import quality_check
+from . import stock_move_line
 from . import mrp_production
 from . import product_template
 from . import purchase_order

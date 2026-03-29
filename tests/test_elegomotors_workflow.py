@@ -1299,12 +1299,12 @@ async def test_notify_mo_done(helper):
 
     # Try buttons that mark the MO as done/finished
     done_clicked = False
-    for btn_text in ["Mark as Done", "Produce All", "Mark as Finished", "Validate Production"]:
+    for btn_text in ["Mark as Done", "Manufacture All", "Produce All", "Mark as Finished", "Validate Production"]:
         if await helper.click_if_visible(f"button:has-text('{btn_text}')", timeout=2500):
             done_clicked = True
             await helper.page.wait_for_timeout(1000)
             # Handle any confirmation dialogs
-            for conf in ["button:has-text('Produce')", ".modal .btn-primary", ".o_dialog .btn-primary"]:
+            for conf in ["button:has-text('Manufacture')", "button:has-text('Produce')", ".modal .btn-primary", ".o_dialog .btn-primary"]:
                 await helper.click_if_visible(conf, timeout=2000)
             break
 
@@ -1312,7 +1312,7 @@ async def test_notify_mo_done(helper):
     page_content = await helper.page.content()
     # Accept either the custom notification or the state change tracking
     assert any(
-        kw in page_content for kw in ["Manufacturing Complete", "Done", "To Close", "Produce"]
+        kw in page_content for kw in ["Manufacturing Complete", "Done", "To Close", "Produce", "Manufacture"]
     ), f"MO done notification not found; done_clicked={done_clicked}; url={helper.page.url}"
     # Prashant (Purchase) is now notified on MO Done; Tushar (Sales) is no longer notified
     assert "Prashant" in page_content or "Purchase" in page_content, \
@@ -1637,7 +1637,7 @@ async def test_amit_cannot_produce_mo(helper):
 
     # "Produce All" / "Mark as Done" must NOT be present for Amit
     produce_count = await helper.page.locator(
-        'button:has-text("Produce All"), button:has-text("Mark as Done"), '
+        'button:has-text("Manufacture All"), button:has-text("Produce All"), button:has-text("Mark as Done"), '
         'button:has-text("Mark as Finished"), button[name="button_mark_done"]'
     ).count()
     assert produce_count == 0, (
@@ -1664,7 +1664,7 @@ async def test_rajshri_cannot_produce_mo(helper):
     await helper.page.wait_for_timeout(800)
 
     produce_count = await helper.page.locator(
-        'button:has-text("Produce All"), button:has-text("Mark as Done"), '
+        'button:has-text("Manufacture All"), button:has-text("Produce All"), button:has-text("Mark as Done"), '
         'button:has-text("Mark as Finished"), button[name="button_mark_done"]'
     ).count()
     assert produce_count == 0, (
@@ -1686,7 +1686,7 @@ async def test_pratik_can_produce_mo(helper):
     await helper.page.wait_for_timeout(800)
 
     produce_count = await helper.page.locator(
-        'button:has-text("Produce All"), button:has-text("Mark as Done"), '
+        'button:has-text("Manufacture All"), button:has-text("Produce All"), button:has-text("Mark as Done"), '
         'button:has-text("Mark as Finished"), button[name="button_mark_done"]'
     ).count()
     # If the button is present, the access guard is correctly allowing Pratik
@@ -2022,7 +2022,7 @@ async def test_manohar_cannot_produce_mo(helper):
     await helper.page.wait_for_timeout(800)
 
     produce_count = await helper.page.locator(
-        'button:has-text("Produce All"), button:has-text("Mark as Done"), '
+        'button:has-text("Manufacture All"), button:has-text("Produce All"), button:has-text("Mark as Done"), '
         'button:has-text("Mark as Finished"), button[name="button_mark_done"]'
     ).count()
     assert produce_count == 0, (
@@ -3174,7 +3174,7 @@ async def test_prashant_can_produce_mo(helper):
     mo_name = await create_manufacturing_order(helper)
     await helper.page.wait_for_timeout(800)
     has_produce_btn = await helper.page.locator(
-        'button:has-text("Produce All"), button:has-text("Mark as Done"), '
+        'button:has-text("Manufacture All"), button:has-text("Produce All"), button:has-text("Mark as Done"), '
         'button:has-text("Mark as Finished"), button[name="button_mark_done"]'
     ).count() > 0
     if not has_produce_btn:

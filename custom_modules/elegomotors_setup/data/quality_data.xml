@@ -52,18 +52,19 @@
         </record>
 
         <!--
-            POST-PRODUCTION QUALITY CHECK — removed.
-
-            Replaced by the Python QC gate in mrp_production.py (action_qc_pass /
-            action_qc_fail / action_qc_reset + Guard 3 in button_mark_done).
-
-            The quality.point approach required Pratik to manually create a
-            'FG to Finished Goods Store' transfer — a step that was never performed
-            in practice, so no quality check ever fired.
-
-            The Python gate shows explicit "Pass QC" / "Fail QC" buttons on the MO
-            form and auto-creates + validates the FG transfer on approval.
+            POST-PRODUCTION (per finished serial unit): programmatic quality.check
+            creation from stock.move.line (see models/stock_move_line.py). This
+            quality.point is the template required by quality.check.point_id.
         -->
 
+    </data>
+
+    <data noupdate="0">
+        <record id="qc_point_post_prod_unit" model="quality.point">
+            <field name="name">Post-production unit inspection</field>
+            <field name="company_id" ref="base.main_company"/>
+            <field name="test_type">passfail</field>
+            <field name="user_id" ref="elegomotors_setup.user_ego_pratik"/>
+        </record>
     </data>
 </odoo>

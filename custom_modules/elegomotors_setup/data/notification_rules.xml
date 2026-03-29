@@ -497,11 +497,10 @@ for rec in records:
             <field name="action_server_ids" eval="[(4, ref('act_notify_mo_stock_short'))]"/>
         </record>
 
-        <!-- 2e-3. Post-Production QC Check Failed → notify Manufacturing to rework
+        <!-- 2e-3. Post-Production unit QC Failed → notify Manufacturing to rework
              Trigger: quality.check.quality_state → 'fail'
-             This fires when Pratik fails the quality check on an FGS (FG to Finished
-             Goods Store) transfer.  The FGS transfer is blocked; the vehicle stays in
-             EGO/Production WIP.  Pratik must rework and resubmit.
+             Fires when a per-unit post-production quality.check (ego_mrp_production_id)
+             fails. Rework on the MO; pass unit checks before Mark as Done.
              quality.check is on mrp.model_quality_check -->
         <record id="act_notify_qc_fail_rework" model="ir.actions.server">
             <field name="name">EGO: Notify Manufacturing — Post-Production QC Failed</field>
@@ -513,12 +512,11 @@ partners = [u.partner_id.id for u in [mfg] if u]
 for rec in records:
     rec.message_post(
         body=Markup(
-            "<b>Post-Production QC Failed — Rework Required</b><br/>"
+            "<b>Post-Production Unit QC Failed — Rework Required</b><br/>"
             "Quality check <b>%s</b> for product <b>%s</b> has <b>FAILED</b>.<br/>"
-            "The vehicle remains in <b>EGO/Production WIP</b> (WIP/Hold).<br/>"
-            "<b>Quality / Manufacturing (Pratik):</b> Please perform the necessary rework "
-            "and then resubmit the unit for post-production inspection by retrying the "
-            "<b>FG to Finished Goods Store</b> transfer."
+            "The unit remains in <b>EGO/Production WIP</b> (WIP/Hold).<br/>"
+            "<b>Quality / Manufacturing (Pratik):</b> Perform rework, reset the failed check "
+            "in Quality when ready, and pass per-unit QC before <b>Mark as Done</b> on the MO."
         ) % (rec.name, rec.product_id.name if rec.product_id else 'N/A'),
         message_type='notification',
         subtype_xmlid='mail.mt_note',
@@ -814,10 +812,10 @@ for rec in records:
     partner_ids = [pratik.partner_id.id] if pratik else []
     rec.message_post(
         body=(
-            f"<b>Manufactured → In QC</b>: QC inspection required for <b>{rec.name}</b> "
-            f"({rec.product_id.display_name}). "
-            f"Auto quality request created — please inspect the finished unit and click "
-            f"<b>Pass QC</b> or <b>Fail QC</b> before marking done."
+            f"<b>Manufactured → In QC</b>: Per-unit <b>quality.check</b> records apply for "
+            f"<b>{rec.name}</b> ({rec.product_id.display_name}). "
+            f"Pass each unit check in Quality (or use <b>Pass QC</b> on the MO), then "
+            f"<b>Mark as Done</b> when all units are produced and QC passed."
         ),
         partner_ids=partner_ids,
         message_type='comment',

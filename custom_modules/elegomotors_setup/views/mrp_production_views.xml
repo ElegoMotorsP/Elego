@@ -24,15 +24,14 @@
         <field name="inherit_id" ref="mrp.mrp_production_form_view"/>
         <field name="arch" type="xml">
 
-            <!-- QC status statusbar in header, only shown in to_close / done states -->
             <xpath expr="//header/field[@name='state']" position="after">
                 <field name="mo_flow_state" widget="statusbar"
                        statusbar_visible="manufactured,in_qc,done"
-                       invisible="state not in ('to_close', 'done')"/>
+                       invisible="state not in ('progress', 'to_close', 'done')"/>
                 <field name="qc_state" invisible="1"/>
+                <field name="ego_unit_qc_count" invisible="1"/>
             </xpath>
 
-            <!-- QC action buttons placed before "Mark as Done" -->
             <xpath expr="//header/button[@name='button_mark_done']" position="before">
                 <button name="action_qc_pass"
                         string="Pass QC"
@@ -53,6 +52,37 @@
                         groups="quality.group_quality_manager"/>
             </xpath>
 
+            <xpath expr="//div[@name='button_box']" position="inside">
+                <button name="action_ego_view_unit_quality_checks" type="object"
+                        class="oe_stat_button" icon="fa-check-square-o"
+                        invisible="ego_unit_qc_count == 0" groups="quality.group_quality_manager">
+                    <div class="o_field_widget o_stat_info">
+                        <span class="o_stat_value"><field name="ego_unit_qc_count"/></span>
+                        <span class="o_stat_text">Unit QC</span>
+                    </div>
+                </button>
+            </xpath>
+
+        </field>
+    </record>
+
+    <record id="mrp_production_form_manufacture_labels" model="ir.ui.view">
+        <field name="name">mrp.production.form.manufacture.labels</field>
+        <field name="model">mrp.production</field>
+        <field name="inherit_id" ref="mrp.mrp_production_form_view"/>
+        <field name="arch" type="xml">
+            <xpath expr="//header/button[@name='button_mark_done' and @string='Produce' and not(@confirm)]" position="attributes">
+                <attribute name="string">Manufacture</attribute>
+            </xpath>
+            <xpath expr="//header/button[@name='button_mark_done' and @string='Produce' and @confirm]" position="attributes">
+                <attribute name="string">Manufacture</attribute>
+            </xpath>
+            <xpath expr="//header/button[@name='button_mark_done' and @string='Produce All' and not(@confirm)]" position="attributes">
+                <attribute name="string">Manufacture All</attribute>
+            </xpath>
+            <xpath expr="//header/button[@name='button_mark_done' and @string='Produce All' and @confirm]" position="attributes">
+                <attribute name="string">Manufacture All</attribute>
+            </xpath>
         </field>
     </record>
 </odoo>

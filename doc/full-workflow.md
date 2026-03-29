@@ -194,11 +194,9 @@ Pratik: QC Inward Material → OK
   → Material added to store
 Rajshri: Generate Purchase Bill
 Amit: Issue material to production (Picking Slip)
-Pratik: Manufacture scooter (Manufactured)
-System: MO enters In QC — auto QC request created and notified to Pratik
-Pratik: QC Produced Material → OK (In QC)
-Pratik: Final QC Checks (In QC)
-Pratik: Pass QC and Mark MO as Done (Done)
+Pratik: Manufacture each serial unit (Manufacture / Manufacture All); per finished unit a `quality.check` is created
+Pratik: Pass each unit in Quality (or Pass QC on the MO when all units are done); MO shows In QC until all unit checks pass
+Pratik: Mark MO as Done only when full quantity is produced and every unit QC is passed (Done)
 Amit: Picking Slip (delivery)
 Pratik: Pre-Delivery Inspection (PDI)
 Amit: Sales Invoice
