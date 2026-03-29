@@ -1,10 +1,21 @@
 # -*- coding: utf-8 -*-
-from odoo import models
+from odoo import fields, models
 from odoo.exceptions import AccessError
 
 
 class StockPicking(models.Model):
     _inherit = 'stock.picking'
+
+    x_vendor_invoice_number = fields.Char(
+        string='Vendor Invoice Number',
+        copy=False,
+        help='Supplier invoice reference captured during receipt.',
+    )
+    x_vendor_invoice_date = fields.Date(
+        string='Vendor Invoice Date',
+        copy=False,
+        help='Date on the supplier invoice captured during receipt.',
+    )
 
     def button_validate(self):
         """Enforce picking-type group restriction on validation.

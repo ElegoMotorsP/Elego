@@ -14,6 +14,27 @@ class MrpProduction(models.Model):
     ], default='pending', string='QC Status', copy=False,
        help="Post-production quality gate. Must be 'passed' before MO can be marked done.")
 
+    mo_flow_state = fields.Selection([
+        ('manufactured', 'Manufactured'),
+        ('in_qc', 'In QC'),
+        ('done', 'Done'),
+    ], compute='_compute_mo_flow_state', string='MO QC Flow', store=False, copy=False,
+       help="Derived UI flow (Manufactured -> In QC -> Done) based on production state and QC status.")
+
+    @api.depends('state', 'qc_state')
+    def _compute_mo_flow_state(self):
+        for production in self:
+            if production.state == 'done':
+                production.mo_flow_state = 'done'
+            elif production.state == 'to_close':
+                production.mo_flow_state = (
+                    'manufactured'
+                    if production.qc_state == 'pending'
+                    else 'in_qc'
+                )
+            else:
+                production.mo_flow_state = False
+
     def action_qc_pass(self):
         """Pratik approves post-production QC. Unblocks button_mark_done."""
         self.ensure_one()
