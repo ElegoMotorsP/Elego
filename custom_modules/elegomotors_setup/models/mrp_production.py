@@ -300,15 +300,23 @@ class MrpProduction(models.Model):
         return result
 
     def _auto_move_fg_to_store(self):
+        pending_checks = self.ego_unit_quality_check_ids.filtered(
+            lambda c: c.quality_state == 'pass' and c.lot_id and not c.ego_fg_transferred
+        )
+        for check in pending_checks:
+            self._ego_move_fg_unit_to_store(check)
+
+    def _ego_move_fg_unit_to_store(self, check):
+        self.ensure_one()
         picking_type = self.env.ref(
             'elegomotors_setup.picking_type_fg_to_stock', raise_if_not_found=False
         )
         if not picking_type:
             return
 
-        finished_lines = self.move_finished_ids.filtered(
-            lambda m: m.state == 'done' and not m.scrapped
-        ).mapped('move_line_ids')
+        finished_lines = self._ego_finished_serial_move_lines().filtered(
+            lambda ml: ml.lot_id.id == check.lot_id.id
+        )
         if not finished_lines:
             return
 
@@ -336,8 +344,9 @@ class MrpProduction(models.Model):
             ml.lot_id = src_ml.lot_id
 
         picking.with_context(skip_immediate=True, skip_backorder=True).button_validate()
+        check.sudo().write({'ego_fg_transferred': True})
 
-        serial_name = finished_lines[0].lot_id.name if finished_lines[0].lot_id else ''
+        serial_name = check.lot_id.name
         self.message_post(
             body=Markup(
                 f"Bike <b>{serial_name}</b> transferred to Finished Goods — "
