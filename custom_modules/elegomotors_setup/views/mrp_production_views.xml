@@ -71,17 +71,17 @@
         <field name="model">mrp.production</field>
         <field name="inherit_id" ref="mrp.mrp_production_form_view"/>
         <field name="arch" type="xml">
-            <!-- Odoo forbids @string in xpath selectors; order matches mrp.mrp_production_form_view (no confirm: Produce, Produce All; with confirm: same). -->
-            <xpath expr="//header/button[@name='button_mark_done' and not(@confirm)][1]" position="attributes">
+            <!-- Odoo forbids using @confirm in xpath selectors; select via invisible expressions instead. -->
+            <xpath expr="//header/button[@name='button_mark_done' and contains(@invisible,'not move_raw_ids or not show_produce')][1]" position="attributes">
                 <attribute name="string">Manufacture</attribute>
             </xpath>
-            <xpath expr="//header/button[@name='button_mark_done' and not(@confirm)][2]" position="attributes">
+            <xpath expr="//header/button[@name='button_mark_done' and contains(@invisible,'not move_raw_ids or not show_produce_all')][1]" position="attributes">
                 <attribute name="string">Manufacture All</attribute>
             </xpath>
-            <xpath expr="//header/button[@name='button_mark_done' and @confirm][1]" position="attributes">
+            <xpath expr="//header/button[@name='button_mark_done' and contains(@invisible,'move_raw_ids or not show_produce')][1]" position="attributes">
                 <attribute name="string">Manufacture</attribute>
             </xpath>
-            <xpath expr="//header/button[@name='button_mark_done' and @confirm][2]" position="attributes">
+            <xpath expr="//header/button[@name='button_mark_done' and contains(@invisible,'move_raw_ids or not show_produce_all')][1]" position="attributes">
                 <attribute name="string">Manufacture All</attribute>
             </xpath>
         </field>
