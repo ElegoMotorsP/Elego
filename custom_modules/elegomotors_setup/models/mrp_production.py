@@ -1,8 +1,11 @@
 # -*- coding: utf-8 -*-
+import logging
 from markupsafe import Markup
 from odoo import api, fields, models, SUPERUSER_ID
 from odoo.exceptions import AccessError, UserError
 from odoo.tools.float_utils import float_compare
+
+_logger = logging.getLogger(__name__)
 
 
 class MrpProduction(models.Model):
@@ -58,6 +61,22 @@ class MrpProduction(models.Model):
             lambda ml: ml.qty_done and ml.lot_id and ml.product_id.tracking == 'serial'
         )
 
+    def _ego_safe_float_compare(self, value1, value2, uom_rounding, context):
+        rounding = float(uom_rounding or 0.0)
+        if rounding > 0:
+            return float_compare(value1, value2, precision_rounding=rounding)
+        _logger.warning(
+            "Invalid UoM rounding (%s) for %s; skipping precision rounding compare.",
+            rounding,
+            context,
+        )
+        # Fallback: compare using a small epsilon so we don't crash on misconfigured UoMs.
+        eps = 1e-9
+        diff = value1 - value2
+        if abs(diff) <= eps:
+            return 0
+        return -1 if diff < 0 else 1
+
     def _ego_has_pending_unit_qc(self):
         self.ensure_one()
         lines = self._ego_finished_serial_move_lines()
@@ -93,11 +112,13 @@ class MrpProduction(models.Model):
                 if not lines:
                     prod.qc_state = 'pending'
                     continue
-                if float_compare(
+                cmp = prod._ego_safe_float_compare(
                     prod.qty_produced,
                     prod.product_qty,
-                    precision_rounding=prod.product_uom_id.rounding,
-                ) < 0:
+                    prod.product_uom_id.rounding,
+                    context=f"{prod.name} (serial)",
+                )
+                if cmp < 0:
                     prod.qc_state = 'pending'
                     continue
                 by_lot = {c.lot_id.id: c for c in checks if c.lot_id}
@@ -118,11 +139,13 @@ class MrpProduction(models.Model):
                     else:
                         prod.qc_state = 'pending'
                 else:
-                    if float_compare(
+                    cmp = prod._ego_safe_float_compare(
                         prod.qty_produced,
                         prod.product_qty,
-                        precision_rounding=prod.product_uom_id.rounding,
-                    ) >= 0 and prod.state in ('to_close', 'done', 'progress'):
+                        prod.product_uom_id.rounding,
+                        context=f"{prod.name} (non-serial)",
+                    )
+                    if cmp >= 0 and prod.state in ('to_close', 'done', 'progress'):
                         prod.qc_state = 'passed'
                     else:
                         prod.qc_state = 'pending'
@@ -223,12 +246,13 @@ class MrpProduction(models.Model):
                 )
 
         for production in self:
-            rounding = production.product_uom_id.rounding
-            if float_compare(
+            cmp = production._ego_safe_float_compare(
                 production.qty_produced,
                 production.product_qty,
-                precision_rounding=rounding,
-            ) < 0:
+                production.product_uom_id.rounding,
+                context=f"{production.name} (button_mark_done)",
+            )
+            if cmp < 0:
                 raise UserError(
                     f'{production.name}: Cannot mark done until the full ordered quantity '
                     f'is produced ({production.product_qty} {production.product_uom_id.name}).'
