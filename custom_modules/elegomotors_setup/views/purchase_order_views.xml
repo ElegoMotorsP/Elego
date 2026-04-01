@@ -1,0 +1,37 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+    <!--
+        ElegoMotors Purchase Order Form — Receive Products Button Restrictions
+
+        Issue 2: Hide the "Receive Products" smart button from Prashant (Purchase).
+                 Only group_inbound_operator (Amit) and ERP Manager (Manohar)
+                 should be able to see and navigate to Gate Entry receipts from a PO.
+
+        Issue 3: The "Receive Products" button must also be invisible until Manohar
+                 approves the PO (state must be 'purchase', not 'to approve').
+                 In Odoo 18 2-step approval:
+                   draft → sent → to approve → purchase (approved) → done
+                 Receipt pickings are created at confirmation but should not be
+                 accessible until full approval.
+
+        Both restrictions are combined in a single xpath to avoid duplication.
+    -->
+
+    <record id="purchase_order_form_receive_restriction" model="ir.ui.view">
+        <field name="name">purchase.order.form.receive.restriction</field>
+        <field name="model">purchase.order</field>
+        <field name="inherit_id" ref="purchase.purchase_order_form"/>
+        <field name="arch" type="xml">
+
+            <!-- Restrict the "Receive Products" stat button:
+                 - groups: only Amit (group_inbound_operator) and Manohar (group_erp_manager)
+                 - invisible: only show when PO is fully approved (state = purchase/done) -->
+            <xpath expr="//button[@name='action_view_picking']" position="attributes">
+                <attribute name="groups">elegomotors_setup.group_inbound_operator,base.group_erp_manager</attribute>
+                <attribute name="invisible">state not in ('purchase', 'done')</attribute>
+            </xpath>
+
+        </field>
+    </record>
+
+</odoo>

@@ -45,3 +45,17 @@ class StockMove(models.Model):
     def _compute_qty_final(self):
         for move in self:
             move.x_qty_final = move.x_qty_qc_passed
+
+    # Issue 10: auto-fill x_qty_received from PO demand quantity on creation
+    @api.model_create_multi
+    def create(self, vals_list):
+        for vals in vals_list:
+            if not vals.get('x_qty_received') and vals.get('product_uom_qty'):
+                vals['x_qty_received'] = vals['product_uom_qty']
+        return super().create(vals_list)
+
+    # Issue 10: keep x_qty_received in sync when demand qty changes (UI onchange)
+    @api.onchange('product_uom_qty')
+    def _onchange_x_qty_received_default(self):
+        if self.product_uom_qty and not self.x_qty_received:
+            self.x_qty_received = self.product_uom_qty
