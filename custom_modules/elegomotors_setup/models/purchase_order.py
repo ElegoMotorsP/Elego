@@ -20,3 +20,15 @@ class PurchaseOrder(models.Model):
                 'Ask Prashant (Purchase) or Manohar (Admin) to raise the PO.'
             )
         return super().create(vals_list)
+
+    # Issue 2: block non-inbound-operators from navigating to Gate Entry receipts via PO
+    def action_view_picking(self):
+        if (
+            not self.env.su
+            and not self.env.user.has_group('elegomotors_setup.group_inbound_operator')
+            and not self.env.user.has_group('base.group_erp_manager')
+        ):
+            raise AccessError(
+                'Only the Store Manager (Amit) or Admin can access receipt transfers.'
+            )
+        return super().action_view_picking()

@@ -54,10 +54,11 @@
         'data/notification_rules.xml',   # automated workflow notifications
         # View overrides (loaded last so base views exist)
         'views/account_move_views.xml',
-        'views/mrp_production_views.xml',  # Post-production QC buttons on MO form
+        'views/mrp_production_views.xml',   # Post-production QC buttons on MO form; Issue 7+8
+        'views/purchase_order_views.xml',   # Receive Products button restriction; Issues 2+3
         'views/sale_order_views.xml',
-        'views/stock_lot_views.xml',     # Component Traceability tab on bike serial records
-        'views/stock_picking_views.xml', # Vendor invoice fields + QC columns on receipts
+        'views/stock_lot_views.xml',        # Component Traceability tab + serial list columns; Issue 7
+        'views/stock_picking_views.xml',    # Gate Entry QC flow + vendor invoice + QC columns; Issues 5/6/12/13
     ],
     'installable': True,
     'application': False,

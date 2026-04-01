@@ -18,6 +18,36 @@
         Quality group: quality.group_quality_manager = Pratik
         (quality.quality_manager group includes Pratik via users_data.xml)
     -->
+    <!-- Issue 8: Materials-pending alert banner + Issue 7: serial column in MO list -->
+    <record id="mrp_production_form_issue_picking_gate" model="ir.ui.view">
+        <field name="name">mrp.production.form.issue.picking.gate</field>
+        <field name="model">mrp.production</field>
+        <field name="inherit_id" ref="mrp.mrp_production_form_view"/>
+        <field name="arch" type="xml">
+            <xpath expr="//sheet" position="before">
+                <field name="x_issue_picking_done" invisible="1"/>
+                <div class="alert alert-info mb-0"
+                     invisible="x_issue_picking_done or state not in ('confirmed', 'progress')"
+                     role="alert">
+                    <strong>Materials Pending</strong> — Issue to Production transfer
+                    must be validated by Amit (Store) before production can proceed.
+                </div>
+            </xpath>
+        </field>
+    </record>
+
+    <!-- Issue 7: Serial number column in MO list view -->
+    <record id="mrp_production_list_serial_column" model="ir.ui.view">
+        <field name="name">mrp.production.list.serial.column</field>
+        <field name="model">mrp.production</field>
+        <field name="inherit_id" ref="mrp.mrp_production_tree"/>
+        <field name="arch" type="xml">
+            <xpath expr="//list//field[@name='product_id']" position="after">
+                <field name="x_finished_serial" optional="show" string="Serial No."/>
+            </xpath>
+        </field>
+    </record>
+
     <record id="mrp_production_form_view_qc" model="ir.ui.view">
         <field name="name">mrp.production.form.qc.buttons</field>
         <field name="model">mrp.production</field>

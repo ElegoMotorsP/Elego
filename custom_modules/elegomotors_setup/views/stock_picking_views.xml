@@ -4,12 +4,27 @@
         ElegoMotors Receipt Form Enhancements
 
         1. Vendor Invoice Number + Date fields in the header
-           (visible only on incoming receipts)
+           (visible only on incoming receipts) — from d93d856
+
         2. QC tracking columns on the Operations tab move lines
            (Received, QC Passed, QC Failed, Final Quantities)
+           Now readonly unless Gate Entry state is 'in_qc' — Issue 13
+
+        3. Gate Entry QC workflow status bar + buttons — Issues 5/6
+           Pending QC → In QC → Ready → Done (Odoo 'done' state)
+           - "Start QC" (Pratik, group_qc_pass_operator)
+           - "Approve QC" (Pratik, group_qc_pass_operator)
+           Amit can only Validate when state is 'ready'
+
+        4. Demand Qty column readonly for incoming receipts — Issue 13
+
+        5. Pending Replacement warning banner — Issue 12
+           Auto-set when QC failures exist; cleared by Amit manually
     -->
 
-    <!-- Vendor Invoice fields on receipt header -->
+    <!-- ================================================================
+         1. Vendor Invoice fields on receipt header (existing from d93d856)
+         ================================================================ -->
     <record id="stock_picking_form_vendor_invoice" model="ir.ui.view">
         <field name="name">stock.picking.form.vendor.invoice.fields</field>
         <field name="model">stock.picking</field>
@@ -25,7 +40,77 @@
         </field>
     </record>
 
-    <!-- QC columns on receipt Operations tab -->
+    <!-- ================================================================
+         2+3+4. Gate Entry QC flow: status bar, buttons, pending banner,
+                QC columns (readonly gated on x_gate_entry_state), and
+                demand qty readonly for all incoming receipts.
+         ================================================================ -->
+    <record id="stock_picking_form_gate_entry_qc_flow" model="ir.ui.view">
+        <field name="name">stock.picking.form.gate.entry.qc.flow</field>
+        <field name="model">stock.picking</field>
+        <field name="inherit_id" ref="stock.view_picking_form"/>
+        <field name="arch" type="xml">
+
+            <!-- Hidden fields required for invisible/readonly conditions in the view -->
+            <xpath expr="//field[@name='state']" position="after">
+                <field name="x_gate_entry_state" invisible="1"/>
+                <field name="x_has_pending_replacement" invisible="1"/>
+                <field name="x_pending_replacement_qty" invisible="1"/>
+            </xpath>
+
+            <!-- Custom status bar: Pending QC → In QC → Ready (only on incoming, before done) -->
+            <xpath expr="//field[@name='origin']" position="before">
+                <field name="x_gate_entry_state"
+                       widget="statusbar"
+                       statusbar_visible="pending_qc,in_qc,ready"
+                       invisible="picking_type_code != 'incoming' or state == 'done'"/>
+            </xpath>
+
+            <!-- Start QC / Approve QC action buttons before the standard Validate button -->
+            <xpath expr="//header/button[@name='button_validate']" position="before">
+                <button name="action_gate_entry_start_qc"
+                        string="Start QC"
+                        type="object"
+                        class="btn-primary"
+                        invisible="picking_type_code != 'incoming' or x_gate_entry_state != 'pending_qc' or state == 'done'"
+                        groups="elegomotors_setup.group_qc_pass_operator"/>
+                <button name="action_gate_entry_approve_qc"
+                        string="Approve QC"
+                        type="object"
+                        class="btn-success"
+                        invisible="picking_type_code != 'incoming' or x_gate_entry_state != 'in_qc' or state == 'done'"
+                        groups="elegomotors_setup.group_qc_pass_operator"/>
+            </xpath>
+
+            <!-- Pending Replacement warning banner (Issue 12) -->
+            <xpath expr="//sheet" position="before">
+                <div class="alert alert-warning mb-0"
+                     invisible="not x_has_pending_replacement"
+                     role="alert">
+                    <strong>Pending Replacement:</strong>
+                    <field name="x_pending_replacement_qty" readonly="1" nolabel="1"/>
+                    item(s) awaiting replacement from vendor after QC failure.
+                    <button name="action_clear_pending_replacement"
+                            string="Mark Replacement Received"
+                            type="object"
+                            class="btn-sm btn-warning ms-2"
+                            groups="elegomotors_setup.group_inbound_operator"/>
+                </div>
+            </xpath>
+
+            <!-- Issue 13: make Demand Qty (quantity) readonly for incoming receipts -->
+            <xpath expr="//field[@name='move_ids_without_package']//list//field[@name='quantity']" position="attributes">
+                <attribute name="readonly">parent.picking_type_code == 'incoming'</attribute>
+            </xpath>
+
+        </field>
+    </record>
+
+    <!-- ================================================================
+         QC columns on receipt Operations tab
+         (replaces the original stock_picking_form_qc_columns record)
+         Now includes readonly conditions tied to x_gate_entry_state — Issue 13
+         ================================================================ -->
     <record id="stock_picking_form_qc_columns" model="ir.ui.view">
         <field name="name">stock.picking.form.qc.columns</field>
         <field name="model">stock.picking</field>
@@ -35,11 +120,11 @@
                 <field name="x_qty_received"
                        string="Received"
                        column_invisible="parent.picking_type_code != 'incoming'"
-                       readonly="parent.state == 'done' and parent.is_locked"/>
+                       readonly="parent.x_gate_entry_state not in ('in_qc',) or parent.state == 'done'"/>
                 <field name="x_qty_qc_passed"
                        string="QC Passed"
                        column_invisible="parent.picking_type_code != 'incoming'"
-                       readonly="parent.state == 'done' and parent.is_locked"/>
+                       readonly="parent.x_gate_entry_state not in ('in_qc',) or parent.state == 'done'"/>
                 <field name="x_qty_qc_failed"
                        string="QC Failed"
                        column_invisible="parent.picking_type_code != 'incoming'"/>

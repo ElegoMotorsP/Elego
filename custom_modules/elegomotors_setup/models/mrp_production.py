@@ -21,6 +21,44 @@ class MrpProduction(models.Model):
     ], compute='_compute_mo_flow_state', string='MO QC Flow', store=False, copy=False,
        help="Derived UI flow (Manufactured -> In QC -> Done) based on production state and QC status.")
 
+    # --- Issue 7: show produced serial number in MO list view ---
+    x_finished_serial = fields.Char(
+        string='Finished Serial No.',
+        compute='_compute_finished_serial',
+        store=False,
+        help='Serial number of the produced unit (from lot_producing_id).',
+    )
+
+    # --- Issue 8: gate "Produce" actions until Amit validates Issue to Production ---
+    x_issue_picking_done = fields.Boolean(
+        string='Issue to Production Done',
+        compute='_compute_issue_picking_done',
+        store=False,
+        help='True once all Issue-to-Production pickings are validated by Amit.',
+    )
+
+    @api.depends('lot_producing_id')
+    def _compute_finished_serial(self):
+        for prod in self:
+            prod.x_finished_serial = prod.lot_producing_id.name or ''
+
+    @api.depends('picking_ids', 'picking_ids.state')
+    def _compute_issue_picking_done(self):
+        issue_type = self.env.ref(
+            'elegomotors_setup.picking_type_production_issue', raise_if_not_found=False
+        )
+        for prod in self:
+            if not issue_type:
+                prod.x_issue_picking_done = True
+                continue
+            issue_pickings = prod.picking_ids.filtered(
+                lambda p: p.picking_type_id == issue_type and p.state != 'cancel'
+            )
+            # True when at least one Issue picking exists and ALL are done
+            prod.x_issue_picking_done = bool(issue_pickings) and all(
+                p.state == 'done' for p in issue_pickings
+            )
+
     @api.depends('state', 'qc_state')
     def _compute_mo_flow_state(self):
         for production in self:
@@ -84,6 +122,17 @@ class MrpProduction(models.Model):
             message_type='comment',
             subtype_xmlid='mail.mt_comment',
         )
+
+    # --- Issue 8: guard the "Produce" / serial-generation action in Odoo 18 MRP ---
+    def action_generate_serial(self):
+        """Block lot/serial generation until Issue to Production is validated by Amit."""
+        for prod in self:
+            if not prod.x_issue_picking_done and not self.env.su:
+                raise UserError(
+                    f'{prod.name}: Materials must be issued to Production by Amit '
+                    f'(Store) before production quantities can be recorded.'
+                )
+        return super().action_generate_serial()
 
     def button_mark_done(self):
         # Guard 1: only group_manufacturing_operator (Pratik, Prashant) may mark MOs done.
