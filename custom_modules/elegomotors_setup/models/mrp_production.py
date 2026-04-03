@@ -224,12 +224,22 @@ class MrpProduction(models.Model):
             'move_ids': move_vals,
         })
         picking.action_confirm()
-        picking.action_assign()
 
-        # Propagate qty_done and serial lot_id to the new picking's move lines
-        for ml, src_ml in zip(picking.move_line_ids, finished_lines):
-            ml.qty_done = src_ml.qty_done
-            ml.lot_id = src_ml.lot_id          # e.g. EGO-S1-2503-0001
+        # Do NOT use action_assign() — Odoo MRP may land finished goods at its own
+        # virtual output location rather than EGO/Production WIP, so reservation
+        # would find nothing and button_validate() would raise "no quantities reserved".
+        # Instead, directly create move lines with qty_done to force the transfer.
+        for move, src_ml in zip(picking.move_ids, finished_lines):
+            self.env['stock.move.line'].create({
+                'move_id': move.id,
+                'picking_id': picking.id,
+                'product_id': src_ml.product_id.id,
+                'product_uom_id': src_ml.product_uom_id.id,
+                'qty_done': src_ml.qty_done,
+                'lot_id': src_ml.lot_id.id if src_ml.lot_id else False,
+                'location_id': picking_type.default_location_src_id.id,
+                'location_dest_id': picking_type.default_location_dest_id.id,
+            })
 
         picking.with_context(skip_immediate=True, skip_backorder=True).button_validate()
 
