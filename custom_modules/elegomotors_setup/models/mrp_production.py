@@ -42,7 +42,6 @@ class MrpProduction(models.Model):
         for prod in self:
             prod.x_finished_serial = prod.lot_producing_id.name or ''
 
-    @api.depends('picking_ids', 'picking_ids.state')
     def _compute_issue_picking_done(self):
         issue_type = self.env.ref(
             'elegomotors_setup.picking_type_production_issue', raise_if_not_found=False
