@@ -3,21 +3,27 @@
     <!--
         ElegoMotors Manufacturing Order — Post-Production QC Buttons
 
-        Adds "Pass QC" / "Fail QC" / "Reset QC" buttons and a QC status badge
-        to the MO form header. Only visible when the MO is in 'to_close' state
-        (production quantities entered, awaiting QC approval before mark-done).
+        Adds "Pass QC" / "Fail QC" / "Reset QC" / "Mark as Done" buttons
+        and a QC status badge to the MO form header.
 
         Button visibility:
-          Pass QC  — to_close state + not already passed, quality_manager group only
-          Fail QC  — to_close state, quality_manager group only
-          Reset QC — to_close state + currently failed (for rework cycle)
+          Pass QC      — to_close state + not already passed, quality_manager group
+          Fail QC      — to_close state, quality_manager group
+          Reset QC     — to_close state + currently failed (rework cycle)
+          Mark as Done — to_close state + qc_state == passed, manufacturing_operator group only
 
-        The "Mark as Done" button is NOT hidden — attempting to click it without
-        QC approval raises a clear UserError from mrp_production.py Guard 3.
+        NOTE: "Mark as Done" is added here as a custom button (calling the same
+        button_mark_done Python method) rather than modifying Odoo's base button via
+        position="attributes". This is because Odoo 18 OWL evaluates header button
+        invisible expressions in a separate compile pass where qc_state (from a
+        sibling inherited view) may be undefined, causing the attribute override to
+        permanently hide the button. Adding the button explicitly here ensures qc_state
+        is in the same render context.
 
         Quality group: quality.group_quality_manager = Pratik
-        (quality.quality_manager group includes Pratik via users_data.xml)
+        Manufacturing operator group: elegomotors_setup.group_manufacturing_operator = Pratik, Prashant
     -->
+
     <!-- Issue 8: Materials-pending alert banner + Issue 7: serial column in MO list -->
     <record id="mrp_production_form_issue_picking_gate" model="ir.ui.view">
         <field name="name">mrp.production.form.issue.picking.gate</field>
@@ -36,8 +42,7 @@
         </field>
     </record>
 
-    <!-- Issue 7: Serial number shown in MO form header (list view XML ID differs
-         across Odoo 18 builds — adding to form is safe and always works) -->
+    <!-- Issue 7: Serial number shown in MO form header -->
     <record id="mrp_production_form_serial_field" model="ir.ui.view">
         <field name="name">mrp.production.form.serial.field</field>
         <field name="model">mrp.production</field>
@@ -65,7 +70,7 @@
                 <field name="qc_state" invisible="1"/>
             </xpath>
 
-            <!-- QC action buttons placed before "Mark as Done" -->
+            <!-- QC action buttons + custom Mark as Done placed before Odoo's base button -->
             <xpath expr="//header/button[@name='button_mark_done']" position="before">
                 <button name="action_qc_pass"
                         string="Pass QC"
@@ -84,22 +89,28 @@
                         type="object"
                         invisible="state != 'to_close' or qc_state != 'failed'"
                         groups="quality.group_quality_manager"/>
+                <!--
+                    Custom Mark as Done: visible ONLY when QC is passed.
+                    Calls the same button_mark_done Python method with all its guards.
+                    Defined here (not via position="attributes" on the base button) so
+                    that qc_state is guaranteed to be in the same render context.
+                    groups restricts to Manufacturing Operators (Pratik, Prashant).
+                -->
+                <button name="button_mark_done"
+                        string="Mark as Done"
+                        type="object"
+                        class="btn-primary"
+                        invisible="state != 'to_close' or qc_state != 'passed'"
+                        groups="elegomotors_setup.group_manufacturing_operator"/>
             </xpath>
 
         </field>
     </record>
 
     <!--
-        Fix: "Mark as Done" button visibility gate.
-
-        Problem: Odoo's base button_mark_done has groups="mrp.group_mrp_user",
-        so Amit (no mrp access) cannot see it — which is correct — but Pratik/Prashant
-        could see it even before QC was passed, leading to a confusing UserError on click.
-
-        Fix: Override groups + invisible on the base button so that:
-          1. Only group_manufacturing_operator (Pratik, Prashant) can see it.
-          2. It is invisible until qc_state == 'passed' — appears only after Pass QC.
-        qc_state is already loaded invisibly in the header by the view above (line 65).
+        Hide Odoo's base button_mark_done for group_manufacturing_operator users
+        so they see only our custom Mark as Done button above (which has the QC gate).
+        Other users (Manohar/admin) keep the original button for emergency override.
     -->
     <record id="mrp_production_form_view_mark_done_visibility" model="ir.ui.view">
         <field name="name">mrp.production.form.mark.done.visibility</field>
@@ -107,8 +118,7 @@
         <field name="inherit_id" ref="mrp.mrp_production_form_view"/>
         <field name="arch" type="xml">
             <xpath expr="//header/button[@name='button_mark_done']" position="attributes">
-                <attribute name="groups">elegomotors_setup.group_manufacturing_operator</attribute>
-                <attribute name="invisible">state != 'to_close' or qc_state != 'passed'</attribute>
+                <attribute name="groups">base.group_erp_manager</attribute>
             </xpath>
         </field>
     </record>
