@@ -88,4 +88,28 @@
 
         </field>
     </record>
+
+    <!--
+        Fix: "Mark as Done" button visibility gate.
+
+        Problem: Odoo's base button_mark_done has groups="mrp.group_mrp_user",
+        so Amit (no mrp access) cannot see it — which is correct — but Pratik/Prashant
+        could see it even before QC was passed, leading to a confusing UserError on click.
+
+        Fix: Override groups + invisible on the base button so that:
+          1. Only group_manufacturing_operator (Pratik, Prashant) can see it.
+          2. It is invisible until qc_state == 'passed' — appears only after Pass QC.
+        qc_state is already loaded invisibly in the header by the view above (line 65).
+    -->
+    <record id="mrp_production_form_view_mark_done_visibility" model="ir.ui.view">
+        <field name="name">mrp.production.form.mark.done.visibility</field>
+        <field name="model">mrp.production</field>
+        <field name="inherit_id" ref="mrp.mrp_production_form_view"/>
+        <field name="arch" type="xml">
+            <xpath expr="//header/button[@name='button_mark_done']" position="attributes">
+                <attribute name="groups">elegomotors_setup.group_manufacturing_operator</attribute>
+                <attribute name="invisible">state != 'to_close' or qc_state != 'passed'</attribute>
+            </xpath>
+        </field>
+    </record>
 </odoo>

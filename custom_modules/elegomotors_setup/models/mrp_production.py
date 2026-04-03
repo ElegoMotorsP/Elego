@@ -53,10 +53,14 @@ class MrpProduction(models.Model):
             issue_pickings = prod.picking_ids.filtered(
                 lambda p: p.picking_type_id == issue_type and p.state != 'cancel'
             )
-            # True when at least one Issue picking exists and ALL are done
-            prod.x_issue_picking_done = bool(issue_pickings) and all(
-                p.state == 'done' for p in issue_pickings
-            )
+            if not issue_pickings:
+                # No PI picking linked to this MO — this is a backorder MO.
+                # The parent MO's PI picking already issued all components to
+                # Production WIP; no new PI picking is created for the backorder.
+                prod.x_issue_picking_done = True
+            else:
+                # PI picking exists — must be fully validated before production
+                prod.x_issue_picking_done = all(p.state == 'done' for p in issue_pickings)
 
     @api.depends('state', 'qc_state')
     def _compute_mo_flow_state(self):
