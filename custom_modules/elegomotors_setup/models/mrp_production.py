@@ -62,12 +62,13 @@ class MrpProduction(models.Model):
                 # PI picking exists — must be fully validated before production
                 prod.x_issue_picking_done = all(p.state == 'done' for p in issue_pickings)
 
-    @api.depends('state', 'qc_state')
+    @api.depends('state', 'qc_state', 'qty_producing')
     def _compute_mo_flow_state(self):
         for production in self:
             if production.state == 'done':
                 production.mo_flow_state = 'done'
-            elif production.state == 'to_close':
+            elif production.state in ('to_close', 'progress') and production.qty_producing > 0:
+                # progress + qty_producing > 0 = multi-unit MO with one unit ready for QC
                 production.mo_flow_state = (
                     'manufactured'
                     if production.qc_state == 'pending'
@@ -76,13 +77,18 @@ class MrpProduction(models.Model):
             else:
                 production.mo_flow_state = False
 
+    def _qc_state_check(self):
+        """Shared guard: QC actions valid in progress (unit ready) or to_close."""
+        self.ensure_one()
+        if self.state == 'progress' and self.qty_producing <= 0:
+            raise UserError("Set the quantity to produce first before recording QC.")
+        if self.state not in ('progress', 'to_close'):
+            raise UserError("QC can only be recorded when a unit is being produced.")
+
     def action_qc_pass(self):
         """Pratik approves post-production QC. Unblocks button_mark_done."""
         self.ensure_one()
-        if self.state != 'to_close':
-            raise UserError(
-                "QC can only be recorded when production is complete (state: To Close)."
-            )
+        self._qc_state_check()
         self.qc_state = 'passed'
         self.message_post(
             body=Markup(
@@ -94,10 +100,9 @@ class MrpProduction(models.Model):
         )
 
     def action_qc_fail(self):
-        """Pratik fails post-production QC. MO stays in to_close for rework."""
+        """Pratik fails post-production QC. MO stays in progress/to_close for rework."""
         self.ensure_one()
-        if self.state != 'to_close':
-            raise UserError("QC can only be recorded when production is complete.")
+        self._qc_state_check()
         self.qc_state = 'failed'
         prashant = self.env.ref(
             'elegomotors_setup.user_ego_prashant', raise_if_not_found=False
@@ -117,8 +122,7 @@ class MrpProduction(models.Model):
     def action_qc_reset(self):
         """Reset QC state to pending after rework so Pratik can re-inspect."""
         self.ensure_one()
-        if self.state != 'to_close':
-            raise UserError("Can only reset QC on an MO that is in 'To Close' state.")
+        self._qc_state_check()
         self.qc_state = 'pending'
         self.message_post(
             body="QC reset to Pending — rework complete, ready for re-inspection.",

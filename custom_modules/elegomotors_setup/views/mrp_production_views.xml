@@ -62,45 +62,45 @@
         <field name="inherit_id" ref="mrp.mrp_production_form_view"/>
         <field name="arch" type="xml">
 
-            <!-- QC status statusbar in header, only shown in to_close / done states -->
+            <!-- QC status statusbar in header, shown in progress (unit ready)/to_close/done -->
             <xpath expr="//header/field[@name='state']" position="after">
                 <field name="mo_flow_state" widget="statusbar"
                        statusbar_visible="manufactured,in_qc,done"
-                       invisible="state not in ('to_close', 'done')"/>
+                       invisible="mo_flow_state == False"/>
                 <field name="qc_state" invisible="1"/>
+                <field name="qty_producing" invisible="1"/>
             </xpath>
 
-            <!-- QC action buttons + custom Mark as Done placed before Odoo's base button -->
+            <!-- QC action buttons + custom Mark as Done placed before Odoo's base button.
+                 Visible in BOTH 'to_close' (single unit or last backorder) and 'progress'
+                 with qty_producing > 0 (multi-unit MO mid-production). -->
             <xpath expr="//header/button[@name='button_mark_done']" position="before">
                 <button name="action_qc_pass"
                         string="Pass QC"
                         type="object"
                         class="btn-success"
-                        invisible="state != 'to_close' or qc_state == 'passed'"
+                        invisible="state not in ('progress', 'to_close') or qty_producing == 0 or qc_state == 'passed'"
                         groups="quality.group_quality_manager"/>
                 <button name="action_qc_fail"
                         string="Fail QC"
                         type="object"
                         class="btn-danger"
-                        invisible="state != 'to_close'"
+                        invisible="state not in ('progress', 'to_close') or qty_producing == 0"
                         groups="quality.group_quality_manager"/>
                 <button name="action_qc_reset"
                         string="Reset QC"
                         type="object"
-                        invisible="state != 'to_close' or qc_state != 'failed'"
+                        invisible="state not in ('progress', 'to_close') or qty_producing == 0 or qc_state != 'failed'"
                         groups="quality.group_quality_manager"/>
                 <!--
                     Custom Mark as Done: visible ONLY when QC is passed.
-                    Calls the same button_mark_done Python method with all its guards.
-                    Defined here (not via position="attributes" on the base button) so
-                    that qc_state is guaranteed to be in the same render context.
-                    groups restricts to Manufacturing Operators (Pratik, Prashant).
+                    Works for both single-unit (to_close) and multi-unit (progress + qty_producing>0).
                 -->
                 <button name="button_mark_done"
                         string="Mark as Done"
                         type="object"
                         class="btn-primary"
-                        invisible="state != 'to_close' or qc_state != 'passed'"
+                        invisible="state not in ('progress', 'to_close') or qty_producing == 0 or qc_state != 'passed'"
                         groups="elegomotors_setup.group_manufacturing_operator"/>
             </xpath>
 
