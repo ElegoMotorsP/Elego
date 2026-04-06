@@ -49,11 +49,19 @@ class StockPicking(models.Model):
     # --- Issue 5/6: QC action methods (used by Pratik via view buttons) ---
 
     def action_gate_entry_start_qc(self):
-        """Pratik moves Gate Entry to In QC — quantities can now be entered."""
+        """Amit sends Gate Entry to QC — notifies Pratik to perform inspection."""
         self.ensure_one()
         self.x_gate_entry_state = 'in_qc'
+        pratik = self.env.ref('elegomotors_setup.user_ego_pratik', raise_if_not_found=False)
+        partner_ids = [pratik.partner_id.id] if pratik and pratik.partner_id else []
         self.message_post(
-            body=f"QC started by {self.env.user.name}. Enter received and QC quantities.",
+            body=Markup(
+                f"Material sent to QC by <b>{self.env.user.name}</b>. "
+                f"<b>Quality (Pratik):</b> Please perform inward QC inspection and "
+                f"enter QC Passed quantity, then click <b>Approve QC</b>. "
+                f"Only QC-passed quantity will be accepted into Store."
+            ),
+            partner_ids=partner_ids,
             message_type='comment',
             subtype_xmlid='mail.mt_comment',
         )
