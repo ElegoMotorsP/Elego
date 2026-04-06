@@ -40,15 +40,25 @@
             test_type        — 'passfail' (Pass/Fail inspection; CE default but set explicitly)
     -->
 
-    <data noupdate="1">
+    <data noupdate="0">
 
-        <!-- ─── 1. INWARD MATERIAL INSPECTION ─────────────────────────── -->
+        <!-- ─── 1. INWARD MATERIAL INSPECTION — DEACTIVATED ───────────── -->
+        <!--
+            Replaced by the Python QC gate in stock_picking.py:
+              action_gate_entry_start_qc  (Amit: enters received qty, sends to QC)
+              action_gate_entry_approve_qc (Pratik: enters QC passed qty, approves)
+              button_validate guard: x_gate_entry_state must be 'ready'
+
+            The quality.point approach fired AFTER button_validate, creating a
+            duplicate Pass/Fail prompt after QC was already completed via the
+            Python gate. Only QC-passed quantity enters Store (qty_done is set
+            to x_qty_qc_passed in action_gate_entry_approve_qc).
+        -->
         <record id="qc_point_inward_inspection" model="quality.point">
             <field name="name">Inward Material Inspection</field>
-            <field name="picking_type_ids" eval="[(4, ref('elegomotors_setup.picking_type_gate_entry'))]"/>
-            <field name="user_id" ref="elegomotors_setup.user_ego_pratik"/>
+            <field name="active" eval="False"/>
+            <field name="picking_type_ids" eval="[(5,)]"/>
             <field name="company_id" ref="base.main_company"/>
-            <field name="test_type">passfail</field>
         </record>
 
         <!--

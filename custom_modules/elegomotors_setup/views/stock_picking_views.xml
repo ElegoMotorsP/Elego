@@ -69,11 +69,11 @@
             <!-- Start QC / Approve QC action buttons before the standard Validate button -->
             <xpath expr="//header/button[@name='button_validate']" position="before">
                 <button name="action_gate_entry_start_qc"
-                        string="Start QC"
+                        string="Send to QC"
                         type="object"
                         class="btn-primary"
                         invisible="picking_type_code != 'incoming' or x_gate_entry_state != 'pending_qc' or state == 'done'"
-                        groups="elegomotors_setup.group_qc_pass_operator"/>
+                        groups="elegomotors_setup.group_inbound_operator"/>
                 <button name="action_gate_entry_approve_qc"
                         string="Approve QC"
                         type="object"
@@ -120,7 +120,7 @@
                 <field name="x_qty_received"
                        string="Received"
                        column_invisible="parent.picking_type_code != 'incoming'"
-                       readonly="parent.x_gate_entry_state not in ('in_qc',) or parent.state == 'done'"/>
+                       readonly="parent.x_gate_entry_state not in ('pending_qc',) or parent.state == 'done'"/>
                 <field name="x_qty_qc_passed"
                        string="QC Passed"
                        column_invisible="parent.picking_type_code != 'incoming'"
