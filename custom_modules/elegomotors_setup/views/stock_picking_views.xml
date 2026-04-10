@@ -56,6 +56,12 @@
                 <field name="x_gate_entry_state" invisible="1"/>
                 <field name="x_has_pending_replacement" invisible="1"/>
                 <field name="x_pending_replacement_qty" invisible="1"/>
+                <field name="x_validate_visible" invisible="1"/>
+            </xpath>
+
+            <!-- Hide Validate from Pratik (group_qc_pass_operator) on incoming receipts -->
+            <xpath expr="//header/button[@name='button_validate']" position="attributes">
+                <attribute name="invisible">state not in ('assigned', 'partially_available', 'waiting') or not x_validate_visible</attribute>
             </xpath>
 
             <!-- Custom status bar: Pending QC → In QC → Ready (only on incoming, before done) -->
