@@ -46,23 +46,6 @@ class StockPicking(models.Model):
         for picking in self:
             picking.x_has_pending_replacement = picking.x_pending_replacement_qty > 0
 
-    # Hide Validate button from group_qc_pass_operator (Pratik) on incoming receipts.
-    # Pratik's role is to Approve QC, not to validate the transfer.
-    x_validate_visible = fields.Boolean(
-        compute='_compute_validate_visible',
-    )
-
-    @api.depends_context('uid')
-    def _compute_validate_visible(self):
-        is_inbound_op = self.env.user.has_group(
-            'elegomotors_setup.group_inbound_operator'
-        )
-        for picking in self:
-            if picking.picking_type_code == 'incoming':
-                picking.x_validate_visible = is_inbound_op
-            else:
-                picking.x_validate_visible = True
-
     # --- Issue 5/6: QC action methods (used by Pratik via view buttons) ---
 
     def action_gate_entry_start_qc(self):

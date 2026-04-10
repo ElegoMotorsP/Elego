@@ -56,12 +56,20 @@
                 <field name="x_gate_entry_state" invisible="1"/>
                 <field name="x_has_pending_replacement" invisible="1"/>
                 <field name="x_pending_replacement_qty" invisible="1"/>
-                <field name="x_validate_visible" invisible="1"/>
             </xpath>
 
-            <!-- Hide Validate from Pratik (group_qc_pass_operator) on incoming receipts -->
+            <!-- On incoming receipts, hide the standard Validate and replace it with a
+                 group-restricted copy — Pratik (group_qc_pass_operator) must not see it. -->
             <xpath expr="//header/button[@name='button_validate']" position="attributes">
-                <attribute name="invisible">state not in ('assigned', 'partially_available', 'waiting') or not x_validate_visible</attribute>
+                <attribute name="invisible">picking_type_code == 'incoming'</attribute>
+            </xpath>
+            <xpath expr="//header/button[@name='button_validate']" position="before">
+                <button name="button_validate"
+                        string="Validate"
+                        type="object"
+                        class="btn-primary"
+                        invisible="picking_type_code != 'incoming'"
+                        groups="elegomotors_setup.group_inbound_operator"/>
             </xpath>
 
             <!-- Custom status bar: Pending QC → In QC → Ready (only on incoming, before done) -->
