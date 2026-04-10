@@ -36,15 +36,23 @@ class StockMove(models.Model):
         help='Final accepted quantity that goes to store (= QC Passed).',
     )
 
-    @api.depends('x_qty_received', 'x_qty_qc_passed')
+    @api.depends('x_qty_received', 'x_qty_qc_passed', 'picking_id.x_gate_entry_state')
     def _compute_qc_failed(self):
         for move in self:
-            move.x_qty_qc_failed = move.x_qty_received - move.x_qty_qc_passed
+            # Only meaningful once QC inspection has started; show 0 at Pending QC
+            if move.picking_id.x_gate_entry_state in ('in_qc', 'ready'):
+                move.x_qty_qc_failed = move.x_qty_received - move.x_qty_qc_passed
+            else:
+                move.x_qty_qc_failed = 0.0
 
-    @api.depends('x_qty_qc_passed')
+    @api.depends('x_qty_qc_passed', 'picking_id.x_gate_entry_state')
     def _compute_qty_final(self):
         for move in self:
-            move.x_qty_final = move.x_qty_qc_passed
+            # Mirror x_qty_qc_passed only once QC is in progress/done
+            if move.picking_id.x_gate_entry_state in ('in_qc', 'ready'):
+                move.x_qty_final = move.x_qty_qc_passed
+            else:
+                move.x_qty_final = 0.0
 
     # Issue 10: auto-fill x_qty_received from PO demand quantity on creation
     @api.model_create_multi
