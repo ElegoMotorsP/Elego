@@ -46,6 +46,19 @@ class StockPicking(models.Model):
         for picking in self:
             picking.x_has_pending_replacement = picking.x_pending_replacement_qty > 0
 
+    # Hide Validate from Pratik (group_qc_pass_operator) on incoming receipts.
+    # Overrides Odoo's show_validate computed field, which every Validate button
+    # in the form (stock, purchase_stock, etc.) reads for its visibility.
+    @api.depends_context('uid')
+    def _compute_show_validate(self):
+        super()._compute_show_validate()
+        is_inbound_op = self.env.user.has_group(
+            'elegomotors_setup.group_inbound_operator'
+        )
+        for picking in self:
+            if picking.picking_type_code == 'incoming' and not is_inbound_op:
+                picking.show_validate = False
+
     # --- Issue 5/6: QC action methods (used by Pratik via view buttons) ---
 
     def action_gate_entry_start_qc(self):
