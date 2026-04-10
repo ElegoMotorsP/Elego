@@ -103,6 +103,11 @@
                 <attribute name="readonly">parent.picking_type_code == 'incoming'</attribute>
             </xpath>
 
+            <!-- Hide lot/serial column on incoming receipts — lots assigned at QC Pass → Store step -->
+            <xpath expr="//field[@name='move_ids_without_package']//list//field[@name='lot_ids']" position="attributes">
+                <attribute name="column_invisible">parent.picking_type_code == 'incoming'</attribute>
+            </xpath>
+
         </field>
     </record>
 
