@@ -58,24 +58,10 @@
                 <field name="x_pending_replacement_qty" invisible="1"/>
             </xpath>
 
-            <!-- Replace standard Validate with two role-split copies.
-                 position="replace" ensures the original cannot be un-hidden by another module
-                 (e.g. purchase). Pratik (group_qc_pass_operator) sees NO Validate button. -->
-            <xpath expr="//header/button[@name='button_validate']" position="replace">
-                <!-- Non-incoming pickings: visible to all users (unchanged behaviour) -->
-                <button name="button_validate"
-                        string="Validate"
-                        type="object"
-                        class="btn-primary"
-                        invisible="picking_type_code == 'incoming'"/>
-                <!-- Incoming (Gate Entry): visible only to inbound operator (Amit) -->
-                <button name="button_validate"
-                        string="Validate"
-                        type="object"
-                        class="btn-primary"
-                        invisible="picking_type_code != 'incoming'"
-                        groups="elegomotors_setup.group_inbound_operator"/>
-            </xpath>
+            <!-- Validate button visibility for incoming receipts is controlled in Python
+                 via _compute_show_validate() override in stock_picking.py.
+                 No view-level XPath needed — show_validate=False hides ALL Validate
+                 buttons (stock, purchase_stock, etc.) for non-inbound-operators. -->
 
             <!-- Custom status bar: Pending QC → In QC → Ready (only on incoming, before done) -->
             <xpath expr="//field[@name='origin']" position="before">
