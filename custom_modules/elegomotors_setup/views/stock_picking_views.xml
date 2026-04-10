@@ -58,12 +58,17 @@
                 <field name="x_pending_replacement_qty" invisible="1"/>
             </xpath>
 
-            <!-- On incoming receipts, hide the standard Validate and replace it with a
-                 group-restricted copy — Pratik (group_qc_pass_operator) must not see it. -->
-            <xpath expr="//header/button[@name='button_validate']" position="attributes">
-                <attribute name="invisible">picking_type_code == 'incoming'</attribute>
-            </xpath>
-            <xpath expr="//header/button[@name='button_validate']" position="before">
+            <!-- Replace standard Validate with two role-split copies.
+                 position="replace" ensures the original cannot be un-hidden by another module
+                 (e.g. purchase). Pratik (group_qc_pass_operator) sees NO Validate button. -->
+            <xpath expr="//header/button[@name='button_validate']" position="replace">
+                <!-- Non-incoming pickings: visible to all users (unchanged behaviour) -->
+                <button name="button_validate"
+                        string="Validate"
+                        type="object"
+                        class="btn-primary"
+                        invisible="picking_type_code == 'incoming'"/>
+                <!-- Incoming (Gate Entry): visible only to inbound operator (Amit) -->
                 <button name="button_validate"
                         string="Validate"
                         type="object"
