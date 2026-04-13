@@ -1,0 +1,52 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+    <data>
+        <record id="view_stock_picking_qc_wizard_form" model="ir.ui.view">
+            <field name="name">stock.picking.qc.wizard.form</field>
+            <field name="model">stock.picking.qc.wizard</field>
+            <field name="arch" type="xml">
+                <form string="QC Routing">
+                    <sheet>
+                        <group>
+                            <div colspan="2">
+                                <p>This shipment contains products that require QC inspection.
+                                   Choose how to proceed:</p>
+                            </div>
+                            <group string="Requires QC Inward (Pratik will inspect)"
+                                  invisible="not qc_product_names">
+                                <field name="qc_product_names" readonly="1" nolabel="1"/>
+                            </group>
+                            <group string="Goes Directly to Store (no QC needed)"
+                                  invisible="not non_qc_product_names">
+                                <field name="non_qc_product_names" readonly="1" nolabel="1"/>
+                            </group>
+                            <!-- hidden field used for button visibility -->
+                            <field name="has_non_qc_products" invisible="1"/>
+                        </group>
+                    </sheet>
+                    <footer>
+                        <button name="action_send_qc_and_validate_others"
+                                string="1. Send QC Products for QC Inward Process"
+                                type="object"
+                                class="btn-primary"
+                                help="Routes QC products to Pratik for inspection and validates other products directly to Store."/>
+                        <button name="action_validate_non_qc_only"
+                                string="2. Validate (Non-QC Products to Store)"
+                                type="object"
+                                class="btn-secondary"
+                                invisible="not has_non_qc_products"
+                                help="Sends only non-QC products to Store now. QC products remain pending for later."/>
+                        <button string="Cancel" class="btn-secondary" special="cancel"/>
+                    </footer>
+                </form>
+            </field>
+        </record>
+
+        <record id="action_stock_picking_qc_wizard" model="ir.actions.act_window">
+            <field name="name">QC Routing</field>
+            <field name="res_model">stock.picking.qc.wizard</field>
+            <field name="view_mode">form</field>
+            <field name="target">new</field>
+        </record>
+    </data>
+</odoo>

@@ -1,0 +1,160 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+    QC Check Sheet Templates — ElegoMotors Inward Inspection
+    =========================================================
+    These quality.point records define what Pratik must inspect for each
+    QC-required product type during Gate Entry inward inspection.
+
+    All records are INACTIVE (active=False) matching the existing project
+    decision in quality_data.xml. They serve as reference/template data
+    and can be activated individually if the quality.check workflow is
+    enabled in the future.
+
+    Sources:
+      - Charger: Doc EM/QA/CS/02 Rev.00  Date: 10-06-2023
+                 Model: ELEGO 3.0  |  IPOWER-C600-IPLI20S10A
+      - Battery: ElegoMotors Battery Pack spec (74V / 24 Kg / 42.5 Ah / 3.145 kWh)
+-->
+<odoo noupdate="1">
+    <data>
+
+        <!-- ============================================================
+             CHARGER QC CHECK SHEET
+             Doc No: EM/QA/CS/02  Rev: 00  Date: 10-06-2023
+             Model: ELEGO 3.0
+             Make & Model No: IPOWER-C600-IPLI20S10A
+             Inspected By: Pratik (Quality)
+             Columns: Sr. No. | Serial No. | Physical Condition | Test Report |
+                      Input Voltage | Output Voltage | Output (Current) |
+                      Software & Firmware | Remark (OK/NOT OK)
+        ============================================================ -->
+
+        <record id="qc_point_charger_physical_condition" model="quality.point">
+            <field name="name">Charger – Physical Condition</field>
+            <field name="note">Inspect for: Dents, Damage, Wire condition, Connector,
+Wire Gland, Warranty seal, Serial No. label and Specification Sticker.
+Record result: OK / NOT OK</field>
+            <field name="picking_type_ids" eval="[(4, ref('elegomotors_setup.picking_type_gate_entry'))]"/>
+            <field name="active" eval="False"/>
+        </record>
+
+        <record id="qc_point_charger_test_report" model="quality.point">
+            <field name="name">Charger – Test Report</field>
+            <field name="note">Verify that the test report document accompanying the charger
+shipment is present and matches the serial number.
+Record result: OK / NOT OK</field>
+            <field name="picking_type_ids" eval="[(4, ref('elegomotors_setup.picking_type_gate_entry'))]"/>
+            <field name="active" eval="False"/>
+        </record>
+
+        <record id="qc_point_charger_input_voltage" model="quality.point">
+            <field name="name">Charger – Input Voltage</field>
+            <field name="note">Measure and record the actual input voltage reading.
+Expected range: as per IPOWER-C600-IPLI20S10A specification sheet.
+Record: actual measured value (V).</field>
+            <field name="picking_type_ids" eval="[(4, ref('elegomotors_setup.picking_type_gate_entry'))]"/>
+            <field name="active" eval="False"/>
+        </record>
+
+        <record id="qc_point_charger_output_voltage" model="quality.point">
+            <field name="name">Charger – Output Voltage</field>
+            <field name="note">Measure and record the actual output voltage reading.
+Expected range: as per IPOWER-C600-IPLI20S10A specification sheet.
+Record: actual measured value (V).</field>
+            <field name="picking_type_ids" eval="[(4, ref('elegomotors_setup.picking_type_gate_entry'))]"/>
+            <field name="active" eval="False"/>
+        </record>
+
+        <record id="qc_point_charger_output_current" model="quality.point">
+            <field name="name">Charger – Output Current</field>
+            <field name="note">Measure and record the actual output current reading.
+Expected range: as per IPOWER-C600-IPLI20S10A specification sheet.
+Record: actual measured value (A).</field>
+            <field name="picking_type_ids" eval="[(4, ref('elegomotors_setup.picking_type_gate_entry'))]"/>
+            <field name="active" eval="False"/>
+        </record>
+
+        <record id="qc_point_charger_software_firmware" model="quality.point">
+            <field name="name">Charger – Software / Firmware Version</field>
+            <field name="note">Verify that the firmware/software version on the charger
+matches the approved version for ELEGO 3.0.
+Record: firmware version string and result OK / NOT OK.</field>
+            <field name="picking_type_ids" eval="[(4, ref('elegomotors_setup.picking_type_gate_entry'))]"/>
+            <field name="active" eval="False"/>
+        </record>
+
+        <!-- ============================================================
+             BATTERY QC CHECK SHEET
+             Battery Pack for ELEGO 3.0
+             Inspected By: Pratik (Quality)
+             Columns: Sr. No. | Serial No. | Physical Condition |
+                      Test Report | Nominal Voltage (74 V) |
+                      Battery Weight (24 Kg) | Capacity (42.5 Ah) |
+                      Capacity (3.145 kWh) | BMS No. | Remark (OK/NOT OK)
+        ============================================================ -->
+
+        <record id="qc_point_battery_physical_condition" model="quality.point">
+            <field name="name">Battery – Physical Condition</field>
+            <field name="note">Inspect for: Dent, Damage, Wire condition, Connector,
+Wire Gland, Warranty seal, Serial No. label and Specification Sticker.
+Record result: OK / NOT OK</field>
+            <field name="picking_type_ids" eval="[(4, ref('elegomotors_setup.picking_type_gate_entry'))]"/>
+            <field name="active" eval="False"/>
+        </record>
+
+        <record id="qc_point_battery_test_report" model="quality.point">
+            <field name="name">Battery – Test Report</field>
+            <field name="note">Verify that the test report document accompanying the battery
+shipment is present and matches the serial number.
+Record result: OK / NOT OK</field>
+            <field name="picking_type_ids" eval="[(4, ref('elegomotors_setup.picking_type_gate_entry'))]"/>
+            <field name="active" eval="False"/>
+        </record>
+
+        <record id="qc_point_battery_nominal_voltage" model="quality.point">
+            <field name="name">Battery – Nominal Voltage</field>
+            <field name="note">Measure the nominal pack voltage.
+Expected: 74 V
+Record: actual measured value (V).</field>
+            <field name="picking_type_ids" eval="[(4, ref('elegomotors_setup.picking_type_gate_entry'))]"/>
+            <field name="active" eval="False"/>
+        </record>
+
+        <record id="qc_point_battery_weight" model="quality.point">
+            <field name="name">Battery – Battery Weight</field>
+            <field name="note">Weigh the battery pack on an approved scale.
+Expected: 24 Kg
+Record: actual measured weight (Kg).</field>
+            <field name="picking_type_ids" eval="[(4, ref('elegomotors_setup.picking_type_gate_entry'))]"/>
+            <field name="active" eval="False"/>
+        </record>
+
+        <record id="qc_point_battery_capacity_ah" model="quality.point">
+            <field name="name">Battery – Capacity (Ah)</field>
+            <field name="note">Verify the rated capacity from the battery label or test report.
+Expected: 42.5 Ah
+Record: confirmed value (Ah) and result OK / NOT OK.</field>
+            <field name="picking_type_ids" eval="[(4, ref('elegomotors_setup.picking_type_gate_entry'))]"/>
+            <field name="active" eval="False"/>
+        </record>
+
+        <record id="qc_point_battery_capacity_kwh" model="quality.point">
+            <field name="name">Battery – Capacity (kWh)</field>
+            <field name="note">Verify the rated energy capacity from the battery label or test report.
+Expected: 3.145 kWh
+Record: confirmed value (kWh) and result OK / NOT OK.</field>
+            <field name="picking_type_ids" eval="[(4, ref('elegomotors_setup.picking_type_gate_entry'))]"/>
+            <field name="active" eval="False"/>
+        </record>
+
+        <record id="qc_point_battery_bms_no" model="quality.point">
+            <field name="name">Battery – BMS Number</field>
+            <field name="note">Read and record the BMS (Battery Management System) serial number
+from the battery label.
+Record: BMS serial number string.</field>
+            <field name="picking_type_ids" eval="[(4, ref('elegomotors_setup.picking_type_gate_entry'))]"/>
+            <field name="active" eval="False"/>
+        </record>
+
+    </data>
+</odoo>
