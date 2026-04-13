@@ -51,6 +51,7 @@
         'data/bom_data_fix.xml',         # deletes routing ops (noupdate=0, runs on upgrade)
         'data/users_data.xml',           # department users (loaded after groups)
         'data/quality_data.xml',         # QC control points: gate entry + FG receipt
+        'data/qc_check_sheets_data.xml', # Charger + Battery QC check sheet templates
         'data/notification_rules.xml',   # automated workflow notifications
         # View overrides (loaded last so base views exist)
         'views/account_move_views.xml',
@@ -59,6 +60,8 @@
         'views/sale_order_views.xml',
         'views/stock_lot_views.xml',        # Component Traceability tab + serial list columns; Issue 7
         'views/stock_picking_views.xml',    # Gate Entry QC flow + vendor invoice + QC columns; Issues 5/6/12/13
+        'views/product_template_views.xml', # x_qc_required checkbox on product form
+        'views/stock_picking_qc_wizard_views.xml',  # QC routing wizard form + action
     ],
     'installable': True,
     'application': False,

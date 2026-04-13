@@ -133,5 +133,17 @@
             <field name="implied_ids" eval="[(4, ref('account.group_account_invoice'))]"/>
         </record>
 
+        <!-- QC Routing Wizard access: all internal users may open it;
+             button_validate() already restricts who reaches the wizard. -->
+        <record id="access_stock_picking_qc_wizard_all" model="ir.model.access">
+            <field name="name">stock.picking.qc.wizard all</field>
+            <field name="model_id" ref="model_stock_picking_qc_wizard"/>
+            <field name="group_id" ref="base.group_user"/>
+            <field name="perm_read" eval="True"/>
+            <field name="perm_write" eval="True"/>
+            <field name="perm_create" eval="True"/>
+            <field name="perm_unlink" eval="True"/>
+        </record>
+
     </data>
 </odoo>

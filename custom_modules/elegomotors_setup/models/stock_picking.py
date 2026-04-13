@@ -135,19 +135,53 @@ class StockPicking(models.Model):
                         f'Contact Manohar (Admin) if you need access.'
                     )
 
-            # --- Issue 5/6: Gate Entry must be QC-approved by Pratik before Amit validates ---
+            # --- Issue 5/6 + QC-required products: smart QC routing ---
             for picking in self:
-                if (
-                    gate_entry_ref
-                    and picking.picking_type_id == gate_entry_ref
-                    and picking.x_gate_entry_state != 'ready'
-                ):
+                if not (gate_entry_ref and picking.picking_type_id == gate_entry_ref):
+                    continue  # not a Gate Entry — skip
+
+                # The wizard sets this flag when it calls button_validate itself
+                if self.env.context.get('skip_qc_wizard'):
+                    continue
+
+                if picking.x_gate_entry_state == 'in_qc':
+                    # QC started but Pratik hasn't approved yet
+                    raise UserError(
+                        f'{picking.name}: QC inspection is in progress. '
+                        f'Wait for Pratik (Quality) to click Approve QC.'
+                    )
+
+                if picking.x_gate_entry_state == 'pending_qc':
+                    qc_moves = picking.move_ids.filtered(
+                        lambda m: m.product_id.x_qc_required
+                    )
+                    if qc_moves:
+                        # Has QC-required products → show routing wizard
+                        return {
+                            'type': 'ir.actions.act_window',
+                            'name': 'QC Routing',
+                            'res_model': 'stock.picking.qc.wizard',
+                            'view_mode': 'form',
+                            'target': 'new',
+                            'context': {'default_picking_id': picking.id},
+                        }
+                    else:
+                        # All products are non-QC → bypass gate, validate directly to Store
+                        store_loc = self.env.ref('elegomotors_setup.location_ego_store')
+                        for move in picking.move_ids:
+                            move.location_dest_id = store_loc.id
+                            for ml in move.move_line_ids:
+                                ml.location_dest_id = store_loc.id
+                                ml.qty_done = move.x_qty_received or move.product_uom_qty
+                        picking.x_gate_entry_state = 'ready'
+
+                elif picking.x_gate_entry_state != 'ready':
                     state_label = dict(
                         picking._fields['x_gate_entry_state'].selection
                     ).get(picking.x_gate_entry_state, picking.x_gate_entry_state)
                     raise UserError(
-                        f'{picking.name}: QC must be approved by Pratik (Quality) '
-                        f'before Store can validate.\nCurrent status: {state_label}'
+                        f'{picking.name}: Cannot validate. '
+                        f'Current QC status: {state_label}'
                     )
 
         result = super().button_validate()

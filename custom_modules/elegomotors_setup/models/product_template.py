@@ -1,10 +1,17 @@
 # -*- coding: utf-8 -*-
-from odoo import api, models
+from odoo import api, fields, models
 from odoo.exceptions import AccessError
 
 
 class ProductTemplate(models.Model):
     _inherit = 'product.template'
+
+    x_qc_required = fields.Boolean(
+        string='Requires QC Inward',
+        default=False,
+        help='If enabled, units of this product must pass QC Inward inspection '
+             'before entering Store. Leave unchecked for direct-to-store items.',
+    )
 
     @api.model_create_multi
     def create(self, vals_list):
