@@ -37,6 +37,7 @@ Record result: OK / NOT OK</field>
             <field name="picking_type_ids" eval="[(4, ref('elegomotors_setup.picking_type_gate_entry'))]"/>
             <field name="active" eval="False"/>
         </record>
+        
 
         <record id="qc_point_charger_test_report" model="quality.point">
             <field name="name">Charger – Test Report</field>
