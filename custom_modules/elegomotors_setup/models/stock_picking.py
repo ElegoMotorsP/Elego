@@ -245,7 +245,10 @@ class StockPicking(models.Model):
 
             # --- Issue 12: flag pending replacement if QC failures recorded ---
             if gate_entry_ref and picking.picking_type_id == gate_entry_ref:
-                failed_qty = sum(m.x_qty_qc_failed for m in picking.move_ids)
+                failed_qty = sum(
+                    m.x_qty_qc_failed for m in picking.move_ids
+                    if m.product_id.x_qc_required  # non-QC products going to Store are never "failed"
+                )
                 if failed_qty > 0:
                     picking.x_pending_replacement_qty = failed_qty
 
