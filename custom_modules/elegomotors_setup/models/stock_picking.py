@@ -62,8 +62,34 @@ class StockPicking(models.Model):
     # --- Issue 5/6: QC action methods (used by Pratik via view buttons) ---
 
     def action_gate_entry_start_qc(self):
-        """Amit sends Gate Entry to QC — notifies Pratik to perform inspection."""
+        """Amit sends Gate Entry to QC.
+        If picking has non-QC products, shows the routing wizard first.
+        If all products require QC, proceeds with the normal send-to-QC flow.
+        """
         self.ensure_one()
+
+        non_qc_moves = self.move_ids.filtered(lambda m: not m.product_id.x_qc_required)
+        qc_moves = self.move_ids.filtered(lambda m: m.product_id.x_qc_required)
+
+        if non_qc_moves and qc_moves:
+            # Mixed picking → show the routing wizard
+            return {
+                'type': 'ir.actions.act_window',
+                'name': 'QC Routing',
+                'res_model': 'stock.picking.qc.wizard',
+                'view_mode': 'form',
+                'target': 'new',
+                'context': {'default_picking_id': self.id},
+            }
+
+        if non_qc_moves and not qc_moves:
+            # Nothing requires QC — guide Amit to use Validate instead
+            raise UserError(
+                'None of the products in this receipt require QC inspection. '
+                'Use the Validate button to send them directly to Store.'
+            )
+
+        # All products require QC → normal send-to-QC flow
         self.x_gate_entry_state = 'in_qc'
         pratik = self.env.ref('elegomotors_setup.user_ego_pratik', raise_if_not_found=False)
         partner_ids = [pratik.partner_id.id] if pratik and pratik.partner_id else []
