@@ -9,29 +9,47 @@ class StockPickingQcWizard(models.TransientModel):
 
     picking_id = fields.Many2one('stock.picking', string='Gate Entry', readonly=True)
 
-    # Computed display-only fields shown in the wizard body
-    qc_product_names = fields.Char(
-        string='Products Requiring QC',
-        compute='_compute_product_lists',
-    )
+    # Stored display-only fields — populated via default_get (not @api.depends)
+    # because computed fields on transient models are unreliable before the record
+    # is saved in Odoo 18 wizard dialogs.
+    qc_product_names = fields.Char(string='Products Requiring QC', readonly=True)
     non_qc_product_names = fields.Char(
-        string='Products Going Directly to Store',
-        compute='_compute_product_lists',
+        string='Products Going Directly to Store', readonly=True
     )
-    has_non_qc_products = fields.Boolean(compute='_compute_product_lists')
+    has_non_qc_products = fields.Boolean(readonly=True)
 
-    @api.depends('picking_id')
-    def _compute_product_lists(self):
-        for wiz in self:
-            qc_moves = wiz.picking_id.move_ids.filtered(
-                lambda m: m.product_id.x_qc_required
-            )
-            non_qc_moves = wiz.picking_id.move_ids.filtered(
+    @api.model
+    def default_get(self, fields_list):
+        res = super().default_get(fields_list)
+        picking_id = res.get('picking_id') or self.env.context.get('default_picking_id')
+        if picking_id:
+            picking = self.env['stock.picking'].browse(picking_id)
+            qc_moves = picking.move_ids.filtered(lambda m: m.product_id.x_qc_required)
+            non_qc_moves = picking.move_ids.filtered(
                 lambda m: not m.product_id.x_qc_required
             )
-            wiz.qc_product_names = ', '.join(qc_moves.mapped('product_id.name'))
-            wiz.non_qc_product_names = ', '.join(non_qc_moves.mapped('product_id.name'))
-            wiz.has_non_qc_products = bool(non_qc_moves)
+            res['qc_product_names'] = ', '.join(qc_moves.mapped('product_id.name'))
+            res['non_qc_product_names'] = ', '.join(
+                non_qc_moves.mapped('product_id.name')
+            )
+            res['has_non_qc_products'] = bool(non_qc_moves)
+        return res
+
+    def _apply_move_qty(self, move, qty, location=None):
+        """Set done qty on a move — handles both move-line and no-move-line cases.
+        Draft pickings have empty move_line_ids; use move.write({'quantity': qty})
+        as a fallback (mirrors the pattern in action_gate_entry_approve_qc)."""
+        if location:
+            move.location_dest_id = location.id
+        for ml in move.move_line_ids:
+            if location:
+                ml.location_dest_id = location.id
+            ml.qty_done = qty
+        if not move.move_line_ids:
+            vals = {'quantity': qty}
+            if location:
+                vals['location_dest_id'] = location.id
+            move.write(vals)
 
     # ------------------------------------------------------------------
     # Option 1: Send QC products to Pratik for inspection,
@@ -42,16 +60,14 @@ class StockPickingQcWizard(models.TransientModel):
         store_loc = self.env.ref('elegomotors_setup.location_ego_store')
 
         for move in picking.move_ids:
+            qty = move.x_qty_received or move.product_uom_qty
             if not move.product_id.x_qc_required:
-                # Non-QC product → destination changes to Store, qty_done = received
-                move.location_dest_id = store_loc.id
-                for ml in move.move_line_ids:
-                    ml.location_dest_id = store_loc.id
-                    ml.qty_done = move.x_qty_received or move.product_uom_qty
+                # Non-QC product → Store, mark as fully passed (prevents false pending-replacement)
+                move.x_qty_qc_passed = qty
+                self._apply_move_qty(move, qty, location=store_loc)
             else:
                 # QC product → qty_done = 0 so Odoo creates a backorder
-                for ml in move.move_line_ids:
-                    ml.qty_done = 0.0
+                self._apply_move_qty(move, 0)
 
         # Bypass our own QC guard (we are about to call button_validate ourselves)
         picking.x_gate_entry_state = 'ready'
@@ -94,14 +110,12 @@ class StockPickingQcWizard(models.TransientModel):
         store_loc = self.env.ref('elegomotors_setup.location_ego_store')
 
         for move in picking.move_ids:
+            qty = move.x_qty_received or move.product_uom_qty
             if not move.product_id.x_qc_required:
-                move.location_dest_id = store_loc.id
-                for ml in move.move_line_ids:
-                    ml.location_dest_id = store_loc.id
-                    ml.qty_done = move.x_qty_received or move.product_uom_qty
+                move.x_qty_qc_passed = qty
+                self._apply_move_qty(move, qty, location=store_loc)
             else:
-                for ml in move.move_line_ids:
-                    ml.qty_done = 0.0
+                self._apply_move_qty(move, 0)
 
         picking.x_gate_entry_state = 'ready'
         result = picking.with_context(skip_qc_wizard=True).button_validate()
