@@ -80,8 +80,12 @@ class StockPickingQcWizard(models.TransientModel):
         """Process backorder confirmation if Odoo returned one, then
         set the backorder to in_qc and notify Pratik."""
         if isinstance(result, dict) and result.get('res_model') == 'stock.backorder.confirmation':
+            # skip_qc_wizard=True is required here: Odoo's process() calls button_validate()
+            # again with skip_backorder=True, and without skip_qc_wizard the QC gate would
+            # intercept that recursive call and return the routing wizard instead of validating.
             backorder_wiz = self.env['stock.backorder.confirmation'].with_context(
-                button_validate_picking_ids=picking.ids
+                button_validate_picking_ids=picking.ids,
+                skip_qc_wizard=True,
             ).create({'pick_ids': [(4, picking.id)]})
             backorder_wiz.process()
 
@@ -135,7 +139,8 @@ class StockPickingQcWizard(models.TransientModel):
 
         if isinstance(result, dict) and result.get('res_model') == 'stock.backorder.confirmation':
             backorder_wiz = self.env['stock.backorder.confirmation'].with_context(
-                button_validate_picking_ids=picking.ids
+                button_validate_picking_ids=picking.ids,
+                skip_qc_wizard=True,
             ).create({'pick_ids': [(4, picking.id)]})
             backorder_wiz.process()
         # Backorder stays in 'pending_qc' — Amit manually sends QC products later
