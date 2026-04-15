@@ -35,52 +35,56 @@ class StockPickingQcWizard(models.TransientModel):
             res['has_non_qc_products'] = bool(non_qc_moves)
         return res
 
-    def _apply_move_qty(self, move, qty, location=None):
-        """Set done qty on a move — handles both move-line and no-move-line cases.
-        Draft pickings have empty move_line_ids; use move.write({'quantity': qty})
-        as a fallback (mirrors the pattern in action_gate_entry_approve_qc)."""
-        if location:
-            move.location_dest_id = location.id
-        for ml in move.move_line_ids:
-            if location:
-                ml.location_dest_id = location.id
-            ml.qty_done = qty
-        if not move.move_line_ids:
-            vals = {'quantity': qty}
-            if location:
-                vals['location_dest_id'] = location.id
-            move.write(vals)
+    def _create_move_lines(self, picking, store_loc):
+        """
+        Create explicit stock.move.line records for every move so Odoo
+        does NOT auto-fill quantities in immediate-transfer mode (which
+        happens when no move_line_ids exist on a Draft receipt).
 
-    # ------------------------------------------------------------------
-    # Option 1: Send QC products to Pratik for inspection,
-    #           validate non-QC products directly to Store now.
-    # ------------------------------------------------------------------
-    def action_send_qc_and_validate_others(self):
-        picking = self.picking_id
-        store_loc = self.env.ref('elegomotors_setup.location_ego_store')
-
+        Non-QC → qty_done = received, dest = Store
+        QC     → qty_done = 0  (triggers backorder on button_validate)
+        """
+        MoveL = self.env['stock.move.line']
         for move in picking.move_ids:
+            # Remove any existing lines (shouldn't exist on Draft, but be safe)
+            move.move_line_ids.unlink()
+
             qty = move.x_qty_received or move.product_uom_qty
+
             if not move.product_id.x_qc_required:
-                # Non-QC product → Store, mark as fully passed (prevents false pending-replacement)
+                # Non-QC: mark as fully passed, route to Store
                 move.x_qty_qc_passed = qty
-                self._apply_move_qty(move, qty, location=store_loc)
+                move.location_dest_id = store_loc.id
+                MoveL.create({
+                    'move_id': move.id,
+                    'picking_id': picking.id,
+                    'product_id': move.product_id.id,
+                    'product_uom_id': move.product_uom.id,
+                    'qty_done': qty,
+                    'location_id': move.location_id.id,
+                    'location_dest_id': store_loc.id,
+                })
             else:
-                # QC product → qty_done = 0 so Odoo creates a backorder
-                self._apply_move_qty(move, 0)
+                # QC: done = 0 → Odoo will create a backorder for these
+                MoveL.create({
+                    'move_id': move.id,
+                    'picking_id': picking.id,
+                    'product_id': move.product_id.id,
+                    'product_uom_id': move.product_uom.id,
+                    'qty_done': 0,
+                    'location_id': move.location_id.id,
+                    'location_dest_id': move.location_dest_id.id,
+                })
 
-        # Bypass our own QC guard (we are about to call button_validate ourselves)
-        picking.x_gate_entry_state = 'ready'
-        result = picking.with_context(skip_qc_wizard=True).button_validate()
-
-        # If Odoo returned a backorder confirmation wizard, auto-confirm it
+    def _handle_backorder_and_notify(self, picking, result):
+        """Process backorder confirmation if Odoo returned one, then
+        set the backorder to in_qc and notify Pratik."""
         if isinstance(result, dict) and result.get('res_model') == 'stock.backorder.confirmation':
             backorder_wiz = self.env['stock.backorder.confirmation'].with_context(
                 button_validate_picking_ids=picking.ids
             ).create({'pick_ids': [(4, picking.id)]})
             backorder_wiz.process()
 
-        # Find the newly-created backorder (QC products) and kick off QC flow
         backorder = picking.backorder_ids[:1]
         if backorder:
             backorder.x_gate_entry_state = 'in_qc'
@@ -102,22 +106,31 @@ class StockPickingQcWizard(models.TransientModel):
             )
 
     # ------------------------------------------------------------------
+    # Option 1: Send QC products to Pratik for inspection,
+    #           validate non-QC products directly to Store now.
+    # ------------------------------------------------------------------
+    def action_send_qc_and_validate_others(self):
+        """Option 1: Validate non-QC products to Store now; send QC products to Pratik."""
+        picking = self.picking_id
+        store_loc = self.env.ref('elegomotors_setup.location_ego_store')
+
+        self._create_move_lines(picking, store_loc)
+        # NOTE: do NOT set x_gate_entry_state = 'ready' here — that would trigger
+        # _compute_qc_failed to show QC failures for products not yet inspected.
+        # skip_qc_wizard=True context bypasses the gate check instead.
+        result = picking.with_context(skip_qc_wizard=True).button_validate()
+        self._handle_backorder_and_notify(picking, result)
+
+    # ------------------------------------------------------------------
     # Option 2: Validate only non-QC products to Store now.
     #           QC products remain in a backorder (pending_qc) for later.
     # ------------------------------------------------------------------
     def action_validate_non_qc_only(self):
+        """Option 2: Validate only non-QC products now; QC backorder stays pending_qc."""
         picking = self.picking_id
         store_loc = self.env.ref('elegomotors_setup.location_ego_store')
 
-        for move in picking.move_ids:
-            qty = move.x_qty_received or move.product_uom_qty
-            if not move.product_id.x_qc_required:
-                move.x_qty_qc_passed = qty
-                self._apply_move_qty(move, qty, location=store_loc)
-            else:
-                self._apply_move_qty(move, 0)
-
-        picking.x_gate_entry_state = 'ready'
+        self._create_move_lines(picking, store_loc)
         result = picking.with_context(skip_qc_wizard=True).button_validate()
 
         if isinstance(result, dict) and result.get('res_model') == 'stock.backorder.confirmation':
