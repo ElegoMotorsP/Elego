@@ -71,7 +71,7 @@ class StockPicking(models.Model):
         product move in this picking, based on the parameter list defined on
         each product template. Idempotent — skips parameters that already have
         a result record (safe to call multiple times)."""
-        CheckResult = self.env['elegomotors.qc.check.result']
+        CheckResult = self.env['elegomotors.qc.check.result'].sudo()
         for picking in self:
             for move in picking.move_ids.filtered(lambda m: m.product_id.x_qc_required):
                 params = move.product_id.product_tmpl_id.x_qc_parameter_ids
