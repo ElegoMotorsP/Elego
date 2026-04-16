@@ -1,4 +1,5 @@
 from . import ir_actions_server
+from . import qc_parameter
 from . import account_move
 from . import mrp_production
 from . import product_template

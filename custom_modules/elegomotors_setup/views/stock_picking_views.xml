@@ -117,6 +117,45 @@
     </record>
 
     <!-- ================================================================
+         QC Inspection tab — parameter checklist filled by Pratik
+         Visible only when the picking has check result rows (i.e. after
+         state → in_qc and product has parameters defined).
+         Rows are editable only while state == 'in_qc'; read-only thereafter
+         as a permanent audit trail.
+         ================================================================ -->
+    <record id="stock_picking_form_qc_inspection_tab" model="ir.ui.view">
+        <field name="name">stock.picking.form.qc.inspection.tab</field>
+        <field name="model">stock.picking</field>
+        <field name="inherit_id" ref="stock.view_picking_form"/>
+        <field name="arch" type="xml">
+            <xpath expr="//page[@name='operations']" position="after">
+                <page string="QC Inspection"
+                      invisible="picking_type_code != 'incoming' or not x_qc_check_result_ids">
+                    <field name="x_qc_check_result_ids" nolabel="1">
+                        <list editable="bottom"
+                              decoration-danger="result == 'fail'"
+                              decoration-success="result == 'pass'">
+                            <field name="name" string="Parameter" readonly="1"/>
+                            <field name="expected_value" string="Expected" readonly="1"/>
+                            <field name="result_type" column_invisible="1"/>
+                            <field name="check_description" string="How to Check" readonly="1" optional="hide"/>
+                            <field name="actual_value"
+                                   string="Actual Value / Observation"
+                                   readonly="parent.x_gate_entry_state != 'in_qc'"/>
+                            <field name="result"
+                                   string="Pass / Fail"
+                                   readonly="parent.x_gate_entry_state != 'in_qc'"/>
+                            <field name="notes"
+                                   string="Failure Reason"
+                                   readonly="parent.x_gate_entry_state != 'in_qc'"/>
+                        </list>
+                    </field>
+                </page>
+            </xpath>
+        </field>
+    </record>
+
+    <!-- ================================================================
          QC columns on receipt Operations tab
          (replaces the original stock_picking_form_qc_columns record)
          Now includes readonly conditions tied to x_gate_entry_state — Issue 13

@@ -12,6 +12,12 @@ class ProductTemplate(models.Model):
         help='If enabled, units of this product must pass QC Inward inspection '
              'before entering Store. Leave unchecked for direct-to-store items.',
     )
+    x_qc_parameter_ids = fields.One2many(
+        'elegomotors.qc.parameter', 'product_tmpl_id',
+        string='QC Parameters',
+        help='Define the inspection checklist for this product. '
+             'Each row becomes a line Pratik must fill during QC inward inspection.',
+    )
 
     @api.model_create_multi
     def create(self, vals_list):
