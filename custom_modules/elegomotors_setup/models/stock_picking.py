@@ -40,6 +40,11 @@ class StockPicking(models.Model):
         store=True,
         help='True when replacement goods from vendor are still outstanding.',
     )
+    x_qc_check_result_ids = fields.One2many(
+        'elegomotors.qc.check.result', 'picking_id',
+        string='QC Inspection Results',
+        copy=False,
+    )
 
     @api.depends('x_pending_replacement_qty')
     def _compute_has_pending_replacement(self):
@@ -58,6 +63,28 @@ class StockPicking(models.Model):
         for picking in self:
             if picking.picking_type_code == 'incoming' and not is_inbound_op:
                 picking.show_validate = False
+
+    # --- QC parameter checklist helpers ---
+
+    def _create_qc_check_results(self):
+        """Auto-create elegomotors.qc.check.result rows for every QC-required
+        product move in this picking, based on the parameter list defined on
+        each product template. Idempotent — skips parameters that already have
+        a result record (safe to call multiple times)."""
+        CheckResult = self.env['elegomotors.qc.check.result']
+        for picking in self:
+            for move in picking.move_ids.filtered(lambda m: m.product_id.x_qc_required):
+                params = move.product_id.product_tmpl_id.x_qc_parameter_ids
+                existing_param_ids = picking.x_qc_check_result_ids.filtered(
+                    lambda r: r.move_id == move
+                ).mapped('parameter_id.id')
+                for param in params:
+                    if param.id not in existing_param_ids:
+                        CheckResult.create({
+                            'picking_id': picking.id,
+                            'move_id': move.id,
+                            'parameter_id': param.id,
+                        })
 
     # --- Issue 5/6: QC action methods (used by Pratik via view buttons) ---
 
@@ -91,6 +118,7 @@ class StockPicking(models.Model):
 
         # All products require QC → normal send-to-QC flow
         self.x_gate_entry_state = 'in_qc'
+        self._create_qc_check_results()
         pratik = self.env.ref('elegomotors_setup.user_ego_pratik', raise_if_not_found=False)
         partner_ids = [pratik.partner_id.id] if pratik and pratik.partner_id else []
         self.message_post(

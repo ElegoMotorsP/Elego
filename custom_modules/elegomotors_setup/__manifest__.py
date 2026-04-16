@@ -36,6 +36,7 @@
         # Security groups must load before users_data (groups referenced in user records)
         'security/groups.xml',
         'security/record_rules.xml',
+        'security/qc_parameter_access.csv',
         # store_billing_access.csv is kept on disk as a fallback reference but NOT loaded:
         # Amit retains account.group_account_invoice for model-level access (needed for
         # "Create Invoice" button on SO/Delivery). The ir.rule in record_rules.xml
@@ -60,7 +61,7 @@
         'views/sale_order_views.xml',
         'views/stock_lot_views.xml',        # Component Traceability tab + serial list columns; Issue 7
         'views/stock_picking_views.xml',    # Gate Entry QC flow + vendor invoice + QC columns; Issues 5/6/12/13
-        'views/product_template_views.xml', # x_qc_required checkbox on product form
+        'views/product_template_views.xml', # x_qc_required checkbox + QC parameters list
         'views/stock_picking_qc_wizard_views.xml',  # QC routing wizard form + action
     ],
     'installable': True,

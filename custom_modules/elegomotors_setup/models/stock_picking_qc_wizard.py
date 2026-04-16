@@ -92,6 +92,7 @@ class StockPickingQcWizard(models.TransientModel):
         backorder = picking.backorder_ids[:1]
         if backorder:
             backorder.x_gate_entry_state = 'in_qc'
+            backorder._create_qc_check_results()
             pratik = self.env.ref(
                 'elegomotors_setup.user_ego_pratik', raise_if_not_found=False
             )
