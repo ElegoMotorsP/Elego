@@ -36,7 +36,7 @@
         # Security groups must load before users_data (groups referenced in user records)
         'security/groups.xml',
         'security/record_rules.xml',
-        'security/qc_parameter_access.csv',
+        'security/ir.model.access.csv',
         # store_billing_access.csv is kept on disk as a fallback reference but NOT loaded:
         # Amit retains account.group_account_invoice for model-level access (needed for
         # "Create Invoice" button on SO/Delivery). The ir.rule in record_rules.xml
