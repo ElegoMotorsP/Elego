@@ -79,28 +79,28 @@
                         string="Pass QC"
                         type="object"
                         class="btn-success"
-                        invisible="state not in ('progress', 'to_close') or qty_producing == 0 or qc_state == 'passed'"
+                        invisible="qc_state == 'passed' or (state not in ('progress', 'to_close', 'done')) or (state in ('progress', 'to_close') and qty_producing == 0)"
                         groups="quality.group_quality_manager"/>
                 <button name="action_qc_fail"
                         string="Fail QC"
                         type="object"
                         class="btn-danger"
-                        invisible="state not in ('progress', 'to_close') or qty_producing == 0"
+                        invisible="qc_state == 'passed' or (state not in ('progress', 'to_close', 'done')) or (state in ('progress', 'to_close') and qty_producing == 0)"
                         groups="quality.group_quality_manager"/>
                 <button name="action_qc_reset"
                         string="Reset QC"
                         type="object"
-                        invisible="state not in ('progress', 'to_close') or qty_producing == 0 or qc_state != 'failed'"
+                        invisible="qc_state != 'failed' or (state not in ('progress', 'to_close', 'done')) or (state in ('progress', 'to_close') and qty_producing == 0)"
                         groups="quality.group_quality_manager"/>
                 <!--
-                    Custom Mark as Done: visible ONLY when QC is passed.
-                    Works for both single-unit (to_close) and multi-unit (progress + qty_producing>0).
+                    Custom Mark as Done: visible for manufacturing operators in to_close/progress.
+                    No QC gate here — QC now gates the FG transfer AFTER the MO is done.
                 -->
                 <button name="button_mark_done"
                         string="Mark as Done"
                         type="object"
                         class="btn-primary"
-                        invisible="state not in ('progress', 'to_close') or qty_producing == 0 or qc_state != 'passed'"
+                        invisible="state not in ('progress', 'to_close') or qty_producing == 0"
                         groups="elegomotors_setup.group_manufacturing_operator"/>
             </xpath>
 
