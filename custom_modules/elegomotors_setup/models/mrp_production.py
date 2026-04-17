@@ -66,38 +66,48 @@ class MrpProduction(models.Model):
     def _compute_mo_flow_state(self):
         for production in self:
             if production.state == 'done':
-                production.mo_flow_state = 'done'
+                # If QC passed: fully done. If pending/failed: unit produced, waiting for QC.
+                production.mo_flow_state = 'done' if production.qc_state == 'passed' else 'in_qc'
             elif production.state in ('to_close', 'progress') and production.qty_producing > 0:
-                # progress + qty_producing > 0 = multi-unit MO with one unit ready for QC
-                production.mo_flow_state = (
-                    'manufactured'
-                    if production.qc_state == 'pending'
-                    else 'in_qc'
-                )
+                production.mo_flow_state = 'manufactured'
             else:
                 production.mo_flow_state = False
 
     def _qc_state_check(self):
-        """Shared guard: QC actions valid in progress (unit ready) or to_close."""
+        """Shared guard: QC actions valid in progress/to_close (mid-production) or done (post-production)."""
         self.ensure_one()
         if self.state == 'progress' and self.qty_producing <= 0:
             raise UserError("Set the quantity to produce first before recording QC.")
-        if self.state not in ('progress', 'to_close'):
-            raise UserError("QC can only be recorded when a unit is being produced.")
+        if self.state not in ('progress', 'to_close', 'done'):
+            raise UserError("QC can only be recorded on an active or completed manufacturing order.")
 
     def action_qc_pass(self):
-        """Pratik approves post-production QC. Unblocks button_mark_done."""
+        """Pratik approves post-production QC.
+        If MO is already done (post-production flow): triggers FG transfer immediately.
+        If MO is in to_close/progress (pre-mark-done flow): unblocks Mark as Done.
+        """
         self.ensure_one()
         self._qc_state_check()
         self.qc_state = 'passed'
-        self.message_post(
-            body=Markup(
-                f"Post-production QC <b>passed</b> by {self.env.user.name}. "
-                f"Click <b>Mark as Done</b> to finalise the MO and release to Finished Goods."
-            ),
-            message_type='comment',
-            subtype_xmlid='mail.mt_comment',
-        )
+        if self.state == 'done':
+            self.message_post(
+                body=Markup(
+                    f"Post-production QC <b>passed</b> by {self.env.user.name}. "
+                    f"Releasing bike to Finished Goods Store."
+                ),
+                message_type='comment',
+                subtype_xmlid='mail.mt_comment',
+            )
+            self._auto_move_fg_to_store()
+        else:
+            self.message_post(
+                body=Markup(
+                    f"Post-production QC <b>passed</b> by {self.env.user.name}. "
+                    f"Click <b>Mark as Done</b> to finalise the MO and release to Finished Goods."
+                ),
+                message_type='comment',
+                subtype_xmlid='mail.mt_comment',
+            )
 
     def action_qc_fail(self):
         """Pratik fails post-production QC. MO stays in progress/to_close for rework."""
@@ -168,28 +178,37 @@ class MrpProduction(models.Model):
                     f'{production.name}.\nPending transfer(s): {names}'
                 )
 
-        # Guard 3: post-production QC must be approved by Pratik before closing.
-        # qc_state is copy=False so each backorder MO starts at 'pending' automatically,
-        # giving every serial unit its own QC cycle.
-        for production in self:
-            if production.qc_state != 'passed':
-                state_label = dict(
-                    production._fields['qc_state'].selection
-                ).get(production.qc_state, production.qc_state)
-                raise UserError(
-                    f'{production.name}: Post-production QC is \'{state_label}\'. '
-                    f'Pratik must click \'Pass QC\' before marking done.'
-                )
-
         result = super().button_mark_done()
 
-        # Auto-create + validate the FG picking (Production WIP → Finished Goods Store).
-        # Runs only after super() succeeds and MO is in 'done' state.
+        # Post-production QC gate: FG transfer is deferred until Pratik approves QC.
+        # qc_state is copy=False so each backorder MO starts at 'pending' automatically,
+        # giving every serial unit its own independent QC cycle.
         for production in self:
             if production.state == 'done':
-                production._auto_move_fg_to_store()
+                if production.qc_state == 'passed':
+                    # QC was pre-approved (Pass QC clicked before Mark as Done)
+                    production._auto_move_fg_to_store()
+                else:
+                    # QC pending — defer FG transfer, notify Pratik to inspect
+                    production._notify_qc_needed()
 
         return result
+
+    def _notify_qc_needed(self):
+        """Post a chatter notification after MO completes, asking Pratik to do QC."""
+        pratik = self.env.ref('elegomotors_setup.user_ego_pratik', raise_if_not_found=False)
+        partner_ids = [pratik.partner_id.id] if pratik and pratik.partner_id else []
+        serial = self.lot_producing_id.name if self.lot_producing_id else ''
+        self.message_post(
+            body=Markup(
+                f"Unit <b>{serial}</b> has been produced and is ready for QC. "
+                f"<b>Pratik:</b> Please perform post-production inspection, "
+                f"then click <b>Pass QC</b> or <b>Fail QC</b> on this MO."
+            ),
+            partner_ids=partner_ids,
+            message_type='comment',
+            subtype_xmlid='mail.mt_comment',
+        )
 
     def _auto_move_fg_to_store(self):
         """Create and immediately validate a 'FG to Finished Goods Store' picking.
