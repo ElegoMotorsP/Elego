@@ -49,7 +49,7 @@
              keep tracking='none' in Odoo stock. Their physical serial numbers are
              captured via custom fields on the bike's serial record (stock_lot.py)
              when Pratik scans them post-assembly. -->
-        <record id="elegomotors_setup.comp_front_wheel" model="product.product">
+        <!-- <record id="elegomotors_setup.comp_front_wheel" model="product.product">
             <field name="tracking">lot</field>
         </record>
         <record id="elegomotors_setup.comp_rear_wheel" model="product.product">
@@ -57,7 +57,7 @@
         </record>
         <record id="elegomotors_setup.comp_front_fork" model="product.product">
             <field name="tracking">lot</field>
-        </record>
+        </record> -->
        <!-- <record id="elegomotors_setup.comp_brake_kit" model="product.product">
             <field name="tracking">lot</field>
         </record>
