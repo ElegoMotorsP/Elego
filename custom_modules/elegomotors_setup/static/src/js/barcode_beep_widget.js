@@ -3,13 +3,15 @@
 /**
  * ElegoMotors — Barcode Capture Wizard: auto-advance + beep
  *
- * When Prashant scans a barcode in the component capture wizard, the scanner
- * sends barcode text followed by an Enter keystroke. This listener:
- *   1. Intercepts that Enter key (only inside the barcode wizard dialog)
- *   2. Plays a short confirmation beep via Web Audio API
- *   3. Moves focus to the next input field automatically
+ * Uses MutationObserver to detect when the barcode wizard dialog opens,
+ * then attaches keydown handlers directly to the 3 barcode input fields.
  *
- * This avoids the need for Prashant to click/tab between the 3 barcode fields.
+ * Flow per scan:
+ *   scanner types barcode → Enter keydown fires → we intercept (capture phase)
+ *   → stopPropagation + preventDefault (blocks Odoo's dialog-save handler)
+ *   → blur() current input  (commits value into Odoo's reactive record)
+ *   → 50ms later: focus + select next input
+ *   → playBeep() confirms the scan audibly
  */
 
 function playBeep() {
@@ -30,32 +32,55 @@ function playBeep() {
     }
 }
 
-// Capture Enter on barcode wizard inputs and auto-advance to next field.
-// Uses capture phase (true) so this runs before Odoo's own Enter handlers.
-document.addEventListener("keydown", (ev) => {
-    if (ev.key !== "Enter") return;
+const BARCODE_FIELDS = ["x_motor_serial", "x_battery_serial", "x_controller_serial"];
 
-    // Only act when our barcode wizard dialog is open
+function attachBarcodeHandlers(dialog) {
+    // Resolve inputs for all 3 barcode fields in DOM order
+    const inputs = BARCODE_FIELDS
+        .map((name) => dialog.querySelector(`[name="${name}"] input`))
+        .filter(Boolean);
+
+    if (!inputs.length) return;
+    // Guard: skip if already attached to the first input (avoids duplicate after re-render)
+    if (inputs[0]._elego_barcode) return;
+
+    inputs.forEach((input, idx) => {
+        input._elego_barcode = true;
+        input.addEventListener(
+            "keydown",
+            (ev) => {
+                if (ev.key !== "Enter") return;
+                // Only advance if there is a value (empty Enter → ignore)
+                if (!ev.target.value) return;
+
+                ev.stopPropagation();
+                ev.preventDefault();
+
+                playBeep();
+
+                if (idx < inputs.length - 1) {
+                    const next = inputs[idx + 1];
+                    // blur() triggers Odoo's field-commit (saves value to record)
+                    ev.target.blur();
+                    setTimeout(() => {
+                        next.focus();
+                        next.select();
+                    }, 50);
+                }
+                // On last field: do nothing extra — Confirm button stays as the next action
+            },
+            true  // capture phase: fires before Odoo's own Enter handlers
+        );
+    });
+}
+
+// Watch the DOM for the barcode wizard dialog to appear (or re-render after onchange)
+const observer = new MutationObserver(() => {
     const dialog = document.querySelector(".o_dialog");
     if (!dialog) return;
-    if (!dialog.querySelector('[name="x_motor_serial"], [name="x_battery_serial"], [name="x_controller_serial"]')) return;
+    // Only act when our specific wizard is open
+    if (!dialog.querySelector('[name="x_motor_serial"]')) return;
+    attachBarcodeHandlers(dialog);
+});
 
-    const active = document.activeElement;
-    if (!active || active.tagName !== "INPUT") return;
-
-    // Collect all enabled, non-readonly inputs inside the dialog
-    const inputs = [...dialog.querySelectorAll("input:not([disabled]):not([readonly])")];
-    const idx = inputs.indexOf(active);
-
-    // If this is not the last field, advance to next; otherwise let form handle it
-    if (idx < 0 || idx >= inputs.length - 1) return;
-
-    ev.stopPropagation();
-    ev.preventDefault();
-    playBeep();
-
-    setTimeout(() => {
-        inputs[idx + 1].focus();
-        inputs[idx + 1].select();
-    }, 10);
-}, true);
+observer.observe(document.body, { childList: true, subtree: true });

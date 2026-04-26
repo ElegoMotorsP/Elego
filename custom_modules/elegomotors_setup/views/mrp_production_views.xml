@@ -127,6 +127,18 @@
         </field>
     </record>
 
+    <!-- Scanned Serial column in the MO Components tab, next to each relevant BOM row -->
+    <record id="mrp_production_form_component_serial_col" model="ir.ui.view">
+        <field name="name">mrp.production.form.component.serial.col</field>
+        <field name="model">mrp.production</field>
+        <field name="inherit_id" ref="mrp.mrp_production_form_view"/>
+        <field name="arch" type="xml">
+            <xpath expr="//field[@name='move_raw_ids']//list//field[@name='product_id']" position="after">
+                <field name="x_component_serial" string="Scanned Serial" readonly="1" optional="show"/>
+            </xpath>
+        </field>
+    </record>
+
     <!-- Barcode Capture Wizard — opened by action_generate_serial() for EGO-S1 MOs -->
     <record id="view_mrp_barcode_wizard_form" model="ir.ui.view">
         <field name="name">elegomotors.barcode.capture.wizard.form</field>

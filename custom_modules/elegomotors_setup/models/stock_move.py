@@ -54,6 +54,38 @@ class StockMove(models.Model):
             else:
                 move.x_qty_final = 0.0
 
+    # Barcode wizard: show the scanned component serial next to the relevant BOM row
+    x_component_serial = fields.Char(
+        string='Scanned Serial',
+        compute='_compute_component_serial',
+        store=False,
+    )
+
+    @api.depends(
+        'product_id',
+        'production_id.lot_producing_id.x_motor_serial',
+        'production_id.lot_producing_id.x_battery_serial',
+        'production_id.lot_producing_id.x_controller_serial',
+    )
+    def _compute_component_serial(self):
+        motor      = self.env.ref('elegomotors_setup.comp_hub_motor',    raise_if_not_found=False)
+        battery    = self.env.ref('elegomotors_setup.comp_battery_pack', raise_if_not_found=False)
+        controller = self.env.ref('elegomotors_setup.comp_controller',   raise_if_not_found=False)
+        for move in self:
+            lot = move.production_id.lot_producing_id if move.production_id else False
+            if not lot:
+                move.x_component_serial = False
+                continue
+            pid = move.product_id.id
+            if motor and pid == motor.id:
+                move.x_component_serial = lot.x_motor_serial or False
+            elif battery and pid == battery.id:
+                move.x_component_serial = lot.x_battery_serial or False
+            elif controller and pid == controller.id:
+                move.x_component_serial = lot.x_controller_serial or False
+            else:
+                move.x_component_serial = False
+
     # Issue 10: auto-fill x_qty_received from PO demand quantity on creation
     @api.model_create_multi
     def create(self, vals_list):
