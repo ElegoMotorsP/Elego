@@ -3,15 +3,14 @@
 /**
  * ElegoMotors — Barcode Capture Wizard: auto-advance + beep
  *
- * Uses MutationObserver to detect when the barcode wizard dialog opens,
- * then attaches keydown handlers directly to the 3 barcode input fields.
+ * MutationObserver watches for the barcode wizard dialog to appear, then
+ * attaches keydown handlers directly to the 3 barcode input fields.
  *
- * Flow per scan:
- *   scanner types barcode → Enter keydown fires → we intercept (capture phase)
- *   → stopPropagation + preventDefault (blocks Odoo's dialog-save handler)
- *   → blur() current input  (commits value into Odoo's reactive record)
- *   → 50ms later: focus + select next input
- *   → playBeep() confirms the scan audibly
+ * On each scan (barcode text + Enter from USB scanner):
+ *   1. stopPropagation/preventDefault — blocks Odoo's dialog-save handler
+ *   2. blur() current input           — commits value into Odoo's record
+ *   3. 50 ms later: focus+select next input
+ *   4. playBeep()                     — audible confirmation
  */
 
 function playBeep() {
@@ -35,52 +34,51 @@ function playBeep() {
 const BARCODE_FIELDS = ["x_motor_serial", "x_battery_serial", "x_controller_serial"];
 
 function attachBarcodeHandlers(dialog) {
-    // Resolve inputs for all 3 barcode fields in DOM order
     const inputs = BARCODE_FIELDS
         .map((name) => dialog.querySelector(`[name="${name}"] input`))
         .filter(Boolean);
 
     if (!inputs.length) return;
-    // Guard: skip if already attached to the first input (avoids duplicate after re-render)
-    if (inputs[0]._elego_barcode) return;
+    if (inputs[0]._elego_barcode) return; // already attached
 
     inputs.forEach((input, idx) => {
         input._elego_barcode = true;
         input.addEventListener(
             "keydown",
             (ev) => {
-                if (ev.key !== "Enter") return;
-                // Only advance if there is a value (empty Enter → ignore)
-                if (!ev.target.value) return;
-
+                if (ev.key !== "Enter" || !ev.target.value) return;
                 ev.stopPropagation();
                 ev.preventDefault();
-
                 playBeep();
-
                 if (idx < inputs.length - 1) {
-                    const next = inputs[idx + 1];
-                    // blur() triggers Odoo's field-commit (saves value to record)
-                    ev.target.blur();
+                    ev.target.blur(); // commit value to Odoo record
                     setTimeout(() => {
-                        next.focus();
-                        next.select();
+                        inputs[idx + 1].focus();
+                        inputs[idx + 1].select();
                     }, 50);
                 }
-                // On last field: do nothing extra — Confirm button stays as the next action
             },
-            true  // capture phase: fires before Odoo's own Enter handlers
+            true // capture phase — fires before Odoo's own Enter handlers
         );
     });
 }
 
-// Watch the DOM for the barcode wizard dialog to appear (or re-render after onchange)
 const observer = new MutationObserver(() => {
     const dialog = document.querySelector(".o_dialog");
     if (!dialog) return;
-    // Only act when our specific wizard is open
     if (!dialog.querySelector('[name="x_motor_serial"]')) return;
     attachBarcodeHandlers(dialog);
 });
 
-observer.observe(document.body, { childList: true, subtree: true });
+// Defer observation until body is a real DOM Node (Odoo bundle runs before DOMContentLoaded)
+function startObserving() {
+    if (document.body) {
+        observer.observe(document.body, { childList: true, subtree: true });
+    }
+}
+
+if (document.readyState === "loading") {
+    document.addEventListener("DOMContentLoaded", startObserving);
+} else {
+    startObserving();
+}
