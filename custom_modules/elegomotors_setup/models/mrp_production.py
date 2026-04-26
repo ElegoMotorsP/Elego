@@ -142,13 +142,32 @@ class MrpProduction(models.Model):
 
     # --- Issue 8: guard the "Produce" / serial-generation action in Odoo 18 MRP ---
     def action_generate_serial(self):
-        """Block lot/serial generation until Issue to Production is validated by Amit."""
+        """Block lot/serial generation until Issue to Production is validated by Amit.
+        For EGO-S1 MOs: intercept and open barcode capture wizard first.
+        """
         for prod in self:
             if not prod.x_issue_picking_done and not self.env.su:
                 raise UserError(
                     f'{prod.name}: Materials must be issued to Production by Amit '
                     f'(Store) before production quantities can be recorded.'
                 )
+        if not self.env.context.get('skip_barcode_wizard'):
+            ego_tmpl = self.env.ref(
+                'elegomotors_setup.tmpl_ego_scooter', raise_if_not_found=False
+            )
+            self.ensure_one()
+            if ego_tmpl and self.product_id.product_tmpl_id == ego_tmpl:
+                wizard = self.env['elegomotors.barcode.capture.wizard'].create({
+                    'production_id': self.id,
+                })
+                return {
+                    'type': 'ir.actions.act_window',
+                    'name': 'Scan Component Barcodes',
+                    'res_model': 'elegomotors.barcode.capture.wizard',
+                    'res_id': wizard.id,
+                    'view_mode': 'form',
+                    'target': 'new',
+                }
         return super().action_generate_serial()
 
     def button_mark_done(self):
@@ -275,3 +294,60 @@ class MrpProduction(models.Model):
             message_type='comment',
             subtype_xmlid='mail.mt_comment',
         )
+
+
+class MrpBarcodeWizard(models.TransientModel):
+    _name = 'elegomotors.barcode.capture.wizard'
+    _description = 'Barcode Capture Wizard — EGO-S1 Component Serials'
+
+    production_id = fields.Many2one(
+        'mrp.production', string='Manufacturing Order',
+        readonly=True, required=True, ondelete='cascade',
+    )
+    x_motor_serial = fields.Char(string='Hub Motor Serial No.')
+    x_battery_serial = fields.Char(string='Battery Pack Serial No.')
+    x_controller_serial = fields.Char(string='Motor Controller Serial No.')
+
+    motor_scanned      = fields.Boolean(compute='_compute_scan_progress')
+    battery_scanned    = fields.Boolean(compute='_compute_scan_progress')
+    controller_scanned = fields.Boolean(compute='_compute_scan_progress')
+    all_scanned        = fields.Boolean(compute='_compute_scan_progress')
+
+    @api.depends('x_motor_serial', 'x_battery_serial', 'x_controller_serial')
+    def _compute_scan_progress(self):
+        for rec in self:
+            rec.motor_scanned      = bool(rec.x_motor_serial)
+            rec.battery_scanned    = bool(rec.x_battery_serial)
+            rec.controller_scanned = bool(rec.x_controller_serial)
+            rec.all_scanned = bool(
+                rec.x_motor_serial and rec.x_battery_serial and rec.x_controller_serial
+            )
+
+    @api.onchange('x_motor_serial', 'x_battery_serial', 'x_controller_serial')
+    def _onchange_barcodes(self):
+        self._compute_scan_progress()
+
+    def action_confirm(self):
+        self.ensure_one()
+        missing = []
+        if not self.x_motor_serial:
+            missing.append('Hub Motor (250W BLDC)')
+        if not self.x_battery_serial:
+            missing.append('Battery Pack (48V 20Ah)')
+        if not self.x_controller_serial:
+            missing.append('Motor Controller (BLDC 48V)')
+        if missing:
+            raise UserError(
+                'Please scan the following barcodes before confirming:\n'
+                + '\n'.join(f'  \u2022 {m}' for m in missing)
+            )
+        production = self.production_id
+        production.with_context(skip_barcode_wizard=True).action_generate_serial()
+        lot = production.lot_producing_id
+        if lot:
+            lot.write({
+                'x_motor_serial':      self.x_motor_serial,
+                'x_battery_serial':    self.x_battery_serial,
+                'x_controller_serial': self.x_controller_serial,
+            })
+        return {'type': 'ir.actions.act_window_close'}

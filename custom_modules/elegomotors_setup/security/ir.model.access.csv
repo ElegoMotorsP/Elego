@@ -3,3 +3,4 @@ access_qc_parameter_user,qc.parameter.user,model_elegomotors_qc_parameter,base.g
 access_qc_parameter_admin,qc.parameter.admin,model_elegomotors_qc_parameter,base.group_erp_manager,1,1,1,1
 access_qc_check_result_user,qc.check.result.user,model_elegomotors_qc_check_result,base.group_user,1,0,0,0
 access_qc_check_result_qc_operator,qc.check.result.qc.operator,model_elegomotors_qc_check_result,elegomotors_setup.group_qc_pass_operator,1,1,1,0
+access_mrp_barcode_wizard_all,mrp.barcode.wizard.all,model_elegomotors_barcode_capture_wizard,base.group_user,1,1,1,1

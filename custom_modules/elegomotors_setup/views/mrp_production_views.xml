@@ -122,4 +122,64 @@
             </xpath>
         </field>
     </record>
+
+    <!-- Barcode Capture Wizard — opened by action_generate_serial() for EGO-S1 MOs -->
+    <record id="view_mrp_barcode_wizard_form" model="ir.ui.view">
+        <field name="name">elegomotors.barcode.capture.wizard.form</field>
+        <field name="model">elegomotors.barcode.capture.wizard</field>
+        <field name="arch" type="xml">
+            <form string="Scan Component Barcodes — EGO-S1">
+                <sheet>
+                    <field name="motor_scanned"      invisible="1"/>
+                    <field name="battery_scanned"    invisible="1"/>
+                    <field name="controller_scanned" invisible="1"/>
+                    <field name="all_scanned"        invisible="1"/>
+
+                    <div class="alert alert-info mb-3" role="alert">
+                        <strong>Barcode Scan Required</strong> — Scan all 3 component
+                        barcodes before generating the EGO-S1 serial number.
+                    </div>
+
+                    <div class="d-flex gap-2 mb-3 flex-wrap">
+                        <span class="badge bg-success text-white fs-6"
+                              invisible="not motor_scanned">1. Hub Motor ✓</span>
+                        <span class="badge bg-secondary text-white fs-6"
+                              invisible="motor_scanned">1. Hub Motor</span>
+
+                        <span class="badge bg-success text-white fs-6"
+                              invisible="not battery_scanned">2. Battery Pack ✓</span>
+                        <span class="badge bg-secondary text-white fs-6"
+                              invisible="battery_scanned">2. Battery Pack</span>
+
+                        <span class="badge bg-success text-white fs-6"
+                              invisible="not controller_scanned">3. Controller ✓</span>
+                        <span class="badge bg-secondary text-white fs-6"
+                              invisible="controller_scanned">3. Controller</span>
+                    </div>
+
+                    <group string="Component Barcodes">
+                        <field name="x_motor_serial"
+                               placeholder="Scan Hub Motor 250W BLDC barcode…"
+                               autofocus="1"/>
+                        <field name="x_battery_serial"
+                               placeholder="Scan Li-ion Battery Pack 48V 20Ah barcode…"/>
+                        <field name="x_controller_serial"
+                               placeholder="Scan Motor Controller BLDC 48V barcode…"/>
+                    </group>
+
+                    <div class="alert alert-success mt-3 mb-0" invisible="not all_scanned">
+                        All 3 component barcodes scanned — click
+                        <strong>Generate Serial &amp; Confirm</strong> to proceed.
+                    </div>
+                </sheet>
+                <footer>
+                    <button name="action_confirm"
+                            string="Generate Serial &amp; Confirm"
+                            type="object"
+                            class="btn-primary"/>
+                    <button string="Cancel" class="btn-secondary" special="cancel"/>
+                </footer>
+            </form>
+        </field>
+    </record>
 </odoo>
