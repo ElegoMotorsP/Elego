@@ -64,6 +64,11 @@
         'views/product_template_views.xml', # x_qc_required checkbox + QC parameters list
         'views/stock_picking_qc_wizard_views.xml',  # QC routing wizard form + action
     ],
+    'assets': {
+        'web.assets_backend': [
+            'elegomotors_setup/static/src/js/barcode_beep_widget.js',
+        ],
+    },
     'installable': True,
     'application': False,
     'auto_install': False,

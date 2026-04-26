@@ -29,6 +29,11 @@ class MrpProduction(models.Model):
         help='Serial number of the produced unit (from lot_producing_id).',
     )
 
+    # Component serial numbers from the generated lot — shown on MO form after scanning
+    x_lot_motor_serial      = fields.Char(related='lot_producing_id.x_motor_serial',      string='Hub Motor S/N',    readonly=True)
+    x_lot_battery_serial    = fields.Char(related='lot_producing_id.x_battery_serial',    string='Battery Pack S/N', readonly=True)
+    x_lot_controller_serial = fields.Char(related='lot_producing_id.x_controller_serial', string='Controller S/N',   readonly=True)
+
     # --- Issue 8: gate "Produce" actions until Amit validates Issue to Production ---
     x_issue_picking_done = fields.Boolean(
         string='Issue to Production Done',
