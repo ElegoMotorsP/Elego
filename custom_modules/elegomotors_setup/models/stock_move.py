@@ -63,16 +63,16 @@ class StockMove(models.Model):
 
     @api.depends(
         'product_id',
-        'production_id.lot_producing_id.x_motor_serial',
-        'production_id.lot_producing_id.x_battery_serial',
-        'production_id.lot_producing_id.x_controller_serial',
+        'raw_material_production_id.lot_producing_id.x_motor_serial',
+        'raw_material_production_id.lot_producing_id.x_battery_serial',
+        'raw_material_production_id.lot_producing_id.x_controller_serial',
     )
     def _compute_component_serial(self):
         motor      = self.env.ref('elegomotors_setup.comp_hub_motor',    raise_if_not_found=False)
         battery    = self.env.ref('elegomotors_setup.comp_battery_pack', raise_if_not_found=False)
         controller = self.env.ref('elegomotors_setup.comp_controller',   raise_if_not_found=False)
         for move in self:
-            lot = move.production_id.lot_producing_id if move.production_id else False
+            lot = move.raw_material_production_id.lot_producing_id if move.raw_material_production_id else False
             if not lot:
                 move.x_component_serial = False
                 continue

@@ -3,14 +3,17 @@
 /**
  * ElegoMotors — Barcode Capture Wizard: auto-advance + beep
  *
- * MutationObserver watches for the barcode wizard dialog to appear, then
- * attaches keydown handlers directly to the 3 barcode input fields.
+ * Strategy: `input` event debounce (150 ms) detects when the scanner has
+ * finished typing. `keydown` Enter capture is a backup that also prevents
+ * Odoo's dialog-submit handler from firing prematurely.
  *
- * On each scan (barcode text + Enter from USB scanner):
- *   1. stopPropagation/preventDefault — blocks Odoo's dialog-save handler
- *   2. blur() current input           — commits value into Odoo's record
- *   3. 50 ms later: focus+select next input
- *   4. playBeep()                     — audible confirmation
+ * On each scan (scanner types barcode chars → Enter):
+ *   1. `input` events fire per char; debounce resets on each one.
+ *   2. 150 ms after the last char, the debounce fires → beep + focus next.
+ *   3. The `keydown` Enter listener (capture) fires on the Enter key:
+ *      - prevents form submit (ev.preventDefault)
+ *      - stops propagation so Odoo's dialog handler doesn't fire
+ *      - clears the debounce and advances immediately (no extra 150 ms wait)
  */
 
 function playBeep() {
@@ -38,39 +41,54 @@ function attachBarcodeHandlers(dialog) {
         .map((name) => dialog.querySelector(`[name="${name}"] input`))
         .filter(Boolean);
 
-    if (!inputs.length) return;
-    if (inputs[0]._elego_barcode) return; // already attached
+    if (!inputs.length || inputs[0]._elego_barcode) return;
 
     inputs.forEach((input, idx) => {
         input._elego_barcode = true;
+        let debounceTimer = null;
+
+        function advance() {
+            clearTimeout(debounceTimer);
+            debounceTimer = null;
+            if (!input.value) return;
+            playBeep();
+            if (idx < inputs.length - 1) {
+                input.blur(); // commits current value into Odoo's record
+                setTimeout(() => {
+                    inputs[idx + 1].focus();
+                    inputs[idx + 1].select();
+                }, 30);
+            }
+        }
+
+        // Primary: debounce on `input` — fires after scanner finishes typing
+        input.addEventListener("input", () => {
+            clearTimeout(debounceTimer);
+            if (!input.value) return;
+            debounceTimer = setTimeout(advance, 150);
+        });
+
+        // Backup: intercept Enter key (capture phase) to prevent form submit
+        // and advance immediately without waiting for the 150 ms debounce
         input.addEventListener(
             "keydown",
             (ev) => {
-                if (ev.key !== "Enter" || !ev.target.value) return;
-                ev.stopPropagation();
+                if (ev.key !== "Enter") return;
+                ev.stopImmediatePropagation();
                 ev.preventDefault();
-                playBeep();
-                if (idx < inputs.length - 1) {
-                    ev.target.blur(); // commit value to Odoo record
-                    setTimeout(() => {
-                        inputs[idx + 1].focus();
-                        inputs[idx + 1].select();
-                    }, 50);
-                }
+                advance();
             },
-            true // capture phase — fires before Odoo's own Enter handlers
+            true
         );
     });
 }
 
 const observer = new MutationObserver(() => {
     const dialog = document.querySelector(".o_dialog");
-    if (!dialog) return;
-    if (!dialog.querySelector('[name="x_motor_serial"]')) return;
+    if (!dialog || !dialog.querySelector('[name="x_motor_serial"]')) return;
     attachBarcodeHandlers(dialog);
 });
 
-// Defer observation until body is a real DOM Node (Odoo bundle runs before DOMContentLoaded)
 function startObserving() {
     if (document.body) {
         observer.observe(document.body, { childList: true, subtree: true });

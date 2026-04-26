@@ -42,7 +42,7 @@
         </field>
     </record>
 
-    <!-- Issue 7: Serial number + scanned component serials shown in MO form header -->
+    <!-- Issue 7: Finished serial number shown in MO form header -->
     <record id="mrp_production_form_serial_field" model="ir.ui.view">
         <field name="name">mrp.production.form.serial.field</field>
         <field name="model">mrp.production</field>
@@ -52,10 +52,6 @@
                 <field name="x_finished_serial" readonly="1"
                        invisible="not x_finished_serial"
                        string="Finished Serial No."/>
-                <!-- Component serials appear here after the barcode wizard scans them -->
-                <field name="x_lot_motor_serial"      readonly="1" invisible="not x_lot_motor_serial"/>
-                <field name="x_lot_battery_serial"    readonly="1" invisible="not x_lot_battery_serial"/>
-                <field name="x_lot_controller_serial" readonly="1" invisible="not x_lot_controller_serial"/>
             </xpath>
         </field>
     </record>
