@@ -56,6 +56,7 @@
                 <field name="x_gate_entry_state" invisible="1"/>
                 <field name="x_has_pending_replacement" invisible="1"/>
                 <field name="x_pending_replacement_qty" invisible="1"/>
+                <field name="x_is_gate_entry" invisible="1"/>
             </xpath>
 
             <!-- Validate button visibility for incoming receipts is controlled in Python
@@ -71,14 +72,9 @@
                        invisible="picking_type_code != 'incoming' or state == 'done'"/>
             </xpath>
 
-            <!-- Start QC / Approve QC action buttons before the standard Validate button -->
+            <!-- Approve QC action button before the standard Validate button.
+                 "Send to QC" removed — QC routing is now fully automatic on Validate. -->
             <xpath expr="//header/button[@name='button_validate']" position="before">
-                <button name="action_gate_entry_start_qc"
-                        string="Send to QC"
-                        type="object"
-                        class="btn-primary"
-                        invisible="picking_type_code != 'incoming' or x_gate_entry_state != 'pending_qc' or state == 'done'"
-                        groups="elegomotors_setup.group_inbound_operator"/>
                 <button name="action_gate_entry_approve_qc"
                         string="Approve QC"
                         type="object"
@@ -141,13 +137,13 @@
                             <field name="check_description" string="How to Check" readonly="1" optional="hide"/>
                             <field name="actual_value"
                                    string="Actual Value / Observation"
-                                   readonly="parent.x_gate_entry_state != 'in_qc'"/>
+                                   readonly="parent.state == 'done' or (parent.x_is_gate_entry and parent.x_gate_entry_state != 'in_qc')"/>
                             <field name="result"
                                    string="Pass / Fail"
-                                   readonly="parent.x_gate_entry_state != 'in_qc'"/>
+                                   readonly="parent.state == 'done' or (parent.x_is_gate_entry and parent.x_gate_entry_state != 'in_qc')"/>
                             <field name="notes"
                                    string="Failure Reason"
-                                   readonly="parent.x_gate_entry_state != 'in_qc'"/>
+                                   readonly="parent.state == 'done' or (parent.x_is_gate_entry and parent.x_gate_entry_state != 'in_qc')"/>
                         </list>
                     </field>
                 </page>

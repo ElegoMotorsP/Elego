@@ -32,6 +32,18 @@
         <field name="model">stock.lot</field>
         <field name="inherit_id" ref="stock.view_production_lot_form"/>
         <field name="arch" type="xml">
+            <!-- Blacklisted badge in the main header area -->
+            <xpath expr="//field[@name='name']" position="after">
+                <field name="x_blacklisted" invisible="1"/>
+                <div class="alert alert-danger mb-0 py-1 px-2"
+                     invisible="not x_blacklisted"
+                     role="alert"
+                     style="display:inline-block">
+                    <strong>BLACKLISTED — QC Fail.</strong>
+                    This serial cannot be sold or transferred to store.
+                </div>
+            </xpath>
+
             <!-- Insert the Component Traceability tab after the standard tabs -->
             <xpath expr="//notebook" position="inside">
                 <page string="Component Traceability"
@@ -44,6 +56,8 @@
                                    placeholder="Scan or enter Battery Pack serial no."/>
                             <field name="x_controller_serial"
                                    placeholder="Scan or enter Motor Controller serial no."/>
+                            <field name="x_charger_serial"
+                                   placeholder="Scan or enter Charger serial no."/>
                         </group>
                         <group>
                             <field name="x_cluster_serial"

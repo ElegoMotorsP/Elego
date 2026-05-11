@@ -145,11 +145,19 @@
                     <field name="motor_scanned"      invisible="1"/>
                     <field name="battery_scanned"    invisible="1"/>
                     <field name="controller_scanned" invisible="1"/>
+                    <field name="charger_scanned"    invisible="1"/>
                     <field name="all_scanned"        invisible="1"/>
 
-                    <div class="alert alert-info mb-3" role="alert">
-                        <strong>Barcode Scan Required</strong> — Scan all 3 component
-                        barcodes before generating the EGO-S1 serial number.
+                    <div class="d-flex justify-content-between align-items-center mb-2">
+                        <div class="alert alert-info mb-0 flex-grow-1 me-3" role="alert">
+                            <strong>Barcode Scan Required</strong> — Scan all 4 component
+                            barcodes before generating the EGO-S1 serial number.
+                        </div>
+                        <!-- Req 4: Manual/Auto scan toggle -->
+                        <div class="d-flex align-items-center gap-2 text-nowrap">
+                            <span class="text-muted small">Auto-Advance</span>
+                            <field name="x_auto_scan" widget="boolean_toggle" nolabel="1"/>
+                        </div>
                     </div>
 
                     <div class="d-flex gap-2 mb-3 flex-wrap">
@@ -167,6 +175,11 @@
                               invisible="not controller_scanned">3. Controller ✓</span>
                         <span class="badge bg-secondary text-white fs-6"
                               invisible="controller_scanned">3. Controller</span>
+
+                        <span class="badge bg-success text-white fs-6"
+                              invisible="not charger_scanned">4. Charger ✓</span>
+                        <span class="badge bg-secondary text-white fs-6"
+                              invisible="charger_scanned">4. Charger</span>
                     </div>
 
                     <group string="Component Barcodes">
@@ -177,10 +190,12 @@
                                placeholder="Scan Li-ion Battery Pack 48V 20Ah barcode…"/>
                         <field name="x_controller_serial"
                                placeholder="Scan Motor Controller BLDC 48V barcode…"/>
+                        <field name="x_charger_serial"
+                               placeholder="Scan Charger barcode…"/>
                     </group>
 
                     <div class="alert alert-success mt-3 mb-0" invisible="not all_scanned">
-                        All 3 component barcodes scanned — click
+                        All 4 component barcodes scanned — click
                         <strong>Generate Serial &amp; Confirm</strong> to proceed.
                     </div>
                 </sheet>

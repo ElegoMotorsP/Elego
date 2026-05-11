@@ -33,6 +33,7 @@ class MrpProduction(models.Model):
     x_lot_motor_serial      = fields.Char(related='lot_producing_id.x_motor_serial',      string='Hub Motor S/N',    readonly=True)
     x_lot_battery_serial    = fields.Char(related='lot_producing_id.x_battery_serial',    string='Battery Pack S/N', readonly=True)
     x_lot_controller_serial = fields.Char(related='lot_producing_id.x_controller_serial', string='Controller S/N',   readonly=True)
+    x_lot_charger_serial    = fields.Char(related='lot_producing_id.x_charger_serial',    string='Charger S/N',      readonly=True)
 
     # --- Issue 8: gate "Produce" actions until Amit validates Issue to Production ---
     x_issue_picking_done = fields.Boolean(
@@ -41,6 +42,21 @@ class MrpProduction(models.Model):
         store=False,
         help='True once all Issue-to-Production pickings are validated by Amit.',
     )
+
+    # --- Req 3: propagate MO creator as Contact on Issue-to-Production picking ---
+    def action_confirm(self):
+        result = super().action_confirm()
+        issue_type = self.env.ref(
+            'elegomotors_setup.picking_type_production_issue', raise_if_not_found=False
+        )
+        if issue_type:
+            for prod in self:
+                if prod.user_id and prod.user_id.partner_id:
+                    issue_pickings = prod.picking_ids.filtered(
+                        lambda p: p.picking_type_id == issue_type
+                    )
+                    issue_pickings.write({'partner_id': prod.user_id.partner_id.id})
+        return result
 
     @api.depends('lot_producing_id')
     def _compute_finished_serial(self):
@@ -119,13 +135,18 @@ class MrpProduction(models.Model):
         self.ensure_one()
         self._qc_state_check()
         self.qc_state = 'failed'
+        # Req 9: blacklist the finished unit's serial so it cannot be sold or re-transferred
+        if self.lot_producing_id:
+            self.lot_producing_id.x_blacklisted = True
         prashant = self.env.ref(
             'elegomotors_setup.user_ego_prashant', raise_if_not_found=False
         )
         partner_ids = [prashant.partner_id.id] if prashant else []
+        serial = self.lot_producing_id.name if self.lot_producing_id else ''
         self.message_post(
             body=Markup(
                 f"Post-production QC <b>FAILED</b> by {self.env.user.name}. "
+                f"Serial <b>{serial}</b> has been blacklisted. "
                 f"Rework required — bike remains in Production WIP. "
                 f"Click <b>Reset QC</b> when rework is complete to re-inspect."
             ),
@@ -241,6 +262,12 @@ class MrpProduction(models.Model):
         finished move — EGO-S1 is serial-tracked with color variants.
         QC was already approved via action_qc_pass(), so no further check needed.
         """
+        # Req 9: block FG transfer for blacklisted lots
+        if self.lot_producing_id and self.lot_producing_id.x_blacklisted:
+            raise UserError(
+                f'Lot {self.lot_producing_id.name} is blacklisted due to QC failure. '
+                f'Rework is required before releasing to Finished Goods.'
+            )
         picking_type = self.env.ref(
             'elegomotors_setup.picking_type_fg_to_stock', raise_if_not_found=False
         )
@@ -309,26 +336,33 @@ class MrpBarcodeWizard(models.TransientModel):
         'mrp.production', string='Manufacturing Order',
         readonly=True, required=True, ondelete='cascade',
     )
-    x_motor_serial = fields.Char(string='Hub Motor Serial No.')
-    x_battery_serial = fields.Char(string='Battery Pack Serial No.')
+    x_motor_serial      = fields.Char(string='Hub Motor Serial No.')
+    x_battery_serial    = fields.Char(string='Battery Pack Serial No.')
     x_controller_serial = fields.Char(string='Motor Controller Serial No.')
+    x_charger_serial    = fields.Char(string='Charger Serial No.')
+
+    # Req 4: auto-advance toggle (default True = scanner auto-moves to next field)
+    x_auto_scan = fields.Boolean(string='Auto-Advance on Scan', default=True)
 
     motor_scanned      = fields.Boolean(compute='_compute_scan_progress')
     battery_scanned    = fields.Boolean(compute='_compute_scan_progress')
     controller_scanned = fields.Boolean(compute='_compute_scan_progress')
+    charger_scanned    = fields.Boolean(compute='_compute_scan_progress')
     all_scanned        = fields.Boolean(compute='_compute_scan_progress')
 
-    @api.depends('x_motor_serial', 'x_battery_serial', 'x_controller_serial')
+    @api.depends('x_motor_serial', 'x_battery_serial', 'x_controller_serial', 'x_charger_serial')
     def _compute_scan_progress(self):
         for rec in self:
             rec.motor_scanned      = bool(rec.x_motor_serial)
             rec.battery_scanned    = bool(rec.x_battery_serial)
             rec.controller_scanned = bool(rec.x_controller_serial)
+            rec.charger_scanned    = bool(rec.x_charger_serial)
             rec.all_scanned = bool(
-                rec.x_motor_serial and rec.x_battery_serial and rec.x_controller_serial
+                rec.x_motor_serial and rec.x_battery_serial
+                and rec.x_controller_serial and rec.x_charger_serial
             )
 
-    @api.onchange('x_motor_serial', 'x_battery_serial', 'x_controller_serial')
+    @api.onchange('x_motor_serial', 'x_battery_serial', 'x_controller_serial', 'x_charger_serial')
     def _onchange_barcodes(self):
         self._compute_scan_progress()
 
@@ -341,10 +375,38 @@ class MrpBarcodeWizard(models.TransientModel):
             missing.append('Battery Pack (48V 20Ah)')
         if not self.x_controller_serial:
             missing.append('Motor Controller (BLDC 48V)')
+        if not self.x_charger_serial:
+            missing.append('Charger')
         if missing:
             raise UserError(
                 'Please scan the following barcodes before confirming:\n'
                 + '\n'.join(f'  \u2022 {m}' for m in missing)
+            )
+        # Req 5: each serial must be unique across all existing lots
+        current_lot_id = self.production_id.lot_producing_id.id or 0
+        Lot = self.env['stock.lot']
+        for field_name, label in [
+            ('x_motor_serial',      'Hub Motor'),
+            ('x_battery_serial',    'Battery Pack'),
+            ('x_controller_serial', 'Motor Controller'),
+            ('x_charger_serial',    'Charger'),
+        ]:
+            val = getattr(self, field_name)
+            domain = [(field_name, '=', val)]
+            if current_lot_id:
+                domain += [('id', '!=', current_lot_id)]
+            existing = Lot.search(domain, limit=1)
+            if existing:
+                raise UserError(
+                    f'{label} serial "{val}" is already registered on lot {existing.name}. '
+                    f'Please verify the barcode.'
+                )
+        scanned = [self.x_motor_serial, self.x_battery_serial,
+                   self.x_controller_serial, self.x_charger_serial]
+        if len(scanned) != len(set(scanned)):
+            raise UserError(
+                'Duplicate serial numbers detected. '
+                'Each component must have a unique serial number.'
             )
         production = self.production_id
         production.with_context(skip_barcode_wizard=True).action_generate_serial()
@@ -354,5 +416,6 @@ class MrpBarcodeWizard(models.TransientModel):
                 'x_motor_serial':      self.x_motor_serial,
                 'x_battery_serial':    self.x_battery_serial,
                 'x_controller_serial': self.x_controller_serial,
+                'x_charger_serial':    self.x_charger_serial,
             })
         return {'type': 'ir.actions.act_window_close'}

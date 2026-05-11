@@ -24,5 +24,12 @@ class StockLot(models.Model):
     x_motor_serial      = fields.Char(string='Hub Motor Serial No.',          index=True)
     x_battery_serial    = fields.Char(string='Battery Pack Serial No.',       index=True)
     x_controller_serial = fields.Char(string='Motor Controller Serial No.',   index=True)
+    x_charger_serial    = fields.Char(string='Charger Serial No.',            index=True)
     x_cluster_serial    = fields.Char(string='Instrument Cluster Serial No.', index=True)
     x_frame_serial      = fields.Char(string='Frame Assembly Serial No.',     index=True)
+    x_blacklisted       = fields.Boolean(
+        string='Blacklisted (QC Fail)',
+        default=False,
+        index=True,
+        help='Set to True when this serial/lot has failed QC. Prevents sale or store transfer.',
+    )

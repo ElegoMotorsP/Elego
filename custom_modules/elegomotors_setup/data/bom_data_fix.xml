@@ -77,6 +77,40 @@
             <field name="tracking">lot</field>
         </record>
 -->
+        <!-- ── CHARGER PRODUCT + BOM LINE ───────────────────────────────────
+             Req 6: Charger serial is now captured in the barcode wizard and
+             referenced in customer invoices. Add the charger as a BOM component.
+             Also reorder existing BOM lines so the MO component tab and invoice
+             follow: Frame(10) → Motor(20) → Controller(30) → Battery(40) → Charger(50) -->
+
+        <record id="comp_charger" model="product.product">
+            <field name="name">EV Charger 48V</field>
+            <field name="is_storable" eval="True"/>
+            <field name="purchase_ok" eval="True"/>
+            <field name="sale_ok" eval="False"/>
+            <field name="categ_id" ref="product.product_category_all"/>
+            <field name="uom_id" ref="uom.product_uom_unit"/>
+            <field name="uom_po_id" ref="uom.product_uom_unit"/>
+            <field name="standard_price">1500.0</field>
+        </record>
+
+        <!-- Fix BOM line sequences: controller before battery -->
+        <record id="elegomotors_setup.bom_line_controller" model="mrp.bom.line">
+            <field name="sequence">30</field>
+        </record>
+        <record id="elegomotors_setup.bom_line_battery" model="mrp.bom.line">
+            <field name="sequence">40</field>
+        </record>
+
+        <!-- Add charger BOM line -->
+        <record id="bom_line_charger" model="mrp.bom.line">
+            <field name="bom_id" ref="elegomotors_setup.bom_ego_s1"/>
+            <field name="product_id" ref="comp_charger"/>
+            <field name="product_qty">1.0</field>
+            <field name="product_uom_id" ref="uom.product_uom_unit"/>
+            <field name="sequence">50</field>
+        </record>
+
         <!-- ── PRODUCT VARIANT ARCHITECTURE ──────────────────────────────────
              Create the Color attribute and link it to the EGO-S1 product template.
              Actual color values (Red, Blue, White, Black, etc.) are added by

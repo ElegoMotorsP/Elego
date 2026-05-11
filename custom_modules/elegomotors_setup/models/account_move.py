@@ -35,4 +35,58 @@ class AccountMove(models.Model):
                 'Purchase viewers cannot create new accounting entries. '
                 'Ask Rajshri (Accounts) or Manohar (Admin) to create the bill.'
             )
-        return super().create(vals_list)
+        result = super().create(vals_list)
+        # Req 8: inject EGO-S1 serial numbers into customer invoice line descriptions
+        for move in result:
+            if move.move_type in ('out_invoice', 'out_refund'):
+                move._append_ego_serial_to_lines()
+        return result
+
+    def _append_ego_serial_to_lines(self):
+        """Append chassis/component serial numbers to EGO-S1 invoice lines.
+        Sequence: Chassis No. → Motor No. → Controller No. → Battery No. → Charger No.
+        """
+        ego_tmpl = self.env.ref(
+            'elegomotors_setup.tmpl_ego_scooter', raise_if_not_found=False
+        )
+        if not ego_tmpl:
+            return
+        for line in self.invoice_line_ids:
+            if not line.product_id or line.product_id.product_tmpl_id != ego_tmpl:
+                continue
+            lot = self._find_ego_lot_for_line(line)
+            if not lot:
+                continue
+            serial_block = self._format_ego_serial_block(lot)
+            if serial_block and serial_block not in (line.name or ''):
+                line.name = (line.name or '') + '\n' + serial_block
+
+    def _find_ego_lot_for_line(self, line):
+        """Trace invoice line → sale order → done outgoing deliveries → EGO-S1 lot."""
+        sale_lines = getattr(line, 'sale_line_ids', False)
+        if not sale_lines:
+            return False
+        sale = sale_lines[0].order_id
+        done_deliveries = sale.picking_ids.filtered(
+            lambda p: p.state == 'done' and p.picking_type_code == 'outgoing'
+        )
+        lots = done_deliveries.mapped('move_line_ids').filtered(
+            lambda ml: ml.product_id == line.product_id and ml.lot_id
+        ).mapped('lot_id')
+        return lots[:1] if lots else False
+
+    def _format_ego_serial_block(self, lot):
+        """Build the serial number annotation block in required sequence."""
+        parts = []
+        # Chassis = the bike's own serial number (lot.name = EGO-S1-XXXX-NNNN)
+        if lot.name:
+            parts.append(f'Chassis No.: {lot.name}')
+        if lot.x_motor_serial:
+            parts.append(f'Motor No.: {lot.x_motor_serial}')
+        if lot.x_controller_serial:
+            parts.append(f'Controller No.: {lot.x_controller_serial}')
+        if lot.x_battery_serial:
+            parts.append(f'Battery No.: {lot.x_battery_serial}')
+        if lot.x_charger_serial:
+            parts.append(f'Charger No.: {lot.x_charger_serial}')
+        return '  |  '.join(parts) if parts else ''

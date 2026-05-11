@@ -14,6 +14,9 @@
  *      - prevents form submit (ev.preventDefault)
  *      - stops propagation so Odoo's dialog handler doesn't fire
  *      - clears the debounce and advances immediately (no extra 150 ms wait)
+ *
+ * Req 4: x_auto_scan checkbox disables auto-advance when unchecked.
+ *        Enter still prevents form submit but does not move focus.
  */
 
 function playBeep() {
@@ -34,7 +37,17 @@ function playBeep() {
     }
 }
 
-const BARCODE_FIELDS = ["x_motor_serial", "x_battery_serial", "x_controller_serial"];
+const BARCODE_FIELDS = [
+    "x_motor_serial",
+    "x_battery_serial",
+    "x_controller_serial",
+    "x_charger_serial",
+];
+
+function isAutoScan(dialog) {
+    const checkbox = dialog.querySelector('[name="x_auto_scan"] input[type="checkbox"]');
+    return checkbox ? checkbox.checked : true;
+}
 
 function attachBarcodeHandlers(dialog) {
     const inputs = BARCODE_FIELDS
@@ -52,7 +65,8 @@ function attachBarcodeHandlers(dialog) {
             debounceTimer = null;
             if (!input.value) return;
             playBeep();
-            if (idx < inputs.length - 1) {
+            // Req 4: only advance focus when Auto-Advance is enabled
+            if (isAutoScan(dialog) && idx < inputs.length - 1) {
                 input.blur(); // commits current value into Odoo's record
                 setTimeout(() => {
                     inputs[idx + 1].focus();

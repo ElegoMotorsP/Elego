@@ -45,6 +45,19 @@ class StockPicking(models.Model):
         string='QC Inspection Results',
         copy=False,
     )
+    x_is_gate_entry = fields.Boolean(
+        string='Is Gate Entry',
+        compute='_compute_is_gate_entry',
+        store=False,
+    )
+
+    @api.depends('picking_type_id')
+    def _compute_is_gate_entry(self):
+        gate_ref = self.env.ref(
+            'elegomotors_setup.picking_type_gate_entry', raise_if_not_found=False
+        )
+        for picking in self:
+            picking.x_is_gate_entry = bool(gate_ref and picking.picking_type_id == gate_ref)
 
     @api.depends('x_pending_replacement_qty')
     def _compute_has_pending_replacement(self):
@@ -86,52 +99,72 @@ class StockPicking(models.Model):
                             'parameter_id': param.id,
                         })
 
-    # --- Issue 5/6: QC action methods (used by Pratik via view buttons) ---
-
-    def action_gate_entry_start_qc(self):
-        """Amit sends Gate Entry to QC.
-        If picking has non-QC products, shows the routing wizard first.
-        If all products require QC, proceeds with the normal send-to-QC flow.
+    def _auto_route_qc_items(self):
+        """Auto-route a mixed Gate Entry without a wizard popup.
+        Non-QC items go to Store (qty_done = received), QC items get a
+        backorder that is immediately placed in 'in_qc' state.
+        Mirrors the logic in stock.picking.qc.wizard.action_send_qc_and_validate_others().
         """
         self.ensure_one()
-
-        non_qc_moves = self.move_ids.filtered(lambda m: not m.product_id.x_qc_required)
-        qc_moves = self.move_ids.filtered(lambda m: m.product_id.x_qc_required)
-
-        if non_qc_moves and qc_moves:
-            # Mixed picking → show the routing wizard
-            return {
-                'type': 'ir.actions.act_window',
-                'name': 'QC Routing',
-                'res_model': 'stock.picking.qc.wizard',
-                'view_mode': 'form',
-                'target': 'new',
-                'context': {'default_picking_id': self.id},
-            }
-
-        if non_qc_moves and not qc_moves:
-            # Nothing requires QC — guide Amit to use Validate instead
-            raise UserError(
-                'None of the products in this receipt require QC inspection. '
-                'Use the Validate button to send them directly to Store.'
-            )
-
-        # All products require QC → normal send-to-QC flow
-        self.x_gate_entry_state = 'in_qc'
-        self._create_qc_check_results()
-        pratik = self.env.ref('elegomotors_setup.user_ego_pratik', raise_if_not_found=False)
-        partner_ids = [pratik.partner_id.id] if pratik and pratik.partner_id else []
-        self.message_post(
-            body=Markup(
-                f"Material sent to QC by <b>{self.env.user.name}</b>. "
-                f"<b>Quality (Pratik):</b> Please perform inward QC inspection and "
-                f"enter QC Passed quantity, then click <b>Approve QC</b>. "
-                f"Only QC-passed quantity will be accepted into Store."
-            ),
-            partner_ids=partner_ids,
-            message_type='comment',
-            subtype_xmlid='mail.mt_comment',
+        store_loc = self.env.ref('elegomotors_setup.location_ego_store')
+        MoveL = self.env['stock.move.line']
+        qc_names = ', '.join(
+            self.move_ids.filtered(lambda m: m.product_id.x_qc_required).mapped('product_id.name')
         )
+        non_qc_names = ', '.join(
+            self.move_ids.filtered(lambda m: not m.product_id.x_qc_required).mapped('product_id.name')
+        )
+        # Create explicit move lines: non-QC fully done → Store, QC done=0 → backorder
+        for move in self.move_ids:
+            move.move_line_ids.unlink()
+            qty = move.x_qty_received or move.product_uom_qty
+            if not move.product_id.x_qc_required:
+                move.x_qty_qc_passed = qty
+                move.location_dest_id = store_loc.id
+                MoveL.create({
+                    'move_id': move.id,
+                    'picking_id': self.id,
+                    'product_id': move.product_id.id,
+                    'product_uom_id': move.product_uom.id,
+                    'qty_done': qty,
+                    'location_id': move.location_id.id,
+                    'location_dest_id': store_loc.id,
+                })
+            else:
+                MoveL.create({
+                    'move_id': move.id,
+                    'picking_id': self.id,
+                    'product_id': move.product_id.id,
+                    'product_uom_id': move.product_uom.id,
+                    'qty_done': 0,
+                    'location_id': move.location_id.id,
+                    'location_dest_id': move.location_dest_id.id,
+                })
+        result = self.with_context(skip_qc_wizard=True).button_validate()
+        if isinstance(result, dict) and result.get('res_model') == 'stock.backorder.confirmation':
+            backorder_wiz = self.env['stock.backorder.confirmation'].with_context(
+                button_validate_picking_ids=self.ids,
+                skip_qc_wizard=True,
+            ).create({'pick_ids': [(4, self.id)]})
+            backorder_wiz.process()
+        backorder = self.backorder_ids[:1]
+        if backorder:
+            backorder.x_gate_entry_state = 'in_qc'
+            backorder._create_qc_check_results()
+            pratik = self.env.ref('elegomotors_setup.user_ego_pratik', raise_if_not_found=False)
+            partner_ids = [pratik.partner_id.id] if pratik and pratik.partner_id else []
+            backorder.message_post(
+                body=Markup(
+                    f"Auto-routed to QC by <b>{self.env.user.name}</b>. "
+                    f"Items requiring inspection: <b>{qc_names}</b>.<br/>"
+                    f"<b>Pratik:</b> Please inspect each item, enter QC Passed qty, "
+                    f"then click <b>Approve QC</b>."
+                ),
+                partner_ids=partner_ids,
+                message_type='comment',
+                subtype_xmlid='mail.mt_comment',
+            )
+        return False
 
     def action_gate_entry_approve_qc(self):
         """Pratik approves QC: propagates x_qty_qc_passed → qty_done, notifies Amit."""
@@ -155,6 +188,17 @@ class StockPicking(models.Model):
             message_type='comment',
             subtype_xmlid='mail.mt_comment',
         )
+
+    # --- Req 10: auto-create QC results when ANY incoming picking is confirmed ---
+
+    def action_confirm(self):
+        result = super().action_confirm()
+        for picking in self:
+            if picking.picking_type_code == 'incoming':
+                qc_moves = picking.move_ids.filtered(lambda m: m.product_id.x_qc_required)
+                if qc_moves:
+                    picking._create_qc_check_results()
+        return result
 
     # --- Issue 12: clear replacement flag when replacements arrive ---
 
@@ -209,18 +253,33 @@ class StockPicking(models.Model):
                     qc_moves = picking.move_ids.filtered(
                         lambda m: m.product_id.x_qc_required
                     )
-                    if qc_moves:
-                        # Has QC-required products → show routing wizard
-                        return {
-                            'type': 'ir.actions.act_window',
-                            'name': 'QC Routing',
-                            'res_model': 'stock.picking.qc.wizard',
-                            'view_mode': 'form',
-                            'target': 'new',
-                            'context': {'default_picking_id': picking.id},
-                        }
+                    non_qc_moves = picking.move_ids.filtered(
+                        lambda m: not m.product_id.x_qc_required
+                    )
+                    if qc_moves and non_qc_moves:
+                        # Mixed: auto-route QC to backorder → in_qc, non-QC to Store
+                        return picking._auto_route_qc_items()
+                    elif qc_moves and not non_qc_moves:
+                        # All QC-required → send straight to QC, no validation yet
+                        picking.x_gate_entry_state = 'in_qc'
+                        picking._create_qc_check_results()
+                        pratik = self.env.ref(
+                            'elegomotors_setup.user_ego_pratik', raise_if_not_found=False
+                        )
+                        partner_ids = [pratik.partner_id.id] if pratik and pratik.partner_id else []
+                        picking.message_post(
+                            body=Markup(
+                                f"Material auto-sent to QC by <b>{self.env.user.name}</b>. "
+                                f"<b>Pratik:</b> Please perform inward QC inspection, "
+                                f"enter QC Passed quantity, then click <b>Approve QC</b>."
+                            ),
+                            partner_ids=partner_ids,
+                            message_type='comment',
+                            subtype_xmlid='mail.mt_comment',
+                        )
+                        return False
                     else:
-                        # All products are non-QC → bypass gate, validate directly to Store
+                        # All non-QC → bypass gate, validate directly to Store
                         store_loc = self.env.ref('elegomotors_setup.location_ego_store')
                         for move in picking.move_ids:
                             move.location_dest_id = store_loc.id
@@ -279,6 +338,18 @@ class StockPicking(models.Model):
                 )
                 if failed_qty > 0:
                     picking.x_pending_replacement_qty = failed_qty
+
+            # --- Req 9: blacklist serial-tracked lots that failed inward QC ---
+            if gate_entry_ref and picking.picking_type_id == gate_entry_ref:
+                for move in picking.move_ids:
+                    if (
+                        move.product_id.x_qc_required
+                        and move.product_id.tracking == 'serial'
+                        and move.x_qty_qc_failed > 0
+                    ):
+                        for ml in move.move_line_ids:
+                            if ml.lot_id and not ml.qty_done:
+                                ml.lot_id.x_blacklisted = True
 
             # --- Issue 9: notify Pratik + Prashant when Amit issues to Production ---
             if issue_type_ref and picking.picking_type_id == issue_type_ref:

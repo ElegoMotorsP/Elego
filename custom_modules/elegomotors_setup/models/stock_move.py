@@ -66,11 +66,13 @@ class StockMove(models.Model):
         'raw_material_production_id.lot_producing_id.x_motor_serial',
         'raw_material_production_id.lot_producing_id.x_battery_serial',
         'raw_material_production_id.lot_producing_id.x_controller_serial',
+        'raw_material_production_id.lot_producing_id.x_charger_serial',
     )
     def _compute_component_serial(self):
         motor      = self.env.ref('elegomotors_setup.comp_hub_motor',    raise_if_not_found=False)
         battery    = self.env.ref('elegomotors_setup.comp_battery_pack', raise_if_not_found=False)
         controller = self.env.ref('elegomotors_setup.comp_controller',   raise_if_not_found=False)
+        charger    = self.env.ref('elegomotors_setup.comp_charger',      raise_if_not_found=False)
         for move in self:
             lot = move.raw_material_production_id.lot_producing_id if move.raw_material_production_id else False
             if not lot:
@@ -79,10 +81,12 @@ class StockMove(models.Model):
             pid = move.product_id.id
             if motor and pid == motor.id:
                 move.x_component_serial = lot.x_motor_serial or False
-            elif battery and pid == battery.id:
-                move.x_component_serial = lot.x_battery_serial or False
             elif controller and pid == controller.id:
                 move.x_component_serial = lot.x_controller_serial or False
+            elif battery and pid == battery.id:
+                move.x_component_serial = lot.x_battery_serial or False
+            elif charger and pid == charger.id:
+                move.x_component_serial = lot.x_charger_serial or False
             else:
                 move.x_component_serial = False
 
