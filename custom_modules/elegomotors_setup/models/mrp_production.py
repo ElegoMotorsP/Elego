@@ -35,6 +35,14 @@ class MrpProduction(models.Model):
     x_lot_controller_serial = fields.Char(related='lot_producing_id.x_controller_serial', string='Controller S/N',   readonly=True)
     x_lot_charger_serial    = fields.Char(related='lot_producing_id.x_charger_serial',    string='Charger S/N',      readonly=True)
 
+    # Req 2: Batch MO reference — links all MOs created together from the batch wizard
+    x_batch_mo_ref = fields.Char(
+        string='Batch Reference',
+        index=True,
+        copy=False,
+        help='Shared reference for all MOs created together via the Batch Production Order wizard.',
+    )
+
     # --- Issue 8: gate "Produce" actions until Amit validates Issue to Production ---
     x_issue_picking_done = fields.Boolean(
         string='Issue to Production Done',

@@ -1,6 +1,6 @@
 {
     'name': 'ElegoMotors Workflow Setup',
-    'version': '18.0.6.0.0',
+    'version': '18.0.7.0.0',
     'category': 'Manufacturing',
     'summary': 'ElegoMotors EV 2-wheeler end-to-end manufacturing workflow configuration',
     'description': """
@@ -63,6 +63,7 @@
         'views/stock_picking_views.xml',    # Gate Entry QC flow + vendor invoice + QC columns; Issues 5/6/12/13
         'views/product_template_views.xml', # x_qc_required checkbox + QC parameters list
         'views/stock_picking_qc_wizard_views.xml',  # QC routing wizard form + action
+        'views/batch_mo_wizard_views.xml',          # Batch MO creation wizard + menu entry; Req 2
     ],
     'assets': {
         'web.assets_backend': [

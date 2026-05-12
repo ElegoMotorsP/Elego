@@ -1,0 +1,98 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+    <!--
+        ElegoMotors — Batch MO Creation Wizard
+
+        Opens from: Manufacturing > Operations > Batch Production Order
+
+        Flow:
+          1. Select Product Template (e.g. EGO-S1).
+          2. One row per Color is auto-loaded from the template's Color attribute.
+          3. Set Battery Type / Side Guards per row if attributes are configured.
+          4. Uncheck "Include" for any variants you don't want to produce.
+          5. Set quantities.
+          6. Click "Create Manufacturing Orders" → one MO per included row,
+             all grouped under a shared Batch Reference (x_batch_mo_ref).
+    -->
+
+    <record id="view_batch_mo_wizard_form" model="ir.ui.view">
+        <field name="name">elegomotors.batch.mo.wizard.form</field>
+        <field name="model">elegomotors.batch.mo.wizard</field>
+        <field name="arch" type="xml">
+            <form string="Batch Production Order">
+                <sheet>
+                    <div class="alert alert-info mb-3" role="alert">
+                        <strong>Batch MO Creation</strong> — Select a product template to load
+                        available colour variants. Configure Battery Type / Side Guards for each
+                        row, set quantities, then click
+                        <strong>Create Manufacturing Orders</strong>.
+                        One MO will be created per included row, all linked by a shared
+                        Batch Reference.
+                    </div>
+
+                    <group>
+                        <field name="product_tmpl_id"
+                               options="{'no_create': True, 'no_open': True}"
+                               placeholder="Select product (e.g. EGO-S1)…"/>
+                    </group>
+
+                    <field name="line_ids" widget="one2many_list">
+                        <list editable="bottom" decoration-muted="not create_mo">
+                            <field name="sequence" widget="handle"/>
+                            <field name="create_mo" string="Include"
+                                   widget="boolean_toggle"/>
+                            <field name="color_value_id"
+                                   string="Color"
+                                   placeholder="Select colour…"
+                                   options="{'no_create': True}"/>
+                            <field name="battery_value_id"
+                                   string="Battery Type"
+                                   placeholder="48V / 60V…"
+                                   optional="show"
+                                   options="{'no_create': True}"/>
+                            <field name="side_guards_value_id"
+                                   string="Side Guards"
+                                   placeholder="Yes / No…"
+                                   optional="show"
+                                   options="{'no_create': True}"/>
+                            <field name="qty" string="Qty"/>
+                            <field name="variant_display"
+                                   string="Variant Summary"
+                                   readonly="1"/>
+                        </list>
+                    </field>
+
+                    <div class="text-muted small mt-2">
+                        Rows greyed out with <em>Include</em> unchecked will be skipped.
+                        Battery Type and Side Guards are optional — leave blank if the
+                        product has only a Color attribute.
+                    </div>
+                </sheet>
+                <footer>
+                    <button name="action_confirm"
+                            string="Create Manufacturing Orders"
+                            type="object"
+                            class="btn-primary"/>
+                    <button string="Cancel" special="cancel" class="btn-secondary"/>
+                </footer>
+            </form>
+        </field>
+    </record>
+
+    <!-- Server action that opens the wizard — attached to mrp.production -->
+    <record id="action_batch_mo_wizard" model="ir.actions.act_window">
+        <field name="name">Batch Production Order</field>
+        <field name="res_model">elegomotors.batch.mo.wizard</field>
+        <field name="view_mode">form</field>
+        <field name="target">new</field>
+    </record>
+
+    <!-- Menu entry: Manufacturing > Operations > Batch Production Order -->
+    <menuitem
+        id="menu_batch_mo_wizard"
+        name="Batch Production Order"
+        parent="mrp.menu_mrp_production_action"
+        action="action_batch_mo_wizard"
+        sequence="5"/>
+
+</odoo>

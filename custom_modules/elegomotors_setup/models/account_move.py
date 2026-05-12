@@ -76,9 +76,11 @@ class AccountMove(models.Model):
         return lots[:1] if lots else False
 
     def _format_ego_serial_block(self, lot):
-        """Build the serial number annotation block in required sequence."""
+        """Build the serial number annotation block in required sequence.
+        Line 1: Chassis | Motor | Controller | Battery | Charger
+        Line 2: Variant: Color | Battery Type | Side Guards (if product has variants)
+        """
         parts = []
-        # Chassis = the bike's own serial number (lot.name = EGO-S1-XXXX-NNNN)
         if lot.name:
             parts.append(f'Chassis No.: {lot.name}')
         if lot.x_motor_serial:
@@ -89,4 +91,18 @@ class AccountMove(models.Model):
             parts.append(f'Battery No.: {lot.x_battery_serial}')
         if lot.x_charger_serial:
             parts.append(f'Charger No.: {lot.x_charger_serial}')
-        return '  |  '.join(parts) if parts else ''
+        serial_line = '  |  '.join(parts) if parts else ''
+
+        # Append variant attributes (Color, Battery Type, Side Guards, etc.) when present
+        variant_line = ''
+        if lot.product_id and lot.product_id.product_template_attribute_value_ids:
+            variant_parts = [
+                f'{ptav.attribute_id.name}: {ptav.name}'
+                for ptav in lot.product_id.product_template_attribute_value_ids
+            ]
+            if variant_parts:
+                variant_line = 'Variant: ' + '  |  '.join(variant_parts)
+
+        if serial_line and variant_line:
+            return serial_line + '\n' + variant_line
+        return serial_line or variant_line
