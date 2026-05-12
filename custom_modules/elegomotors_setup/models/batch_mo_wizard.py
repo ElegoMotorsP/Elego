@@ -34,22 +34,9 @@ class BatchMoWizard(models.TransientModel):
         self.line_ids = [(5,)]
         if not self.product_tmpl_id:
             return
-
-        color_attr = self.env.ref(
-            'elegomotors_setup.attr_ego_color', raise_if_not_found=False
-        )
-        color_line = self.product_tmpl_id.attribute_line_ids.filtered(
-            lambda al: al.attribute_id == color_attr
-        ) if color_attr else False
-
-        if color_line:
-            self.line_ids = [
-                (0, 0, {'color_value_id': val.id, 'qty': 1, 'create_mo': True})
-                for val in color_line.value_ids
-            ]
-        else:
-            # No Color attribute on template — create a single line for the base product
-            self.line_ids = [(0, 0, {'qty': 1, 'create_mo': True})]
+        # Start with one blank row — user picks Color + Battery Type + Side Guards per row
+        # and uses "Add a line" to add more combinations
+        self.line_ids = [(0, 0, {'qty': 1, 'create_mo': True})]
 
     def action_confirm(self):
         self.ensure_one()

@@ -22,12 +22,12 @@
             <form string="Batch Production Order">
                 <sheet>
                     <div class="alert alert-info mb-3" role="alert">
-                        <strong>Batch MO Creation</strong> — Select a product template to load
-                        available colour variants. Configure Battery Type / Side Guards for each
-                        row, set quantities, then click
+                        <strong>Batch MO Creation</strong> — Select a product template, then
+                        add one row per variant you want to produce. For each row, choose
+                        <strong>Color</strong>, <strong>Battery Type</strong>, and
+                        <strong>Side Guards</strong>, set the quantity, and click
                         <strong>Create Manufacturing Orders</strong>.
-                        One MO will be created per included row, all linked by a shared
-                        Batch Reference.
+                        One MO will be created per row, all linked by a shared Batch Reference.
                     </div>
 
                     <group>

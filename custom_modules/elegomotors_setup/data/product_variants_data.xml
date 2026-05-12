@@ -10,10 +10,14 @@
         noupdate="0" function call ensures correct values + attribute lines on every upgrade.
     -->
 
-    <!-- Side Guards attribute — Color attribute already created in bom_data_fix.xml -->
+    <!-- Side Guards + Battery Type attributes — Color already created in bom_data_fix.xml -->
     <data noupdate="1">
         <record id="attr_side_guards" model="product.attribute">
             <field name="name">Side Guards</field>
+            <field name="create_variant">always</field>
+        </record>
+        <record id="attr_battery_type" model="product.attribute">
+            <field name="name">Battery Type</field>
             <field name="create_variant">always</field>
         </record>
     </data>

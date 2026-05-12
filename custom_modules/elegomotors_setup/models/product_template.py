@@ -78,6 +78,17 @@ class ProductTemplate(models.Model):
         if side_guards_attr:
             _ensure_line(side_guards_attr, ['Black Coating', 'Zinc Coating'])
 
+        # Battery Type: Lead Acid Battery 60V32Ah, Lithium Battery 60V30Ah, Lithium Battery 60V38Ah
+        battery_attr = self.env.ref(
+            'elegomotors_setup.attr_battery_type', raise_if_not_found=False
+        )
+        if battery_attr:
+            _ensure_line(battery_attr, [
+                'Lead Acid Battery 60V32Ah',
+                'Lithium Battery 60V30Ah',
+                'Lithium Battery 60V38Ah',
+            ])
+
     @api.model_create_multi
     def create(self, vals_list):
         # group_store_billing holders (Amit) can view products but not create
