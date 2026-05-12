@@ -1,0 +1,26 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+    <!--
+        ElegoMotors EGO-S1 Product Variant Attributes
+
+        Colors:      Red | Black | Grey | White
+        Side Guards: Black Coating | Zinc Coating
+
+        noupdate="1" for the attribute record itself (created once, managed via UI after).
+        noupdate="0" function call ensures correct values + attribute lines on every upgrade.
+    -->
+
+    <!-- Side Guards attribute — Color attribute already created in bom_data_fix.xml -->
+    <data noupdate="1">
+        <record id="attr_side_guards" model="product.attribute">
+            <field name="name">Side Guards</field>
+            <field name="create_variant">always</field>
+        </record>
+    </data>
+
+    <!-- Ensure attribute lines + values are applied on every upgrade -->
+    <data noupdate="0">
+        <function model="product.template" name="_ensure_ego_s1_variant_attributes"/>
+    </data>
+
+</odoo>

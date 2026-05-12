@@ -1,6 +1,6 @@
 {
     'name': 'ElegoMotors Workflow Setup',
-    'version': '18.0.7.0.0',
+    'version': '18.0.8.0.0',
     'category': 'Manufacturing',
     'summary': 'ElegoMotors EV 2-wheeler end-to-end manufacturing workflow configuration',
     'description': """
@@ -49,8 +49,9 @@
         'data/mrp_workcenters_data.xml',
         'data/company_config_data.xml',
         'data/bom_data.xml',
-        'data/bom_data_fix.xml',         # deletes routing ops (noupdate=0, runs on upgrade)
-        'data/users_data.xml',           # department users (loaded after groups)
+        'data/bom_data_fix.xml',            # deletes routing ops (noupdate=0, runs on upgrade)
+        'data/product_variants_data.xml', # EGO-S1 color + side guards attribute setup; Req 2
+        'data/users_data.xml',            # department users (loaded after groups)
         'data/quality_data.xml',         # QC control points: gate entry + FG receipt
         'data/qc_check_sheets_data.xml', # Charger + Battery QC check sheet templates
         'data/notification_rules.xml',   # automated workflow notifications

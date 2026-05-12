@@ -113,17 +113,17 @@ class BatchMoWizardLine(models.TransientModel):
     color_value_id = fields.Many2one(
         'product.attribute.value',
         string='Color',
-        domain="[('attribute_id.name', 'ilike', 'Color')]",
+        domain="[('attribute_id.name', '=', 'Color')]",
     )
     battery_value_id = fields.Many2one(
         'product.attribute.value',
         string='Battery Type',
-        domain="[('attribute_id.name', 'ilike', 'Battery')]",
+        domain="[('attribute_id.name', '=', 'Battery Type')]",
     )
     side_guards_value_id = fields.Many2one(
         'product.attribute.value',
         string='Side Guards',
-        domain="[('attribute_id.name', 'ilike', 'Side')]",
+        domain="[('attribute_id.name', '=', 'Side Guards')]",
     )
     qty = fields.Float(string='Quantity', default=1.0)
 
