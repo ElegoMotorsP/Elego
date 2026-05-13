@@ -351,6 +351,13 @@ class StockPicking(models.Model):
                             if ml.lot_id and not ml.qty_done:
                                 ml.lot_id.x_blacklisted = True
 
+            # --- Req 8: when outgoing delivery is validated for EGO-S1, push serial
+            #     numbers into any already-created invoices for the same SO.
+            #     This covers the case where the invoice was created (or proforma
+            #     printed) before the delivery was validated.
+            if picking.picking_type_code == 'outgoing':
+                picking._update_invoice_serials_on_delivery()
+
             # --- Issue 9: notify Pratik + Prashant when Amit issues to Production ---
             if issue_type_ref and picking.picking_type_id == issue_type_ref:
                 pratik = self.env.ref(
@@ -375,3 +382,34 @@ class StockPicking(models.Model):
                 )
 
         return result
+
+    def _update_invoice_serials_on_delivery(self):
+        """Push EGO-S1 serial numbers into linked SO invoices immediately after delivery.
+
+        Called when an outgoing picking is validated. Covers the case where
+        the invoice/proforma was created before the delivery was validated.
+        """
+        self.ensure_one()
+        ego_tmpl = self.env.ref(
+            'elegomotors_setup.tmpl_ego_scooter', raise_if_not_found=False
+        )
+        if not ego_tmpl:
+            return
+        ego_lots = self.move_line_ids.filtered(
+            lambda ml: ml.product_id.product_tmpl_id == ego_tmpl and ml.lot_id
+        )
+        if not ego_lots:
+            return
+        # Find the linked sale order
+        sale = getattr(self, 'sale_id', False)
+        if not sale and self.origin:
+            sale = self.env['sale.order'].search(
+                [('name', '=', self.origin)], limit=1
+            )
+        if not sale:
+            return
+        invoices = sale.invoice_ids.filtered(
+            lambda inv: inv.move_type in ('out_invoice', 'out_refund')
+        )
+        for invoice in invoices:
+            invoice.action_refresh_ego_serials()

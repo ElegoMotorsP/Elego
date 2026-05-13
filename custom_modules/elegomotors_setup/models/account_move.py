@@ -90,11 +90,12 @@ class AccountMove(models.Model):
                 line.name = (line.name or '') + '\n' + serial_block
 
     def _find_ego_lot_for_line(self, line):
-        """Trace invoice line → sale order → done outgoing deliveries → EGO-S1 lot.
+        """Trace invoice line → EGO-S1 lot via three paths.
 
-        Two-path search:
-          1. Via sale_line_ids on the invoice line (populated when invoice created from SO).
-          2. Fallback via invoice_origin → SO name search (covers edge cases).
+          1. sale_line_ids → sale order → done outgoing deliveries (standard flow).
+          2. invoice_origin → SO name search (edge-case fallback).
+          3. FG store quants — for proforma/invoices raised before delivery is done
+             (bike already in FG stock but delivery not yet validated).
         """
         product = line.product_id
 
@@ -124,6 +125,27 @@ class AccountMove(models.Model):
                     lots = _lots_from_sale(sale)
                     if lots:
                         return lots[0]
+
+        # Path 3: FG store quants — bike is in FG stock but delivery not yet done.
+        # Matches product.product exactly so the correct variant's serial is returned.
+        ego_tmpl = self.env.ref(
+            'elegomotors_setup.tmpl_ego_scooter', raise_if_not_found=False
+        )
+        fg_location = self.env.ref(
+            'elegomotors_setup.location_ego_fg', raise_if_not_found=False
+        )
+        if ego_tmpl and fg_location and product.product_tmpl_id == ego_tmpl:
+            quants = self.env['stock.quant'].search(
+                [
+                    ('product_id', '=', product.id),
+                    ('location_id', 'child_of', fg_location.id),
+                    ('lot_id', '!=', False),
+                    ('quantity', '>', 0),
+                ],
+                limit=1,
+            )
+            if quants:
+                return quants.lot_id
 
         return False
 
