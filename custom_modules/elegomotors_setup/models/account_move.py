@@ -6,9 +6,6 @@ from odoo.exceptions import AccessError
 class AccountMove(models.Model):
     _inherit = 'account.move'
 
-    # True only for users in group_store_billing (Amit).
-    # @api.depends_context('uid') ensures each user gets their own value —
-    # the field is non-stored so it never persists or breaks other users' views.
     store_billing_readonly = fields.Boolean(
         compute='_compute_store_billing_readonly',
     )
@@ -23,8 +20,6 @@ class AccountMove(models.Model):
 
     @api.model_create_multi
     def create(self, vals_list):
-        # group_purchase_vendor_bill_viewer holders (Prashant) can read vendor
-        # bills but must not create new accounting entries.
         if (
             not self.env.su
             and self.env.user.has_group(
@@ -36,15 +31,46 @@ class AccountMove(models.Model):
                 'Ask Rajshri (Accounts) or Manohar (Admin) to create the bill.'
             )
         result = super().create(vals_list)
-        # Req 8: inject EGO-S1 serial numbers into customer invoice line descriptions
         for move in result:
             if move.move_type in ('out_invoice', 'out_refund'):
                 move._append_ego_serial_to_lines()
         return result
 
+    def action_post(self):
+        """Also inject serials at confirm time — covers invoices created before delivery."""
+        result = super().action_post()
+        for move in self:
+            if move.move_type in ('out_invoice', 'out_refund'):
+                move._append_ego_serial_to_lines()
+        return result
+
+    def action_refresh_ego_serials(self):
+        """Manual refresh button — re-injects serial block on already-posted invoices."""
+        for move in self:
+            if move.move_type not in ('out_invoice', 'out_refund'):
+                continue
+            ego_tmpl = self.env.ref(
+                'elegomotors_setup.tmpl_ego_scooter', raise_if_not_found=False
+            )
+            if not ego_tmpl:
+                continue
+            for line in move.invoice_line_ids:
+                if not line.product_id or line.product_id.product_tmpl_id != ego_tmpl:
+                    continue
+                lot = move._find_ego_lot_for_line(line)
+                if not lot:
+                    continue
+                serial_block = move._format_ego_serial_block(lot)
+                if not serial_block:
+                    continue
+                # Strip any existing serial block and re-append fresh
+                base_name = (line.name or '').split('\nChassis No.:')[0].split('\nVariant:')[0].rstrip()
+                line.name = base_name + '\n' + serial_block
+
     def _append_ego_serial_to_lines(self):
         """Append chassis/component serial numbers to EGO-S1 invoice lines.
-        Sequence: Chassis No. → Motor No. → Controller No. → Battery No. → Charger No.
+        Sequence: Chassis → Motor → Controller → Battery → Charger, then Variant line.
+        Idempotent: skips lines that already have the serial block.
         """
         ego_tmpl = self.env.ref(
             'elegomotors_setup.tmpl_ego_scooter', raise_if_not_found=False
@@ -54,31 +80,57 @@ class AccountMove(models.Model):
         for line in self.invoice_line_ids:
             if not line.product_id or line.product_id.product_tmpl_id != ego_tmpl:
                 continue
+            if 'Chassis No.:' in (line.name or ''):
+                continue  # already injected
             lot = self._find_ego_lot_for_line(line)
             if not lot:
                 continue
             serial_block = self._format_ego_serial_block(lot)
-            if serial_block and serial_block not in (line.name or ''):
+            if serial_block:
                 line.name = (line.name or '') + '\n' + serial_block
 
     def _find_ego_lot_for_line(self, line):
-        """Trace invoice line → sale order → done outgoing deliveries → EGO-S1 lot."""
+        """Trace invoice line → sale order → done outgoing deliveries → EGO-S1 lot.
+
+        Two-path search:
+          1. Via sale_line_ids on the invoice line (populated when invoice created from SO).
+          2. Fallback via invoice_origin → SO name search (covers edge cases).
+        """
+        product = line.product_id
+
+        def _lots_from_sale(sale):
+            done_deliveries = sale.picking_ids.filtered(
+                lambda p: p.state == 'done' and p.picking_type_code == 'outgoing'
+            )
+            return done_deliveries.mapped('move_line_ids').filtered(
+                lambda ml: ml.product_id == product and ml.lot_id
+            ).mapped('lot_id')
+
+        # Path 1: sale_line_ids (standard)
         sale_lines = getattr(line, 'sale_line_ids', False)
-        if not sale_lines:
-            return False
-        sale = sale_lines[0].order_id
-        done_deliveries = sale.picking_ids.filtered(
-            lambda p: p.state == 'done' and p.picking_type_code == 'outgoing'
-        )
-        lots = done_deliveries.mapped('move_line_ids').filtered(
-            lambda ml: ml.product_id == line.product_id and ml.lot_id
-        ).mapped('lot_id')
-        return lots[:1] if lots else False
+        if sale_lines:
+            lots = _lots_from_sale(sale_lines[0].order_id)
+            if lots:
+                return lots[0]
+
+        # Path 2: invoice origin → SO name
+        origin = self.invoice_origin or ''
+        if origin:
+            for so_name in [s.strip() for s in origin.split(',')]:
+                sale = self.env['sale.order'].search(
+                    [('name', '=', so_name)], limit=1
+                )
+                if sale:
+                    lots = _lots_from_sale(sale)
+                    if lots:
+                        return lots[0]
+
+        return False
 
     def _format_ego_serial_block(self, lot):
-        """Build the serial number annotation block in required sequence.
-        Line 1: Chassis | Motor | Controller | Battery | Charger
-        Line 2: Variant: Color | Battery Type | Side Guards (if product has variants)
+        """Build the serial annotation block:
+        Line 1 — Chassis No. | Motor No. | Controller No. | Battery No. | Charger No.
+        Line 2 — Variant: Color | Side Guards | Battery Type
         """
         parts = []
         if lot.name:
@@ -93,7 +145,6 @@ class AccountMove(models.Model):
             parts.append(f'Charger No.: {lot.x_charger_serial}')
         serial_line = '  |  '.join(parts) if parts else ''
 
-        # Append variant attributes (Color, Battery Type, Side Guards, etc.) when present
         variant_line = ''
         if lot.product_id and lot.product_id.product_template_attribute_value_ids:
             variant_parts = [

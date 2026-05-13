@@ -40,7 +40,8 @@ class ProductTemplate(models.Model):
         AttrLine = self.env['product.template.attribute.line']
 
         def _ensure_line(attribute, value_names):
-            """Ensure attribute line exists on template with all required values."""
+            """Ensure attribute line exists with EXACTLY the required values.
+            Uses (6, 0, ids) to replace the full set — removes old/incorrect values."""
             value_ids = []
             for name in value_names:
                 val = AttrValue.search(
@@ -54,9 +55,8 @@ class ProductTemplate(models.Model):
                 lambda l: l.attribute_id == attribute
             )
             if line:
-                missing = set(value_ids) - set(line.value_ids.ids)
-                if missing:
-                    line.write({'value_ids': [(4, vid) for vid in missing]})
+                # Replace entire value set — removes incorrect/extra values
+                line.write({'value_ids': [(6, 0, value_ids)]})
             else:
                 AttrLine.create({
                     'product_tmpl_id': ego_tmpl.id,

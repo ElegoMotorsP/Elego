@@ -27,6 +27,17 @@
         <field name="inherit_id" ref="account.view_move_form"/>
         <field name="arch" type="xml">
 
+            <!-- Refresh Serial Numbers button — for already-posted invoices where
+                 serials weren't injected at create/confirm time (e.g. invoice created
+                 before delivery was validated). Only visible on customer invoices. -->
+            <xpath expr="//header" position="inside">
+                <button name="action_refresh_ego_serials"
+                        string="Refresh Serial Numbers"
+                        type="object"
+                        invisible="move_type not in ('out_invoice', 'out_refund')"
+                        class="btn-secondary"/>
+            </xpath>
+
             <!-- Inject the readonly indicator into the parent form.
                  The expression is non-constant so Odoo 17 does not flag it as
                  "always invisible"; the field is still hidden from the UI but
