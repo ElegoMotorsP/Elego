@@ -1,0 +1,411 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+
+    <!-- ════════════════════════════════════════════════════════════════════
+         ElegoMotors Custom TAX INVOICE / PROFORMA INVOICE Report
+         Matches the printed invoice format used by Elego Motors Pvt Ltd.
+         Columns: Sr.No. | Description | Vehicle Details | GST% | HSN | Qty | Rate | Disc% | Total
+         Vehicle Details column: parsed from line.name (Chassis/Motor/Controller/Battery/Charger serials + Variant)
+    ════════════════════════════════════════════════════════════════════ -->
+
+    <!-- ── Outer wrapper: iterates over selected account.move records ── -->
+    <template id="report_elegomotors_invoice">
+        <t t-call="web.html_container">
+            <t t-foreach="docs" t-as="o">
+                <div class="article" style="padding:10mm 12mm; font-family:Arial,sans-serif; font-size:9pt; color:#111;">
+                    <t t-call="elegomotors_setup.report_elegomotors_invoice_document"
+                       t-lang="o.partner_id.lang"/>
+                </div>
+            </t>
+        </t>
+    </template>
+
+    <!-- ── Main invoice document body ── -->
+    <template id="report_elegomotors_invoice_document">
+
+        <!-- ── 1. Company header ── -->
+        <table style="width:100%; border-collapse:collapse; margin-bottom:0;">
+            <tr>
+                <!-- Logo -->
+                <td style="width:14%; vertical-align:middle; padding:4px;">
+                    <t t-if="o.company_id.logo">
+                        <img t-att-src="image_data_uri(o.company_id.logo)"
+                             style="max-height:65px; max-width:110px;"/>
+                    </t>
+                </td>
+                <!-- Company name + address -->
+                <td style="width:58%; text-align:center; vertical-align:middle; padding:4px;">
+                    <div style="font-size:14pt; font-weight:bold;"><t t-esc="o.company_id.name"/></div>
+                    <div style="font-size:8pt; margin-top:3px;">
+                        <t t-set="co_addr" t-value="o.company_id.partner_id"/>
+                        <t t-esc="co_addr.street or ''"/>
+                        <t t-if="co_addr.city">, <t t-esc="co_addr.city"/></t>
+                        <t t-if="co_addr.zip"> - <t t-esc="co_addr.zip"/></t>
+                        <br/>
+                        <t t-if="co_addr.phone">Phone: <t t-esc="co_addr.phone"/></t>
+                        <t t-if="co_addr.email">  Email: <t t-esc="co_addr.email"/></t>
+                        <t t-if="o.company_id.website">  WebSite: <t t-esc="o.company_id.website"/></t>
+                    </div>
+                </td>
+                <!-- Invoice type title -->
+                <td style="width:28%; text-align:right; vertical-align:top; padding:4px;">
+                    <div style="font-size:10pt; font-weight:bold;">
+                        <t t-if="env.context.get('proforma')">PROFORMA INVOICE</t>
+                        <t t-else="">TAX INVOICE</t>
+                    </div>
+                    <t t-if="not env.context.get('proforma')">
+                        <div style="font-size:8pt; color:#555;">Duplicate Copy</div>
+                    </t>
+                </td>
+            </tr>
+        </table>
+
+        <!-- ── GST + PAN ── -->
+        <t t-set="co_gst" t-value="o.company_id.vat or ''"/>
+        <t t-set="co_pan" t-value="co_gst[2:12] if co_gst and len(co_gst) >= 12 else co_gst"/>
+        <table style="width:100%; border:1px solid #999; border-collapse:collapse; font-size:8.5pt; margin-bottom:0;">
+            <tr>
+                <td style="padding:3px 6px; border-right:1px solid #999;">
+                    <strong>GST No : </strong><t t-esc="co_gst"/>
+                </td>
+                <td style="padding:3px 6px; text-align:right;">
+                    <strong>PAN : </strong><t t-esc="co_pan"/>
+                </td>
+            </tr>
+        </table>
+
+        <!-- ── 2. Invoice meta + transport details ── -->
+        <table style="width:100%; border:1px solid #999; border-top:0; border-collapse:collapse; font-size:8.5pt; margin-bottom:0;">
+            <tr>
+                <!-- Left: Invoice details -->
+                <td style="width:50%; vertical-align:top; padding:4px 8px; border-right:1px solid #999;">
+                    <table style="width:100%; border-collapse:collapse;">
+                        <tr>
+                            <td style="width:48%; padding:1px 0;"><strong>Invoice No.</strong></td>
+                            <td style="padding:1px 0;">: <strong><t t-esc="o.name"/></strong></td>
+                        </tr>
+                        <tr>
+                            <td style="padding:1px 0;"><strong>Invoice Date</strong></td>
+                            <td style="padding:1px 0;">: <t t-esc="o.invoice_date.strftime('%d-%b-%Y') if o.invoice_date else ''"/></td>
+                        </tr>
+                        <tr>
+                            <td style="padding:1px 0;"><strong>Cust PO No. &amp; Date</strong></td>
+                            <td style="padding:1px 0;">: <t t-esc="o.payment_reference or ''"/></td>
+                        </tr>
+                        <tr>
+                            <td style="padding:1px 0;"><strong>SO No.</strong></td>
+                            <td style="padding:1px 0;">: <t t-esc="o.invoice_origin or ''"/></td>
+                        </tr>
+                        <tr>
+                            <td style="padding:1px 0;"><strong>State</strong></td>
+                            <td style="padding:1px 0;">: <t t-esc="o.company_id.state_id.name or ''"/></td>
+                        </tr>
+                        <tr>
+                            <td style="padding:1px 0;"><strong>State Code</strong></td>
+                            <td style="padding:1px 0;">: <t t-esc="getattr(o.company_id.state_id, 'l10n_in_tin', '') or ''"/></td>
+                        </tr>
+                    </table>
+                </td>
+                <!-- Right: Transport details -->
+                <td style="width:50%; vertical-align:top; padding:4px 8px;">
+                    <table style="width:100%; border-collapse:collapse;">
+                        <tr>
+                            <td style="width:55%; padding:1px 0;"><strong>Transportation Mode</strong></td>
+                            <td style="padding:1px 0;">: <t t-esc="getattr(o, 'l10n_in_shipping_via', '') or 'By Road'"/></td>
+                        </tr>
+                        <tr>
+                            <td style="padding:1px 0;"><strong>Transportation Name</strong></td>
+                            <td style="padding:1px 0;">:</td>
+                        </tr>
+                        <tr>
+                            <td style="padding:1px 0;"><strong>LR No. &amp; Date</strong></td>
+                            <td style="padding:1px 0;">:</td>
+                        </tr>
+                        <tr>
+                            <td style="padding:1px 0;"><strong>Vehicle Number</strong></td>
+                            <td style="padding:1px 0;">: <t t-esc="getattr(o, 'l10n_in_vehicle_no', '') or ''"/></td>
+                        </tr>
+                        <tr>
+                            <td style="padding:1px 0;"><strong>Date of Supply</strong></td>
+                            <td style="padding:1px 0;">:
+                                <t t-if="o.delivery_date">
+                                    <t t-esc="o.delivery_date.strftime('%d-%b-%Y')"/>
+                                </t>
+                                <t t-elif="o.invoice_date">
+                                    <t t-esc="o.invoice_date.strftime('%d-%b-%Y')"/>
+                                </t>
+                            </td>
+                        </tr>
+                        <tr>
+                            <td style="padding:1px 0;"><strong>Place of Supply</strong></td>
+                            <td style="padding:1px 0;">:
+                                <t t-if="o.l10n_in_state_id">
+                                    <t t-esc="o.l10n_in_state_id.name"/>
+                                </t>
+                                <t t-else="">
+                                    <t t-esc="o.partner_id.state_id.name or ''"/>
+                                </t>
+                            </td>
+                        </tr>
+                        <tr>
+                            <td style="padding:1px 0;"><strong>E-Way No. &amp; Date</strong></td>
+                            <td style="padding:1px 0;">: <t t-esc="getattr(o, 'l10n_in_eway_bill_number', '') or ''"/></td>
+                        </tr>
+                    </table>
+                </td>
+            </tr>
+        </table>
+
+        <!-- ── 3. Billing / Shipping address ── -->
+        <table style="width:100%; border:1px solid #999; border-top:0; border-collapse:collapse; font-size:8.5pt; margin-bottom:0;">
+            <tr>
+                <th style="width:50%; text-align:center; padding:3px; background:#f5f5f5; border-right:1px solid #999; border-bottom:1px solid #999;">
+                    Details of Receiver | Billed to:
+                </th>
+                <th style="width:50%; text-align:center; padding:3px; background:#f5f5f5; border-bottom:1px solid #999;">
+                    Details of Consignee | Shipped to:
+                </th>
+            </tr>
+            <tr>
+                <!-- Billing address -->
+                <td style="vertical-align:top; padding:4px 8px; border-right:1px solid #999;">
+                    <t t-set="bp" t-value="o.partner_id"/>
+                    <t t-set="bp_pan" t-value="(bp.vat or '')[2:12] if bp.vat and len(bp.vat) >= 12 else ''"/>
+                    <table style="width:100%; border-collapse:collapse;">
+                        <tr><td style="width:35%; padding:1px 0;"><strong>Name</strong></td>
+                            <td style="padding:1px 0;">: <t t-esc="bp.name or ''"/></td></tr>
+                        <tr><td style="padding:1px 0; vertical-align:top;"><strong>Address</strong></td>
+                            <td style="padding:1px 0;">:
+                                <t t-esc="bp.street or ''"/>
+                                <t t-if="bp.street2">, <t t-esc="bp.street2"/></t>
+                                <t t-if="bp.city">, <t t-esc="bp.city"/></t>
+                                <t t-if="bp.zip"> - <t t-esc="bp.zip"/></t>
+                            </td></tr>
+                        <tr><td style="padding:1px 0;"><strong>GST No</strong></td>
+                            <td style="padding:1px 0;">: <t t-esc="bp.vat or ''"/></td></tr>
+                        <tr><td style="padding:1px 0;"><strong>PAN No.</strong></td>
+                            <td style="padding:1px 0;">: <t t-esc="bp_pan"/></td></tr>
+                        <tr><td style="padding:1px 0;"><strong>State</strong></td>
+                            <td style="padding:1px 0;">: <t t-esc="bp.state_id.name or ''"/></td></tr>
+                        <tr><td style="padding:1px 0;"><strong>State Code</strong></td>
+                            <td style="padding:1px 0;">: <t t-esc="getattr(bp.state_id, 'l10n_in_tin', '') or ''"/></td></tr>
+                    </table>
+                </td>
+                <!-- Shipping address -->
+                <td style="vertical-align:top; padding:4px 8px;">
+                    <t t-set="sp" t-value="o.partner_shipping_id if o.partner_shipping_id else o.partner_id"/>
+                    <t t-set="sp_pan" t-value="(sp.vat or '')[2:12] if sp.vat and len(sp.vat) >= 12 else ''"/>
+                    <table style="width:100%; border-collapse:collapse;">
+                        <tr><td style="width:40%; padding:1px 0;"><strong>Name</strong></td>
+                            <td style="padding:1px 0;">: <t t-esc="sp.name or ''"/></td></tr>
+                        <tr><td style="padding:1px 0; vertical-align:top;"><strong>Address</strong></td>
+                            <td style="padding:1px 0;">:
+                                <t t-esc="sp.street or ''"/>
+                                <t t-if="sp.street2">, <t t-esc="sp.street2"/></t>
+                                <t t-if="sp.city">, <t t-esc="sp.city"/></t>
+                                <t t-if="sp.zip"> - <t t-esc="sp.zip"/></t>
+                            </td></tr>
+                        <tr><td style="padding:1px 0;"><strong>GST No</strong></td>
+                            <td style="padding:1px 0;">: <t t-esc="sp.vat or ''"/></td></tr>
+                        <tr><td style="padding:1px 0;"><strong>PAN No.</strong></td>
+                            <td style="padding:1px 0;">: <t t-esc="sp_pan"/></td></tr>
+                        <tr><td style="padding:1px 0;"><strong>State</strong></td>
+                            <td style="padding:1px 0;">: <t t-esc="sp.state_id.name or ''"/></td></tr>
+                        <tr><td style="padding:1px 0;"><strong>State</strong></td>
+                            <td style="padding:1px 0;">: <t t-esc="getattr(sp.state_id, 'l10n_in_tin', '') or ''"/></td></tr>
+                        <tr t-if="sp != bp and sp.child_ids">
+                            <td style="padding:1px 0;"><strong>Contact Person</strong></td>
+                            <td style="padding:1px 0;">: <t t-esc="sp.child_ids[0].name or ''"/></td>
+                        </tr>
+                    </table>
+                </td>
+            </tr>
+        </table>
+
+        <!-- PAN line -->
+        <div style="font-size:8.5pt; margin:3px 0 5px 0;">
+            <strong>PAN : </strong><t t-esc="co_pan"/>
+        </div>
+
+        <!-- ── 4. Line items table ── -->
+        <table style="width:100%; border:1px solid #999; border-collapse:collapse; font-size:8pt;">
+            <thead>
+                <tr style="background:#f0f0f0; text-align:center; vertical-align:middle; font-weight:bold;">
+                    <th style="border:1px solid #999; padding:3px; width:4%;">Sr.<br/>No.</th>
+                    <th style="border:1px solid #999; padding:3px; width:24%;">Description Of Goods</th>
+                    <th style="border:1px solid #999; padding:3px; width:22%;">Vehicle Details</th>
+                    <th style="border:1px solid #999; padding:3px; width:6%;">GST<br/>(%)</th>
+                    <th style="border:1px solid #999; padding:3px; width:8%;">HSN<br/>Code</th>
+                    <th style="border:1px solid #999; padding:3px; width:6%;">Qty</th>
+                    <th style="border:1px solid #999; padding:3px; width:10%;">Rate</th>
+                    <th style="border:1px solid #999; padding:3px; width:6%;">Disc<br/>(%)</th>
+                    <th style="border:1px solid #999; padding:3px; width:14%; text-align:right;">Total Amount<br/>(Rs.)</th>
+                </tr>
+            </thead>
+            <tbody>
+                <t t-set="sr" t-value="0"/>
+                <t t-foreach="o.invoice_line_ids" t-as="line">
+
+                    <!-- Section header -->
+                    <t t-if="line.display_type == 'line_section'">
+                        <tr>
+                            <td colspan="9" style="border:1px solid #999; padding:3px 6px; font-weight:bold; background:#fafafa;">
+                                <t t-esc="line.name"/>
+                            </td>
+                        </tr>
+                    </t>
+
+                    <!-- Note line -->
+                    <t t-elif="line.display_type == 'line_note'">
+                        <tr>
+                            <td colspan="9" style="border:1px solid #999; padding:3px 6px; font-style:italic;">
+                                <t t-esc="line.name"/>
+                            </td>
+                        </tr>
+                    </t>
+
+                    <!-- Product line -->
+                    <t t-else="">
+                        <t t-set="sr" t-value="sr + 1"/>
+
+                        <!-- Split description from vehicle serial block -->
+                        <t t-set="lname" t-value="line.name or ''"/>
+                        <t t-set="parts" t-value="lname.split('Chassis No.:', 1)"/>
+                        <t t-set="line_desc" t-value="parts[0].strip()"/>
+                        <t t-set="line_vehicle" t-value="('Chassis No.: ' + parts[1]).strip() if len(parts) > 1 else ''"/>
+
+                        <!-- Also split Variant line for separate display -->
+                        <t t-set="vparts" t-value="line_vehicle.split(chr(10) + 'Variant:', 1) if chr(10) + 'Variant:' in line_vehicle else line_vehicle.split('\nVariant:', 1)"/>
+                        <t t-set="serials_only" t-value="vparts[0].strip()"/>
+                        <t t-set="variant_line" t-value="('Variant: ' + vparts[1]).strip() if len(vparts) > 1 else ''"/>
+
+                        <!-- GST % total on line -->
+                        <t t-set="gst_pct" t-value="int(round(sum(tax.amount for tax in line.tax_ids)))"/>
+
+                        <!-- HSN code -->
+                        <t t-set="hsn" t-value="getattr(line, 'l10n_in_hsn_code', '') or getattr(line.product_id, 'l10n_in_hsn_code', '') or ''"/>
+
+                        <tr style="vertical-align:top;">
+                            <td style="border:1px solid #999; padding:3px; text-align:center;"><t t-esc="sr"/></td>
+                            <td style="border:1px solid #999; padding:3px;"><t t-esc="line_desc"/></td>
+                            <td style="border:1px solid #999; padding:3px; font-size:7.5pt; white-space:pre-line;">
+                                <t t-esc="serials_only"/>
+                                <t t-if="variant_line">
+                                    <br/><em><t t-esc="variant_line"/></em>
+                                </t>
+                            </td>
+                            <td style="border:1px solid #999; padding:3px; text-align:center;"><t t-esc="gst_pct"/></td>
+                            <td style="border:1px solid #999; padding:3px; text-align:center;"><t t-esc="hsn"/></td>
+                            <td style="border:1px solid #999; padding:3px; text-align:center;"><t t-esc="'%.2f' % line.quantity"/></td>
+                            <td style="border:1px solid #999; padding:3px; text-align:right;"><t t-esc="'%.2f' % line.price_unit"/></td>
+                            <td style="border:1px solid #999; padding:3px; text-align:center;"><t t-esc="'%.2f' % (line.discount or 0.0)"/></td>
+                            <td style="border:1px solid #999; padding:3px; text-align:right;"><t t-esc="'%.2f' % line.price_subtotal"/></td>
+                        </tr>
+                    </t>
+                </t>
+            </tbody>
+        </table>
+
+        <!-- ── 5. Totals ── -->
+        <table style="width:100%; border-collapse:collapse; margin-top:6px; font-size:8.5pt;">
+            <tr>
+                <!-- Amount in words -->
+                <td style="width:56%; vertical-align:top; border:1px solid #999; padding:6px;">
+                    <strong>Gross Value : </strong>
+                    <t t-set="amt_text" t-value="o.currency_id.amount_to_text(o.amount_total) if hasattr(o.currency_id, 'amount_to_text') else ''"/>
+                    <t t-esc="amt_text"/>
+                </td>
+                <!-- Tax breakdown -->
+                <td style="width:44%; vertical-align:top; padding:0;">
+                    <table style="width:100%; border-collapse:collapse;">
+                        <tr>
+                            <td style="border:1px solid #999; padding:3px 8px; border-bottom:0;"><strong>Net Value :</strong></td>
+                            <td style="border:1px solid #999; padding:3px 8px; border-bottom:0; text-align:right;">
+                                <t t-esc="'%.2f' % o.amount_untaxed"/>
+                            </td>
+                        </tr>
+                        <t t-foreach="o.amount_by_group" t-as="tg">
+                            <tr>
+                                <td style="border:1px solid #999; padding:3px 8px; border-bottom:0;">
+                                    <t t-esc="tg[0]"/>
+                                </td>
+                                <td style="border:1px solid #999; padding:3px 8px; border-bottom:0; text-align:right;">
+                                    <t t-esc="'%.2f' % tg[1]"/>
+                                </td>
+                            </tr>
+                        </t>
+                        <!-- Round Off -->
+                        <t t-set="computed_total" t-value="o.amount_untaxed + sum(tg[1] for tg in o.amount_by_group)"/>
+                        <t t-set="round_off" t-value="o.amount_total - computed_total"/>
+                        <t t-if="abs(round_off) > 0.005">
+                            <tr>
+                                <td style="border:1px solid #999; padding:3px 8px; border-bottom:0;">Round Off</td>
+                                <td style="border:1px solid #999; padding:3px 8px; border-bottom:0; text-align:right;">
+                                    <t t-esc="'%.2f' % round_off"/>
+                                </td>
+                            </tr>
+                        </t>
+                        <tr style="font-weight:bold; background:#f0f0f0;">
+                            <td style="border:1px solid #999; padding:3px 8px;"><strong>Grand Total :</strong></td>
+                            <td style="border:1px solid #999; padding:3px 8px; text-align:right;">
+                                <strong><t t-esc="'%.2f' % o.amount_total"/></strong>
+                            </td>
+                        </tr>
+                    </table>
+                </td>
+            </tr>
+        </table>
+
+        <!-- ── 6. Terms + Signature ── -->
+        <table style="width:100%; border:1px solid #999; border-collapse:collapse; margin-top:8px; font-size:8pt;">
+            <tr>
+                <th style="text-align:center; padding:3px; background:#f5f5f5; border-right:1px solid #999; width:10%;">Sr.No.</th>
+                <th style="text-align:center; padding:3px; background:#f5f5f5; border-right:1px solid #999; width:30%;">Term</th>
+                <th style="text-align:center; padding:3px; background:#f5f5f5; width:60%;">Condition</th>
+            </tr>
+            <tr>
+                <td colspan="3" style="height:50px; vertical-align:top; padding:4px 8px;">
+                    <t t-if="o.narration">
+                        <div t-out="o.narration"/>
+                    </t>
+                </td>
+            </tr>
+        </table>
+
+        <table style="width:100%; border-collapse:collapse; margin-top:0; font-size:8pt;">
+            <tr>
+                <td style="width:60%; border:1px solid #999; border-top:0; padding:6px; vertical-align:top;">
+                    Certified that the particulars given are true &amp; correct and the amount indicated
+                    represents the price actually charged and that there is no flow of
+                    addition.consideration directly or indirectly from the buyer.
+                    Subject to DAUND Jurisdiction Only
+                </td>
+                <td style="width:40%; border:1px solid #999; border-top:0; border-left:0; padding:6px; text-align:center; vertical-align:top;">
+                    <strong>For, <t t-esc="o.company_id.name"/></strong>
+                    <br/><br/><br/>
+                    <strong>Authorised Signatory</strong>
+                </td>
+            </tr>
+        </table>
+
+        <!-- Registered address footer -->
+        <div style="font-size:7.5pt; text-align:center; margin-top:4px; color:#555;">
+            Reg.Office Address:- <t t-esc="co_addr.street or ''"/>,
+            <t t-esc="co_addr.city or ''"/>
+            <t t-if="co_addr.zip"> - <t t-esc="co_addr.zip"/></t>
+        </div>
+
+    </template>
+
+    <!-- ── Report action — appears in Print menu on customer invoices ── -->
+    <record id="action_elegomotors_tax_invoice" model="ir.actions.report">
+        <field name="name">ElegoMotors Tax Invoice</field>
+        <field name="model">account.move</field>
+        <field name="report_type">qweb-pdf</field>
+        <field name="report_name">elegomotors_setup.report_elegomotors_invoice</field>
+        <field name="print_report_name">'Tax Invoice - ' + (object.name or '')</field>
+        <field name="binding_model_id" ref="account.model_account_move"/>
+        <field name="binding_type">report</field>
+    </record>
+
+</odoo>

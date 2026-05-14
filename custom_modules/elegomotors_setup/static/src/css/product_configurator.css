@@ -1,48 +1,36 @@
 /* ElegoMotors — Product Configurator: horizontal attribute values
-   Targets the "Configure your product" modal to display Color / Side Guards /
-   Battery Type radio options in a horizontal wrap instead of a vertical list. */
+   Targets "Configure your product" dialog so Color/Side Guards/Battery Type
+   options wrap horizontally instead of stacking vertically.
+   Uses CSS :has() (Chrome 105+, Firefox 121+, Safari 15.4+). */
 
-/* Odoo 18 OWL product configurator — attribute value containers */
-.o_dialog .o_product_configurator_attr_values,
-.modal .o_product_configurator_attr_values {
-    display: flex !important;
+/* ── Primary fix: any flex-column wrapper holding radio inputs inside a dialog ── */
+.o_dialog .d-flex.flex-column:has(input[type="radio"]),
+.modal .d-flex.flex-column:has(input[type="radio"]),
+.o_dialog .flex-column:has(input[type="radio"]),
+.modal .flex-column:has(input[type="radio"]) {
     flex-direction: row !important;
     flex-wrap: wrap !important;
-    gap: 6px 20px !important;
-    align-items: center;
-}
-
-/* Override any flex-column Bootstrap utility applied to the value list */
-.o_dialog .o_product_configurator_attr_values.flex-column,
-.modal .o_product_configurator_attr_values.flex-column {
-    flex-direction: row !important;
-}
-
-/* Each individual radio/checkbox item — keep inline */
-.o_dialog .o_product_configurator_attr_values > *,
-.modal .o_product_configurator_attr_values > * {
-    display: inline-flex !important;
-    flex-direction: row !important;
+    gap: 6px 24px !important;
     align-items: center !important;
+}
+
+/* ── Each radio/label item stays compact and inline ── */
+.o_dialog .d-flex.flex-column:has(input[type="radio"]) > *,
+.modal .d-flex.flex-column:has(input[type="radio"]) > *,
+.o_dialog .flex-column:has(input[type="radio"]) > * {
+    flex: 0 0 auto !important;
     width: auto !important;
     margin-bottom: 0 !important;
     white-space: nowrap;
 }
 
-/* Fallback: target any ul/div whose direct children all contain radio inputs
-   (covers cases where the class name differs between Odoo versions) */
-.o_dialog .modal-body label:has(input[type="radio"]),
-.modal .modal-body label:has(input[type="radio"]) {
+/* ── Fallback: labels containing radio buttons shown inline ── */
+.o_dialog label:has(> input[type="radio"]),
+.modal label:has(> input[type="radio"]) {
     display: inline-flex !important;
     align-items: center !important;
-    margin-right: 16px !important;
+    gap: 5px !important;
+    margin-right: 4px !important;
     margin-bottom: 4px !important;
-}
-
-/* Wrap the label group row */
-.o_dialog .modal-body .d-flex.flex-column:has(input[type="radio"]),
-.modal .modal-body .d-flex.flex-column:has(input[type="radio"]) {
-    flex-direction: row !important;
-    flex-wrap: wrap !important;
-    gap: 4px 16px !important;
+    cursor: pointer;
 }
