@@ -26,6 +26,13 @@
         <delete model="mrp.routing.workcenter" id="elegomotors_setup.op_qc_testing"/>
         <delete model="mrp.routing.workcenter" id="elegomotors_setup.op_packaging"/>
 
+        <!-- ── ALLOW EGO-S1 IN PURCHASE ORDERS ──────────────────────────────
+             bom_data.xml is noupdate=1 so this override runs on every upgrade
+             to keep purchase_ok=True on the existing database record. -->
+        <record id="elegomotors_setup.tmpl_ego_scooter" model="product.template">
+            <field name="purchase_ok" eval="True"/>
+        </record>
+
         <!-- ── FINISHED PRODUCT TRACKING ────────────────────────────────────
              Enable serial tracking on the EGO-S1 scooter.
              tracking='serial' forces qty_producing=1 per production session,

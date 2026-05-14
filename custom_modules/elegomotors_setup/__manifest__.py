@@ -70,6 +70,7 @@
     'assets': {
         'web.assets_backend': [
             'elegomotors_setup/static/src/js/barcode_beep_widget.js',
+            'elegomotors_setup/static/src/js/product_configurator_layout.js',
             'elegomotors_setup/static/src/css/product_configurator.css',
         ],
     },
