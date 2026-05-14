@@ -1,36 +1,77 @@
 /* ElegoMotors — Product Configurator: horizontal attribute values
-   Targets "Configure your product" dialog so Color/Side Guards/Battery Type
-   options wrap horizontally instead of stacking vertically.
+   Covers multiple possible Odoo 18 DOM structures for radio attribute options.
    Uses CSS :has() (Chrome 105+, Firefox 121+, Safari 15.4+). */
 
-/* ── Primary fix: any flex-column wrapper holding radio inputs inside a dialog ── */
+/* ── Strategy 1: Odoo's RadioField widget class ── */
+.o_dialog .o_field_radio,
+.modal .o_field_radio {
+    display: flex !important;
+    flex-direction: row !important;
+    flex-wrap: wrap !important;
+    gap: 6px 20px !important;
+    align-items: center !important;
+}
+.o_dialog .o_field_radio > *,
+.modal .o_field_radio > * {
+    flex: 0 0 auto !important;
+    width: auto !important;
+    margin-bottom: 0 !important;
+}
+
+/* ── Strategy 2: Bootstrap flex-column wrapper containing radios ── */
 .o_dialog .d-flex.flex-column:has(input[type="radio"]),
 .modal .d-flex.flex-column:has(input[type="radio"]),
 .o_dialog .flex-column:has(input[type="radio"]),
 .modal .flex-column:has(input[type="radio"]) {
     flex-direction: row !important;
     flex-wrap: wrap !important;
-    gap: 6px 24px !important;
+    gap: 6px 20px !important;
     align-items: center !important;
 }
-
-/* ── Each radio/label item stays compact and inline ── */
 .o_dialog .d-flex.flex-column:has(input[type="radio"]) > *,
 .modal .d-flex.flex-column:has(input[type="radio"]) > *,
-.o_dialog .flex-column:has(input[type="radio"]) > * {
+.o_dialog .flex-column:has(input[type="radio"]) > *,
+.modal .flex-column:has(input[type="radio"]) > * {
     flex: 0 0 auto !important;
     width: auto !important;
     margin-bottom: 0 !important;
     white-space: nowrap;
 }
 
-/* ── Fallback: labels containing radio buttons shown inline ── */
+/* ── Strategy 3: flex-wrap container where items fill full width ── */
+.o_dialog .d-flex.flex-wrap:has(input[type="radio"]) > *,
+.modal .d-flex.flex-wrap:has(input[type="radio"]) > * {
+    width: auto !important;
+    flex: 0 0 auto !important;
+}
+
+/* ── Strategy 4: radio labels inline regardless of container ── */
 .o_dialog label:has(> input[type="radio"]),
 .modal label:has(> input[type="radio"]) {
     display: inline-flex !important;
     align-items: center !important;
-    gap: 5px !important;
+    gap: 6px !important;
     margin-right: 4px !important;
     margin-bottom: 4px !important;
+    white-space: nowrap;
     cursor: pointer;
+}
+
+/* ── Strategy 5: form-check groupings (Bootstrap 5 radio pattern) ── */
+.o_dialog div:has(> .form-check input[type="radio"]),
+.modal div:has(> .form-check input[type="radio"]) {
+    display: flex !important;
+    flex-direction: row !important;
+    flex-wrap: wrap !important;
+    gap: 6px 20px !important;
+    align-items: center !important;
+}
+.o_dialog .form-check:has(input[type="radio"]),
+.modal .form-check:has(input[type="radio"]) {
+    display: inline-flex !important;
+    align-items: center !important;
+    gap: 6px !important;
+    padding-left: 0 !important;
+    margin-bottom: 0 !important;
+    white-space: nowrap;
 }
