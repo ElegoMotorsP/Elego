@@ -231,6 +231,38 @@ class MrpProduction(models.Model):
                     f'{production.name}.\nPending transfer(s): {names}'
                 )
 
+        # Guard 3: EGO-S1 requires component serials scanned before marking done.
+        # This intercepts any path that skips action_generate_serial (including
+        # "Produce All" from list view or direct Mark as Done without scanning).
+        if not self.env.su:
+            ego_tmpl = self.env.ref(
+                'elegomotors_setup.tmpl_ego_scooter', raise_if_not_found=False
+            )
+            if ego_tmpl:
+                for production in self:
+                    if (
+                        production.product_id.product_tmpl_id == ego_tmpl
+                        and not production.lot_producing_id
+                    ):
+                        if len(self) == 1:
+                            wizard = self.env['elegomotors.barcode.capture.wizard'].create({
+                                'production_id': production.id,
+                            })
+                            return {
+                                'type': 'ir.actions.act_window',
+                                'name': 'Scan Component Barcodes',
+                                'res_model': 'elegomotors.barcode.capture.wizard',
+                                'res_id': wizard.id,
+                                'view_mode': 'form',
+                                'target': 'new',
+                            }
+                        else:
+                            raise UserError(
+                                f'{production.name}: A serial number must be assigned before '
+                                f'marking done. Open each Manufacturing Order individually '
+                                f'to scan component barcodes first.'
+                            )
+
         result = super().button_mark_done()
 
         # Post-production QC gate: FG transfer is deferred until Pratik approves QC.

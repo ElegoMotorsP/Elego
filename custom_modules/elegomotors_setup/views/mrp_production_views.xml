@@ -42,12 +42,17 @@
         </field>
     </record>
 
-    <!-- Issue 7: Finished serial number shown in MO form header -->
+    <!-- Issue 7: Finished serial number shown in MO form header.
+         Also overrides lot_producing_id readonly so Prashant/Pratik can correct
+         the serial if needed while the MO is still in progress/confirmed. -->
     <record id="mrp_production_form_serial_field" model="ir.ui.view">
         <field name="name">mrp.production.form.serial.field</field>
         <field name="model">mrp.production</field>
         <field name="inherit_id" ref="mrp.mrp_production_form_view"/>
         <field name="arch" type="xml">
+            <xpath expr="//field[@name='lot_producing_id']" position="attributes">
+                <attribute name="readonly">state == 'done'</attribute>
+            </xpath>
             <xpath expr="//field[@name='lot_producing_id']" position="after">
                 <field name="x_finished_serial" readonly="1"
                        invisible="not x_finished_serial"
