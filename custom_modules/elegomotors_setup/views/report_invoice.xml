@@ -23,49 +23,53 @@
     <!-- ── Main invoice document body ── -->
     <template id="report_elegomotors_invoice_document">
 
-        <!-- ── 1. Company header ── -->
+        <!-- ── Pre-compute variables needed in the header ── -->
+        <t t-set="co_addr" t-value="o.company_id.partner_id"/>
+        <t t-set="co_gst"  t-value="o.company_id.vat or ''"/>
+        <t t-set="co_pan"  t-value="co_gst[2:12] if co_gst and len(co_gst) >= 12 else co_gst"/>
+
+        <!-- ── 1a. Row 1: Logo | Company Name + Address | Duplicate Copy ── -->
         <table style="width:100%; border-collapse:collapse; margin-bottom:0;">
             <tr>
-                <!-- Logo -->
-                <td style="width:14%; vertical-align:middle; padding:4px;">
+                <td style="width:15%; vertical-align:middle; padding:4px 4px 4px 0;">
                     <t t-if="o.company_id.logo">
                         <img t-att-src="image_data_uri(o.company_id.logo)"
-                             style="max-height:65px; max-width:110px;"/>
+                             style="max-height:70px; max-width:120px;"/>
                     </t>
                 </td>
-                <!-- Company name + address -->
-                <td style="width:58%; text-align:center; vertical-align:middle; padding:4px;">
-                    <div style="font-size:14pt; font-weight:bold;"><t t-esc="o.company_id.name"/></div>
-                    <div style="font-size:8pt; margin-top:3px;">
-                        <t t-set="co_addr" t-value="o.company_id.partner_id"/>
+                <td style="width:70%; text-align:center; vertical-align:middle; padding:4px;">
+                    <div style="font-size:14pt; font-weight:bold; letter-spacing:0.5px;">
+                        <t t-esc="o.company_id.name"/>
+                    </div>
+                    <div style="font-size:8pt; margin-top:3px; line-height:1.5;">
                         <t t-esc="co_addr.street or ''"/>
                         <t t-if="co_addr.city">, <t t-esc="co_addr.city"/></t>
                         <t t-if="co_addr.zip"> - <t t-esc="co_addr.zip"/></t>
                         <br/>
                         <t t-if="co_addr.phone">Phone: <t t-esc="co_addr.phone"/></t>
-                        <t t-if="co_addr.email">  Email: <t t-esc="co_addr.email"/></t>
+                        <t t-if="co_addr.email">  Fax:</t>
+                        <br/>
+                        <t t-if="co_addr.email">Email: <t t-esc="co_addr.email"/></t>
                         <t t-if="o.company_id.website">  WebSite: <t t-esc="o.company_id.website"/></t>
                     </div>
                 </td>
-                <!-- Invoice type title -->
-                <td style="width:28%; text-align:center; vertical-align:middle; padding:4px;">
-                    <div style="font-size:16pt; font-weight:bold; text-align:center; margin-top:4px;">
-                        <t t-if="env.context.get('proforma')">PROFORMA INVOICE</t>
-                        <t t-else="">TAX INVOICE</t>
-                    </div>
-                    <t t-if="not env.context.get('proforma')">
-                        <div style="font-size:8pt; color:#555; text-align:center; font-style:italic; margin-top:2px;">Duplicate Copy</div>
-                    </t>
+                <td style="width:15%; text-align:right; vertical-align:top; padding:4px 0 4px 4px; font-size:8pt; font-weight:bold;">
+                    <t t-if="not env.context.get('proforma')">Duplicate Copy</t>
                 </td>
             </tr>
         </table>
 
-        <!-- ── GST + PAN ── -->
-        <t t-set="co_gst" t-value="o.company_id.vat or ''"/>
-        <t t-set="co_pan" t-value="co_gst[2:12] if co_gst and len(co_gst) >= 12 else co_gst"/>
-        <table style="width:100%; border:1px solid #999; border-collapse:collapse; font-size:8.5pt; margin-bottom:0;">
+        <!-- ── 1b. Row 2: TAX INVOICE dark banner ── -->
+        <div style="background-color:#2c2c2c; color:#ffffff; text-align:center;
+                    font-size:16pt; font-weight:bold; padding:5px 0; margin:0; line-height:1.3;">
+            <t t-if="env.context.get('proforma')">PROFORMA INVOICE</t>
+            <t t-else="">TAX INVOICE</t>
+        </div>
+
+        <!-- ── 1c. Row 3: GST No | PAN strip ── -->
+        <table style="width:100%; border:1px solid #000; border-top:0; border-collapse:collapse; font-size:8.5pt; margin-bottom:0;">
             <tr>
-                <td style="padding:3px 6px; border-right:1px solid #999;">
+                <td style="padding:3px 6px; border-right:1px solid #000;">
                     <strong>GST No : </strong><t t-esc="co_gst"/>
                 </td>
                 <td style="padding:3px 6px; text-align:right;">
@@ -75,10 +79,10 @@
         </table>
 
         <!-- ── 2. Invoice meta + transport details ── -->
-        <table style="width:100%; border:1px solid #999; border-top:0; border-collapse:collapse; font-size:8.5pt; margin-bottom:0;">
+        <table style="width:100%; border:1px solid #000; border-top:0; border-collapse:collapse; font-size:8.5pt; margin-bottom:0;">
             <tr>
                 <!-- Left: Invoice details -->
-                <td style="width:50%; vertical-align:top; padding:4px 8px; border-right:1px solid #999;">
+                <td style="width:50%; vertical-align:top; padding:4px 8px; border-right:1px solid #000;">
                     <table style="width:100%; border-collapse:collapse;">
                         <tr>
                             <td style="width:48%; padding:1px 0;"><strong>Invoice No.</strong></td>
@@ -170,18 +174,18 @@
         </table>
 
         <!-- ── 3. Billing / Shipping address ── -->
-        <table style="width:100%; border:1px solid #999; border-top:0; border-collapse:collapse; font-size:8.5pt; margin-bottom:0;">
+        <table style="width:100%; border:1px solid #000; border-top:0; border-collapse:collapse; font-size:8.5pt; margin-bottom:0;">
             <tr>
-                <th style="width:50%; text-align:center; padding:3px; background:#f5f5f5; border-right:1px solid #999; border-bottom:1px solid #999;">
+                <th style="width:50%; text-align:center; padding:3px; background:#f5f5f5; border-right:1px solid #000; border-bottom:1px solid #000;">
                     Details of Receiver | Billed to:
                 </th>
-                <th style="width:50%; text-align:center; padding:3px; background:#f5f5f5; border-bottom:1px solid #999;">
+                <th style="width:50%; text-align:center; padding:3px; background:#f5f5f5; border-bottom:1px solid #000;">
                     Details of Consignee | Shipped to:
                 </th>
             </tr>
             <tr>
                 <!-- Billing address -->
-                <td style="vertical-align:top; padding:4px 8px; border-right:1px solid #999;">
+                <td style="vertical-align:top; padding:4px 8px; border-right:1px solid #000;">
                     <t t-set="bp" t-value="o.partner_id"/>
                     <t t-set="bp_pan" t-value="(bp.vat or '')[2:12] if bp.vat and len(bp.vat) >= 12 else ''"/>
                     <table style="width:100%; border-collapse:collapse;">
@@ -236,18 +240,18 @@
         </table>
 
         <!-- ── 4. Line items table ── -->
-        <table style="width:100%; border:1px solid #999; border-collapse:collapse; font-size:8pt;">
+        <table style="width:100%; border:1px solid #000; border-collapse:collapse; font-size:8pt;">
             <thead>
                 <tr style="background:#f0f0f0; text-align:center; vertical-align:middle; font-weight:bold;">
-                    <th style="border:1px solid #999; padding:3px; width:4%;">Sr.<br/>No.</th>
-                    <th style="border:1px solid #999; padding:3px; width:24%;">Description Of Goods</th>
-                    <th style="border:1px solid #999; padding:3px; width:22%;">Vehicle Details</th>
-                    <th style="border:1px solid #999; padding:3px; width:6%;">GST<br/>(%)</th>
-                    <th style="border:1px solid #999; padding:3px; width:8%;">HSN<br/>Code</th>
-                    <th style="border:1px solid #999; padding:3px; width:6%;">Qty</th>
-                    <th style="border:1px solid #999; padding:3px; width:10%;">Rate</th>
-                    <th style="border:1px solid #999; padding:3px; width:6%;">Disc<br/>(%)</th>
-                    <th style="border:1px solid #999; padding:3px; width:14%; text-align:right;">Total Amount<br/>(Rs.)</th>
+                    <th style="border:1px solid #000; padding:3px; width:4%;">Sr.<br/>No.</th>
+                    <th style="border:1px solid #000; padding:3px; width:24%;">Description Of Goods</th>
+                    <th style="border:1px solid #000; padding:3px; width:22%;">Vehicle Details</th>
+                    <th style="border:1px solid #000; padding:3px; width:6%;">GST<br/>(%)</th>
+                    <th style="border:1px solid #000; padding:3px; width:8%;">HSN<br/>Code</th>
+                    <th style="border:1px solid #000; padding:3px; width:6%;">Qty</th>
+                    <th style="border:1px solid #000; padding:3px; width:10%;">Rate</th>
+                    <th style="border:1px solid #000; padding:3px; width:6%;">Disc<br/>(%)</th>
+                    <th style="border:1px solid #000; padding:3px; width:14%; text-align:right;">Total Amount<br/>(Rs.)</th>
                 </tr>
             </thead>
             <tbody>
@@ -257,7 +261,7 @@
                     <!-- Section header -->
                     <t t-if="line.display_type == 'line_section'">
                         <tr>
-                            <td colspan="9" style="border:1px solid #999; padding:3px 6px; font-weight:bold; background:#fafafa;">
+                            <td colspan="9" style="border:1px solid #000; padding:3px 6px; font-weight:bold; background:#fafafa;">
                                 <t t-esc="line.name"/>
                             </td>
                         </tr>
@@ -266,7 +270,7 @@
                     <!-- Note line -->
                     <t t-elif="line.display_type == 'line_note'">
                         <tr>
-                            <td colspan="9" style="border:1px solid #999; padding:3px 6px; font-style:italic;">
+                            <td colspan="9" style="border:1px solid #000; padding:3px 6px; font-style:italic;">
                                 <t t-esc="line.name"/>
                             </td>
                         </tr>
@@ -294,20 +298,20 @@
                         <t t-set="hsn" t-value="getattr(line, 'l10n_in_hsn_code', '') or getattr(line.product_id, 'l10n_in_hsn_code', '') or ''"/>
 
                         <tr style="vertical-align:top;">
-                            <td style="border:1px solid #999; padding:3px; text-align:center;"><t t-esc="sr"/></td>
-                            <td style="border:1px solid #999; padding:3px;"><t t-esc="line_desc"/></td>
-                            <td style="border:1px solid #999; padding:3px; font-size:7.5pt; white-space:pre-line;">
+                            <td style="border:1px solid #000; padding:3px; text-align:center;"><t t-esc="sr"/></td>
+                            <td style="border:1px solid #000; padding:3px;"><t t-esc="line_desc"/></td>
+                            <td style="border:1px solid #000; padding:3px; font-size:7.5pt; white-space:pre-line;">
                                 <t t-esc="serials_only"/>
                                 <t t-if="variant_line">
                                     <br/><em><t t-esc="variant_line"/></em>
                                 </t>
                             </td>
-                            <td style="border:1px solid #999; padding:3px; text-align:center;"><t t-esc="gst_pct"/></td>
-                            <td style="border:1px solid #999; padding:3px; text-align:center;"><t t-esc="hsn"/></td>
-                            <td style="border:1px solid #999; padding:3px; text-align:center;"><t t-esc="'%.2f' % line.quantity"/></td>
-                            <td style="border:1px solid #999; padding:3px; text-align:right;"><t t-esc="'%.2f' % line.price_unit"/></td>
-                            <td style="border:1px solid #999; padding:3px; text-align:center;"><t t-esc="'%.2f' % (line.discount or 0.0)"/></td>
-                            <td style="border:1px solid #999; padding:3px; text-align:right;"><t t-esc="'%.2f' % line.price_subtotal"/></td>
+                            <td style="border:1px solid #000; padding:3px; text-align:center;"><t t-esc="gst_pct"/></td>
+                            <td style="border:1px solid #000; padding:3px; text-align:center;"><t t-esc="hsn"/></td>
+                            <td style="border:1px solid #000; padding:3px; text-align:center;"><t t-esc="'%.2f' % line.quantity"/></td>
+                            <td style="border:1px solid #000; padding:3px; text-align:right;"><t t-esc="'%.2f' % line.price_unit"/></td>
+                            <td style="border:1px solid #000; padding:3px; text-align:center;"><t t-esc="'%.2f' % (line.discount or 0.0)"/></td>
+                            <td style="border:1px solid #000; padding:3px; text-align:right;"><t t-esc="'%.2f' % line.price_subtotal"/></td>
                         </tr>
                     </t>
                 </t>
@@ -318,7 +322,7 @@
         <table style="width:100%; border-collapse:collapse; margin-top:6px; font-size:8.5pt;">
             <tr>
                 <!-- Amount in words -->
-                <td style="width:56%; vertical-align:top; border:1px solid #999; padding:6px;">
+                <td style="width:56%; vertical-align:top; border:1px solid #000; padding:6px;">
                     <strong>Gross Value : </strong>
                     <t t-set="amt_text" t-value="o.currency_id.amount_to_text(o.amount_total) if hasattr(o.currency_id, 'amount_to_text') else ''"/>
                     <t t-esc="amt_text"/>
@@ -327,17 +331,17 @@
                 <td style="width:44%; vertical-align:top; padding:0;">
                     <table style="width:100%; border-collapse:collapse;">
                         <tr>
-                            <td style="border:1px solid #999; padding:3px 8px; border-bottom:0;"><strong>Net Value :</strong></td>
-                            <td style="border:1px solid #999; padding:3px 8px; border-bottom:0; text-align:right;">
+                            <td style="border:1px solid #000; padding:3px 8px; border-bottom:0;"><strong>Net Value :</strong></td>
+                            <td style="border:1px solid #000; padding:3px 8px; border-bottom:0; text-align:right;">
                                 <t t-esc="'%.2f' % o.amount_untaxed"/>
                             </td>
                         </tr>
                         <t t-foreach="o.amount_by_group" t-as="tg">
                             <tr>
-                                <td style="border:1px solid #999; padding:3px 8px; border-bottom:0;">
+                                <td style="border:1px solid #000; padding:3px 8px; border-bottom:0;">
                                     <t t-esc="tg[0]"/>
                                 </td>
-                                <td style="border:1px solid #999; padding:3px 8px; border-bottom:0; text-align:right;">
+                                <td style="border:1px solid #000; padding:3px 8px; border-bottom:0; text-align:right;">
                                     <t t-esc="'%.2f' % tg[1]"/>
                                 </td>
                             </tr>
@@ -347,15 +351,15 @@
                         <t t-set="round_off" t-value="o.amount_total - computed_total"/>
                         <t t-if="abs(round_off) > 0.005">
                             <tr>
-                                <td style="border:1px solid #999; padding:3px 8px; border-bottom:0;">Round Off</td>
-                                <td style="border:1px solid #999; padding:3px 8px; border-bottom:0; text-align:right;">
+                                <td style="border:1px solid #000; padding:3px 8px; border-bottom:0;">Round Off</td>
+                                <td style="border:1px solid #000; padding:3px 8px; border-bottom:0; text-align:right;">
                                     <t t-esc="'%.2f' % round_off"/>
                                 </td>
                             </tr>
                         </t>
                         <tr style="font-weight:bold; background:#f0f0f0;">
-                            <td style="border:1px solid #999; padding:3px 8px;"><strong>Grand Total :</strong></td>
-                            <td style="border:1px solid #999; padding:3px 8px; text-align:right;">
+                            <td style="border:1px solid #000; padding:3px 8px;"><strong>Grand Total :</strong></td>
+                            <td style="border:1px solid #000; padding:3px 8px; text-align:right;">
                                 <strong><t t-esc="'%.2f' % o.amount_total"/></strong>
                             </td>
                         </tr>
@@ -365,7 +369,7 @@
         </table>
 
         <!-- ── 6. Terms + Signature ── -->
-        <table style="width:100%; border:1px solid #999; border-collapse:collapse; margin-top:8px; font-size:8pt;">
+        <table style="width:100%; border:1px solid #000; border-collapse:collapse; margin-top:8px; font-size:8pt;">
             <tr>
                 <th style="text-align:center; padding:3px; background:#f5f5f5; border-right:1px solid #999; width:10%;">Sr.No.</th>
                 <th style="text-align:center; padding:3px; background:#f5f5f5; border-right:1px solid #999; width:30%;">Term</th>
@@ -382,13 +386,13 @@
 
         <table style="width:100%; border-collapse:collapse; margin-top:0; font-size:8pt;">
             <tr>
-                <td style="width:60%; border:1px solid #999; border-top:0; padding:6px; vertical-align:top;">
+                <td style="width:60%; border:1px solid #000; border-top:0; padding:6px; vertical-align:top;">
                     Certified that the particulars given are true &amp; correct and the amount indicated
                     represents the price actually charged and that there is no flow of
                     addition.consideration directly or indirectly from the buyer.
                     Subject to DAUND Jurisdiction Only
                 </td>
-                <td style="width:40%; border:1px solid #999; border-top:0; border-left:0; padding:6px; text-align:center; vertical-align:top;">
+                <td style="width:40%; border:1px solid #000; border-top:0; border-left:0; padding:6px; text-align:center; vertical-align:top;">
                     <strong>For, <t t-esc="o.company_id.name"/></strong>
                     <br/><br/><br/>
                     <strong>Authorised Signatory</strong>
