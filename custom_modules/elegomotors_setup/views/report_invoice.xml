@@ -48,13 +48,13 @@
                     </div>
                 </td>
                 <!-- Invoice type title -->
-                <td style="width:28%; text-align:right; vertical-align:top; padding:4px;">
-                    <div style="font-size:10pt; font-weight:bold;">
+                <td style="width:28%; text-align:center; vertical-align:middle; padding:4px;">
+                    <div style="font-size:16pt; font-weight:bold; text-align:center; margin-top:4px;">
                         <t t-if="env.context.get('proforma')">PROFORMA INVOICE</t>
                         <t t-else="">TAX INVOICE</t>
                     </div>
                     <t t-if="not env.context.get('proforma')">
-                        <div style="font-size:8pt; color:#555;">Duplicate Copy</div>
+                        <div style="font-size:8pt; color:#555; text-align:center; font-style:italic; margin-top:2px;">Duplicate Copy</div>
                     </t>
                 </td>
             </tr>
@@ -97,6 +97,15 @@
                             <td style="padding:1px 0;">: <t t-esc="o.invoice_origin or ''"/></td>
                         </tr>
                         <tr>
+                            <td style="padding:1px 0;"><strong>SO Date</strong></td>
+                            <td style="padding:1px 0;">:
+                                <t t-set="_so" t-value="env['sale.order'].sudo().search([('name', '=', o.invoice_origin)], limit=1) if o.invoice_origin else None"/>
+                                <t t-if="_so and _so.date_order">
+                                    <t t-esc="_so.date_order.strftime('%d-%b-%Y')"/>
+                                </t>
+                            </td>
+                        </tr>
+                        <tr>
                             <td style="padding:1px 0;"><strong>State</strong></td>
                             <td style="padding:1px 0;">: <t t-esc="o.company_id.state_id.name or ''"/></td>
                         </tr>
@@ -115,11 +124,15 @@
                         </tr>
                         <tr>
                             <td style="padding:1px 0;"><strong>Transportation Name</strong></td>
-                            <td style="padding:1px 0;">:</td>
+                            <td style="padding:1px 0;">: <t t-esc="o.x_transport_name or ''"/></td>
                         </tr>
                         <tr>
                             <td style="padding:1px 0;"><strong>LR No. &amp; Date</strong></td>
-                            <td style="padding:1px 0;">:</td>
+                            <td style="padding:1px 0;">:
+                                <t t-esc="o.x_lr_number or ''"/>
+                                <t t-if="o.x_lr_date and o.x_lr_number"> - </t>
+                                <t t-if="o.x_lr_date"><t t-esc="o.x_lr_date.strftime('%d-%b-%Y')"/></t>
+                            </td>
                         </tr>
                         <tr>
                             <td style="padding:1px 0;"><strong>Vehicle Number</strong></td>
@@ -211,7 +224,7 @@
                             <td style="padding:1px 0;">: <t t-esc="sp_pan"/></td></tr>
                         <tr><td style="padding:1px 0;"><strong>State</strong></td>
                             <td style="padding:1px 0;">: <t t-esc="sp.state_id.name or ''"/></td></tr>
-                        <tr><td style="padding:1px 0;"><strong>State</strong></td>
+                        <tr><td style="padding:1px 0;"><strong>State Code</strong></td>
                             <td style="padding:1px 0;">: <t t-esc="getattr(sp.state_id, 'l10n_in_tin', '') or ''"/></td></tr>
                         <tr t-if="sp != bp and sp.child_ids">
                             <td style="padding:1px 0;"><strong>Contact Person</strong></td>
@@ -221,11 +234,6 @@
                 </td>
             </tr>
         </table>
-
-        <!-- PAN line -->
-        <div style="font-size:8.5pt; margin:3px 0 5px 0;">
-            <strong>PAN : </strong><t t-esc="co_pan"/>
-        </div>
 
         <!-- ── 4. Line items table ── -->
         <table style="width:100%; border:1px solid #999; border-collapse:collapse; font-size:8pt;">

@@ -21,6 +21,22 @@
         price_unit and discount readonly only for Amit.
     -->
 
+    <record id="account_move_form_transport_fields" model="ir.ui.view">
+        <field name="name">account.move.form.transport.details</field>
+        <field name="model">account.move</field>
+        <field name="inherit_id" ref="account.view_move_form"/>
+        <field name="arch" type="xml">
+            <xpath expr="//page[@name='other_tab']" position="inside">
+                <group string="Transport Details"
+                       invisible="move_type not in ('out_invoice', 'out_refund')">
+                    <field name="x_transport_name" placeholder="e.g. Shivam Transport"/>
+                    <field name="x_lr_number" placeholder="e.g. LR/2024/0001"/>
+                    <field name="x_lr_date"/>
+                </group>
+            </xpath>
+        </field>
+    </record>
+
     <record id="account_move_form_store_billing_readonly" model="ir.ui.view">
         <field name="name">account.move.form.store.billing.prices.readonly</field>
         <field name="model">account.move</field>

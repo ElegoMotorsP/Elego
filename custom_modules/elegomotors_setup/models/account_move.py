@@ -10,6 +10,10 @@ class AccountMove(models.Model):
         compute='_compute_store_billing_readonly',
     )
 
+    x_transport_name = fields.Char(string='Transporter Name')
+    x_lr_number = fields.Char(string='LR Number')
+    x_lr_date = fields.Date(string='LR Date')
+
     @api.depends_context('uid')
     def _compute_store_billing_readonly(self):
         is_store_billing = self.env.user.has_group(
