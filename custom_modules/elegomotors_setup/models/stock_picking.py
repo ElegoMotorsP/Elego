@@ -81,32 +81,39 @@ class StockPicking(models.Model):
 
     def _create_qc_check_results(self):
         """Auto-create elegomotors.qc.check.result rows for every QC-required
-        product move in this picking, based on the parameter list defined on
-        each product template. Idempotent — skips parameters that already have
-        a result record (safe to call multiple times)."""
+        product move in this picking. Creates one row per parameter per unit
+        received (unit_index 1..N). Idempotent — skips (parameter, unit) pairs
+        that already have a result record (safe to call multiple times)."""
         CheckResult = self.env['elegomotors.qc.check.result'].sudo()
         for picking in self:
             for move in picking.move_ids.filtered(lambda m: m.product_id.x_qc_required):
                 params = move.product_id.product_tmpl_id.x_qc_parameter_ids
-                existing_param_ids = picking.x_qc_check_result_ids.filtered(
+                unit_count = max(1, int(move.x_qty_received or move.product_uom_qty))
+                existing = picking.x_qc_check_result_ids.filtered(
                     lambda r: r.move_id == move
-                ).mapped('parameter_id.id')
-                for param in params:
-                    if param.id not in existing_param_ids:
-                        CheckResult.create({
-                            'picking_id': picking.id,
-                            'move_id': move.id,
-                            'parameter_id': param.id,
-                        })
+                )
+                existing_pairs = {(r.parameter_id.id, r.unit_index) for r in existing}
+                for unit_idx in range(1, unit_count + 1):
+                    for param in params:
+                        if (param.id, unit_idx) not in existing_pairs:
+                            CheckResult.create({
+                                'picking_id': picking.id,
+                                'move_id': move.id,
+                                'parameter_id': param.id,
+                                'unit_index': unit_idx,
+                            })
 
     def _auto_route_qc_items(self):
-        """Auto-route a mixed Gate Entry without a wizard popup.
+        """Auto-route a mixed incoming receipt without a wizard popup.
         Non-QC items go to Store (qty_done = received), QC items get a
         backorder that is immediately placed in 'in_qc' state.
         Mirrors the logic in stock.picking.qc.wizard.action_send_qc_and_validate_others().
         """
         self.ensure_one()
         store_loc = self.env.ref('elegomotors_setup.location_ego_store')
+        qc_inward_loc = self.env.ref(
+            'elegomotors_setup.location_ego_qc_inward', raise_if_not_found=False
+        )
         MoveL = self.env['stock.move.line']
         qc_names = ', '.join(
             self.move_ids.filtered(lambda m: m.product_id.x_qc_required).mapped('product_id.name')
@@ -114,7 +121,7 @@ class StockPicking(models.Model):
         non_qc_names = ', '.join(
             self.move_ids.filtered(lambda m: not m.product_id.x_qc_required).mapped('product_id.name')
         )
-        # Create explicit move lines: non-QC fully done → Store, QC done=0 → backorder
+        # Create explicit move lines: non-QC fully done → Store, QC done=0 → QC Inward (backorder)
         for move in self.move_ids:
             move.move_line_ids.unlink()
             qty = move.x_qty_received or move.product_uom_qty
@@ -131,6 +138,8 @@ class StockPicking(models.Model):
                     'location_dest_id': store_loc.id,
                 })
             else:
+                dest_id = qc_inward_loc.id if qc_inward_loc else move.location_dest_id.id
+                move.location_dest_id = dest_id
                 MoveL.create({
                     'move_id': move.id,
                     'picking_id': self.id,
@@ -138,7 +147,7 @@ class StockPicking(models.Model):
                     'product_uom_id': move.product_uom.id,
                     'qty_done': 0,
                     'location_id': move.location_id.id,
-                    'location_dest_id': move.location_dest_id.id,
+                    'location_dest_id': dest_id,
                 })
         result = self.with_context(skip_qc_wizard=True).button_validate()
         if isinstance(result, dict) and result.get('res_model') == 'stock.backorder.confirmation':
@@ -235,8 +244,8 @@ class StockPicking(models.Model):
 
             # --- Issue 5/6 + QC-required products: smart QC routing ---
             for picking in self:
-                if not (gate_entry_ref and picking.picking_type_id == gate_entry_ref):
-                    continue  # not a Gate Entry — skip
+                if picking.picking_type_code != 'incoming':
+                    continue  # not an incoming receipt — skip
 
                 # The wizard sets this flag when it calls button_validate itself
                 if self.env.context.get('skip_qc_wizard'):
@@ -260,7 +269,15 @@ class StockPicking(models.Model):
                         # Mixed: auto-route QC to backorder → in_qc, non-QC to Store
                         return picking._auto_route_qc_items()
                     elif qc_moves and not non_qc_moves:
-                        # All QC-required → send straight to QC, no validation yet
+                        # All QC-required → route to QC Inward, block validation
+                        qc_inward_loc = self.env.ref(
+                            'elegomotors_setup.location_ego_qc_inward', raise_if_not_found=False
+                        )
+                        if qc_inward_loc:
+                            for move in qc_moves:
+                                move.location_dest_id = qc_inward_loc.id
+                                for ml in move.move_line_ids:
+                                    ml.location_dest_id = qc_inward_loc.id
                         picking.x_gate_entry_state = 'in_qc'
                         picking._create_qc_check_results()
                         pratik = self.env.ref(

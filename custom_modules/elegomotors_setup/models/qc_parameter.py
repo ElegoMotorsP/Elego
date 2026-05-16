@@ -42,13 +42,18 @@ class ElegoQcCheckResult(models.Model):
     """
     _name = 'elegomotors.qc.check.result'
     _description = 'QC Inspection Result'
-    _order = 'picking_id, sequence, parameter_id'
+    _order = 'picking_id, sequence, unit_index, parameter_id'
 
     picking_id = fields.Many2one(
         'stock.picking', string='Gate Entry', ondelete='cascade', required=True, index=True,
     )
     move_id = fields.Many2one(
         'stock.move', string='Product Move', ondelete='cascade', required=True, index=True,
+    )
+    unit_index = fields.Integer(
+        string='Unit #',
+        default=1,
+        help='Sequential unit number (1, 2, 3…) for per-unit inspection.',
     )
     parameter_id = fields.Many2one(
         'elegomotors.qc.parameter', string='Parameter', ondelete='restrict', required=True,

@@ -131,19 +131,20 @@
                         <list editable="bottom"
                               decoration-danger="result == 'fail'"
                               decoration-success="result == 'pass'">
+                            <field name="unit_index" string="Unit #" readonly="1"/>
                             <field name="name" string="Parameter" readonly="1"/>
                             <field name="expected_value" string="Expected" readonly="1"/>
                             <field name="result_type" column_invisible="1"/>
                             <field name="check_description" string="How to Check" readonly="1" optional="hide"/>
                             <field name="actual_value"
                                    string="Actual Value / Observation"
-                                   readonly="parent.state == 'done' or (parent.x_is_gate_entry and parent.x_gate_entry_state != 'in_qc')"/>
+                                   readonly="parent.state == 'done' or (parent.picking_type_code == 'incoming' and parent.x_gate_entry_state != 'in_qc')"/>
                             <field name="result"
                                    string="Pass / Fail"
-                                   readonly="parent.state == 'done' or (parent.x_is_gate_entry and parent.x_gate_entry_state != 'in_qc')"/>
+                                   readonly="parent.state == 'done' or (parent.picking_type_code == 'incoming' and parent.x_gate_entry_state != 'in_qc')"/>
                             <field name="notes"
                                    string="Failure Reason"
-                                   readonly="parent.state == 'done' or (parent.x_is_gate_entry and parent.x_gate_entry_state != 'in_qc')"/>
+                                   readonly="parent.state == 'done' or (parent.picking_type_code == 'incoming' and parent.x_gate_entry_state != 'in_qc')"/>
                         </list>
                     </field>
                 </page>
