@@ -176,15 +176,56 @@ class StockPicking(models.Model):
         return False
 
     def action_gate_entry_approve_qc(self):
-        """Pratik approves QC: propagates x_qty_qc_passed → qty_done, notifies Amit."""
+        """Pratik approves QC: sets qty_done per serial based on pass/fail results,
+        blacklists failed serials immediately, then marks the picking ready."""
         self.ensure_one()
+        MoveL = self.env['stock.move.line']
+
         for move in self.move_ids:
-            qty = move.x_qty_qc_passed or move.product_uom_qty
-            for ml in move.move_line_ids:
-                ml.qty_done = qty
-            if not move.move_line_ids:
-                # Odoo 18 uses 'quantity' field name on stock.move for done qty
-                move.write({'quantity': qty})
+            qc_results = self.x_qc_check_result_ids.filtered(lambda r: r.move_id == move)
+            lots_in_results = qc_results.mapped('lot_id').filtered(bool)
+
+            if move.product_id.tracking in ('serial', 'lot') and lots_in_results:
+                # Build per-lot pass/fail: a lot fails if ANY parameter row is 'fail'
+                lot_pass = {}
+                for r in qc_results:
+                    if not r.lot_id:
+                        continue
+                    lid = r.lot_id.id
+                    if lid not in lot_pass:
+                        lot_pass[lid] = True
+                    if r.result == 'fail':
+                        lot_pass[lid] = False
+
+                # Rebuild move lines: 1 line per lot, qty_done=1 if pass, 0 if fail
+                move.move_line_ids.unlink()
+                passed_qty = 0
+                for lot_id_val, passed in lot_pass.items():
+                    lot = self.env['stock.lot'].browse(lot_id_val)
+                    if passed:
+                        passed_qty += 1
+                        MoveL.create({
+                            'move_id': move.id,
+                            'picking_id': self.id,
+                            'product_id': move.product_id.id,
+                            'product_uom_id': move.product_uom.id,
+                            'qty_done': 1.0,
+                            'lot_id': lot.id,
+                            'location_id': move.location_id.id,
+                            'location_dest_id': move.location_dest_id.id,
+                        })
+                    else:
+                        lot.sudo().x_blacklisted = True
+
+                move.x_qty_qc_passed = passed_qty
+            else:
+                # Non-serial/lot tracked, or no lots entered: use aggregate x_qty_qc_passed
+                qty = move.x_qty_qc_passed or move.product_uom_qty
+                for ml in move.move_line_ids:
+                    ml.qty_done = qty
+                if not move.move_line_ids:
+                    move.write({'quantity': qty})
+
         self.x_gate_entry_state = 'ready'
         amit = self.env.ref('elegomotors_setup.user_ego_amit', raise_if_not_found=False)
         partner_ids = [amit.partner_id.id] if amit and amit.partner_id else []
@@ -348,16 +389,19 @@ class StockPicking(models.Model):
                         bill.write(update_vals)
 
             # --- Issue 12: flag pending replacement if QC failures recorded ---
-            if gate_entry_ref and picking.picking_type_id == gate_entry_ref:
+            if picking.picking_type_code == 'incoming':
                 failed_qty = sum(
                     m.x_qty_qc_failed for m in picking.move_ids
-                    if m.product_id.x_qc_required  # non-QC products going to Store are never "failed"
+                    if m.product_id.x_qc_required
                 )
                 if failed_qty > 0:
                     picking.x_pending_replacement_qty = failed_qty
 
             # --- Req 9: blacklist serial-tracked lots that failed inward QC ---
-            if gate_entry_ref and picking.picking_type_id == gate_entry_ref:
+            # (serial-tracked lots are already blacklisted in action_gate_entry_approve_qc
+            #  when lots are entered in the QC tab; this catches any remaining cases
+            #  where move lines with lot_id and qty_done=0 slip through to validation)
+            if picking.picking_type_code == 'incoming':
                 for move in picking.move_ids:
                     if (
                         move.product_id.x_qc_required
@@ -366,7 +410,7 @@ class StockPicking(models.Model):
                     ):
                         for ml in move.move_line_ids:
                             if ml.lot_id and not ml.qty_done:
-                                ml.lot_id.x_blacklisted = True
+                                ml.lot_id.sudo().x_blacklisted = True
 
             # --- Req 8: when outgoing delivery is validated for EGO-S1, push serial
             #     numbers into any already-created invoices for the same SO.

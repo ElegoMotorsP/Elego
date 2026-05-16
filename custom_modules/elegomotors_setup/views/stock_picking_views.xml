@@ -104,9 +104,10 @@
                 <attribute name="readonly">parent.picking_type_code == 'incoming'</attribute>
             </xpath>
 
-            <!-- Hide lot/serial column on incoming receipts — lots assigned at QC Pass → Store step -->
+            <!-- Show lot/serial column on incoming receipts only during QC phase —
+                 Pratik assigns serials while inspecting; hidden before and after that window -->
             <xpath expr="//field[@name='move_ids_without_package']//list//field[@name='lot_ids']" position="attributes">
-                <attribute name="column_invisible">parent.picking_type_code == 'incoming'</attribute>
+                <attribute name="column_invisible">parent.picking_type_code == 'incoming' and parent.x_gate_entry_state not in ('in_qc',)</attribute>
             </xpath>
 
         </field>
@@ -131,7 +132,13 @@
                         <list editable="bottom"
                               decoration-danger="result == 'fail'"
                               decoration-success="result == 'pass'">
+                            <field name="product_id" column_invisible="1"/>
                             <field name="unit_index" string="Unit #" readonly="1"/>
+                            <field name="lot_id"
+                                   string="Serial / Lot No."
+                                   context="{'default_product_id': product_id, 'default_company_id': parent.company_id}"
+                                   options="{'no_open': True}"
+                                   readonly="parent.state == 'done' or (parent.picking_type_code == 'incoming' and parent.x_gate_entry_state != 'in_qc')"/>
                             <field name="name" string="Parameter" readonly="1"/>
                             <field name="expected_value" string="Expected" readonly="1"/>
                             <field name="result_type" column_invisible="1"/>

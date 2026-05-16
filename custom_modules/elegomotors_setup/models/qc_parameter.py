@@ -58,6 +58,14 @@ class ElegoQcCheckResult(models.Model):
     parameter_id = fields.Many2one(
         'elegomotors.qc.parameter', string='Parameter', ondelete='restrict', required=True,
     )
+    product_id = fields.Many2one(
+        related='move_id.product_id', store=True, string='Product',
+    )
+    lot_id = fields.Many2one(
+        'stock.lot', string='Serial / Lot No.',
+        domain="[('product_id', '=', product_id)]",
+        help='Serial or lot number for this unit. Used to blacklist failed units.',
+    )
 
     # Display fields pulled from the parameter definition (read-only context)
     name = fields.Char(related='parameter_id.name', string='Parameter', store=True)
