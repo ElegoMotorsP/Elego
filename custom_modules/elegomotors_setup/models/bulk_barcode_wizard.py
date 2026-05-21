@@ -94,9 +94,10 @@ class ElegomotorsBulkBarcodeWizard(models.TransientModel):
                         f'{existing.name}. Please verify the barcode for MO {line.mo_name}.'
                     )
 
-        # 4. Generate chassis serial + write component serials for each unit
+        # 4. Generate chassis serial + write component serials + mark MO done for each unit
         for line in self.line_ids:
             production = line.production_id
+            # Generates lot_producing_id and sets qty_producing = 1
             production.with_context(skip_barcode_wizard=True).action_generate_serial()
             lot = production.lot_producing_id
             if lot:
@@ -106,6 +107,12 @@ class ElegomotorsBulkBarcodeWizard(models.TransientModel):
                     'x_controller_serial': line.x_controller_serial,
                     'x_charger_serial':    line.x_charger_serial,
                 })
+            # Mark MO done immediately — skip_backorder suppresses the dialog and
+            # auto-creates a backorder for any remaining qty without user confirmation.
+            production.with_context(
+                skip_barcode_wizard=True,
+                skip_backorder=True,
+            ).button_mark_done()
 
         return {'type': 'ir.actions.act_window_close'}
 
