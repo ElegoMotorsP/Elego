@@ -41,13 +41,24 @@ class ElegomotorsBulkBarcodeWizard(models.TransientModel):
         return records
 
     def _populate_lines(self):
+        """Create one wizard line per bike unit.
+
+        For a single MO with qty=2, this creates 2 lines (Unit 1, Unit 2).
+        For multiple qty=1 MOs, this creates one line per MO.
+        """
         Line = self.env['elegomotors.bulk.barcode.wizard.line']
         for mo in self.production_ids:
-            Line.create({
-                'wizard_id': self.id,
-                'production_id': mo.id,
-                'mo_name': mo.name,
-            })
+            total_units = max(1, int(mo.product_qty))
+            for unit_idx in range(1, total_units + 1):
+                label = (
+                    f"{mo.name} — Unit {unit_idx}" if total_units > 1 else mo.name
+                )
+                Line.create({
+                    'wizard_id':     self.id,
+                    'production_id': mo.id,
+                    'mo_name':       label,
+                    'unit_index':    unit_idx,
+                })
 
     def action_confirm(self):
         self.ensure_one()
@@ -55,9 +66,9 @@ class ElegomotorsBulkBarcodeWizard(models.TransientModel):
         # 1. All rows must have all 4 serials
         incomplete = self.line_ids.filtered(lambda l: not l.all_scanned)
         if incomplete:
-            mos = ', '.join(incomplete.mapped('mo_name'))
+            labels = ', '.join(incomplete.mapped('mo_name'))
             raise UserError(
-                f'Please scan all 4 component serials for the following unit(s):\n{mos}'
+                f'Please scan all 4 component serials for the following unit(s):\n{labels}'
             )
 
         # 2. No duplicate serials within this batch
@@ -91,28 +102,52 @@ class ElegomotorsBulkBarcodeWizard(models.TransientModel):
                 if existing:
                     raise UserError(
                         f'{label} serial "{val}" is already registered on lot '
-                        f'{existing.name}. Please verify the barcode for MO {line.mo_name}.'
+                        f'{existing.name}. Please verify the barcode for {line.mo_name}.'
                     )
 
-        # 4. Generate chassis serial + write component serials + mark MO done for each unit
-        for line in self.line_ids:
-            production = line.production_id
-            # Generates lot_producing_id and sets qty_producing = 1
-            production.with_context(skip_barcode_wizard=True).action_generate_serial()
-            lot = production.lot_producing_id
-            if lot:
-                lot.write({
-                    'x_motor_serial':      line.x_motor_serial,
-                    'x_battery_serial':    line.x_battery_serial,
-                    'x_controller_serial': line.x_controller_serial,
-                    'x_charger_serial':    line.x_charger_serial,
-                })
-            # Mark MO done immediately — skip_backorder suppresses the dialog and
-            # auto-creates a backorder for any remaining qty without user confirmation.
-            production.with_context(
-                skip_barcode_wizard=True,
-                skip_backorder=True,
-            ).button_mark_done()
+        # 4. Generate chassis serial + write component serials + mark done for each unit.
+        #    For MOs with qty > 1, process units sequentially: produce unit 1, find the
+        #    auto-created backorder, produce unit 2 on that backorder, and so on.
+        for mo in self.production_ids.sorted('id'):
+            lines = self.line_ids.filtered(
+                lambda l: l.production_id == mo
+            ).sorted('unit_index')
+
+            current_mo = mo
+            for i, line in enumerate(lines):
+                is_last = (i == len(lines) - 1)
+
+                # Generate chassis serial for this unit (sets qty_producing = 1)
+                current_mo.with_context(skip_barcode_wizard=True).action_generate_serial()
+                lot = current_mo.lot_producing_id
+                if lot:
+                    lot.write({
+                        'x_motor_serial':      line.x_motor_serial,
+                        'x_battery_serial':    line.x_battery_serial,
+                        'x_controller_serial': line.x_controller_serial,
+                        'x_charger_serial':    line.x_charger_serial,
+                    })
+
+                # Mark this unit done. skip_backorder=True suppresses the dialog
+                # and auto-creates the backorder MO for the remaining units.
+                current_mo.with_context(
+                    skip_barcode_wizard=True,
+                    skip_backorder=True,
+                ).button_mark_done()
+
+                if not is_last:
+                    # Find the backorder Odoo just created for the next unit
+                    backorder = self.env['mrp.production'].search([
+                        ('backorder_id', '=', current_mo.id),
+                        ('state', 'not in', ('done', 'cancel')),
+                    ], limit=1)
+                    if not backorder:
+                        raise UserError(
+                            f'Expected a backorder after producing unit {i + 1} of '
+                            f'{mo.name}, but none was found. '
+                            f'Please check the Manufacturing Order manually.'
+                        )
+                    current_mo = backorder
 
         return {'type': 'ir.actions.act_window_close'}
 
@@ -126,7 +161,8 @@ class ElegomotorsBulkBarcodeWizardLine(models.TransientModel):
         required=True, ondelete='cascade',
     )
     production_id = fields.Many2one('mrp.production', string='MO', readonly=True)
-    mo_name = fields.Char(string='MO Reference', readonly=True)
+    mo_name       = fields.Char(string='MO / Unit', readonly=True)
+    unit_index    = fields.Integer(string='Unit #', default=1)
 
     x_motor_serial      = fields.Char(string='Motor Serial')
     x_battery_serial    = fields.Char(string='Battery Serial')

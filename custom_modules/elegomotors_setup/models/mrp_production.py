@@ -244,7 +244,8 @@ class MrpProduction(models.Model):
                         production.product_id.product_tmpl_id == ego_tmpl
                         and not production.lot_producing_id
                     ):
-                        if len(self) == 1:
+                        if len(self) == 1 and int(production.product_qty) <= 1:
+                            # Single MO, single unit → existing single-unit wizard
                             wizard = self.env['elegomotors.barcode.capture.wizard'].create({
                                 'production_id': production.id,
                             })
@@ -257,14 +258,18 @@ class MrpProduction(models.Model):
                                 'target': 'new',
                             }
                         else:
-                            # Multi-MO: open bulk wizard for all EGO-S1 MOs without a lot
-                            ego_mos_without_lot = self.filtered(
-                                lambda p: p.product_id.product_tmpl_id == ego_tmpl
-                                          and not p.lot_producing_id
-                            )
-                            if ego_mos_without_lot:
+                            # Single MO with qty > 1, OR multiple MOs selected
+                            # → bulk wizard (one row per bike unit across all MOs)
+                            if len(self) == 1:
+                                mos_for_wizard = production
+                            else:
+                                mos_for_wizard = self.filtered(
+                                    lambda p: p.product_id.product_tmpl_id == ego_tmpl
+                                              and not p.lot_producing_id
+                                )
+                            if mos_for_wizard:
                                 wizard = self.env['elegomotors.bulk.barcode.wizard'].create({
-                                    'production_ids': [(6, 0, ego_mos_without_lot.ids)],
+                                    'production_ids': [(6, 0, mos_for_wizard.ids)],
                                 })
                                 return {
                                     'type': 'ir.actions.act_window',
