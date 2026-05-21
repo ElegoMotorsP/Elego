@@ -48,6 +48,14 @@
             <xpath expr="//notebook" position="inside">
                 <page string="Component Traceability"
                       invisible="[('product_id.product_tmpl_id', '!=', %(elegomotors_setup.tmpl_ego_scooter)d)]">
+                    <group string="Manufacturing">
+                        <div>
+                            <button type="object"
+                                    name="action_view_manufacturing_orders"
+                                    string="Open Manufacturing Order"
+                                    class="btn-secondary btn-sm"/>
+                        </div>
+                    </group>
                     <group string="Warranty-Critical Component Serials">
                         <group>
                             <field name="x_motor_serial"

@@ -1,6 +1,6 @@
 {
     'name': 'ElegoMotors Workflow Setup',
-    'version': '18.0.14.0.0',
+    'version': '18.0.15.0.0',
     'category': 'Manufacturing',
     'summary': 'ElegoMotors EV 2-wheeler end-to-end manufacturing workflow configuration',
     'description': """
@@ -65,6 +65,7 @@
         'views/product_template_views.xml', # x_qc_required checkbox + QC parameters list
         'views/stock_picking_qc_wizard_views.xml',  # QC routing wizard form + action
         'views/batch_mo_wizard_views.xml',          # Batch MO creation wizard + menu entry; Req 2
+        'views/bike_traceability_views.xml',        # Bike Traceability search window + menu
         'views/report_invoice.xml',                 # ElegoMotors custom TAX INVOICE QWeb report
     ],
     'assets': {

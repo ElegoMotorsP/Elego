@@ -1,0 +1,114 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+    <!--
+        ElegoMotors — Bike Traceability Search Window
+
+        Provides a dedicated list + search view on stock.lot, filtered to
+        EGO-S1 bikes only.  The search bar's default field ("Any Serial No.")
+        ORs across all seven serial fields simultaneously so staff can type
+        any known serial — chassis, motor, battery, controller, charger,
+        cluster, or frame — and immediately find the matching bike.
+
+        Accessible via: Manufacturing > Operations > Bike Traceability
+    -->
+
+    <!-- ── List view ──────────────────────────────────────────────────── -->
+    <record id="view_bike_traceability_list" model="ir.ui.view">
+        <field name="name">elegomotors.bike.traceability.list</field>
+        <field name="model">stock.lot</field>
+        <field name="arch" type="xml">
+            <list string="Bike Traceability" create="false"
+                  decoration-danger="x_blacklisted">
+                <field name="name"                string="Chassis No."         optional="show"/>
+                <field name="product_id"          string="Variant"             optional="show"/>
+                <field name="x_motor_serial"      string="Motor Serial"        optional="show"/>
+                <field name="x_battery_serial"    string="Battery Serial"      optional="show"/>
+                <field name="x_controller_serial" string="Controller Serial"   optional="show"/>
+                <field name="x_charger_serial"    string="Charger Serial"      optional="show"/>
+                <field name="x_cluster_serial"    string="Cluster Serial"      optional="hide"/>
+                <field name="x_frame_serial"      string="Frame Serial"        optional="hide"/>
+                <field name="x_blacklisted"       string="Blacklisted"         optional="show"
+                       widget="boolean"/>
+            </list>
+        </field>
+    </record>
+
+    <!-- ── Search view ────────────────────────────────────────────────── -->
+    <record id="view_bike_traceability_search" model="ir.ui.view">
+        <field name="name">elegomotors.bike.traceability.search</field>
+        <field name="model">stock.lot</field>
+        <field name="arch" type="xml">
+            <search string="Search Bikes">
+
+                <!-- Universal search: one query, all seven serial fields -->
+                <field name="name" string="Any Serial No."
+                    filter_domain="['|', '|', '|', '|', '|', '|',
+                        ('name',                'ilike', self),
+                        ('x_motor_serial',      'ilike', self),
+                        ('x_battery_serial',    'ilike', self),
+                        ('x_controller_serial', 'ilike', self),
+                        ('x_charger_serial',    'ilike', self),
+                        ('x_cluster_serial',    'ilike', self),
+                        ('x_frame_serial',      'ilike', self)]"/>
+
+                <!-- Per-field searches for precise lookups -->
+                <field name="name"                string="Chassis No."/>
+                <field name="x_motor_serial"      string="Motor Serial"/>
+                <field name="x_battery_serial"    string="Battery Serial"/>
+                <field name="x_controller_serial" string="Controller Serial"/>
+                <field name="x_charger_serial"    string="Charger Serial"/>
+                <field name="x_cluster_serial"    string="Cluster Serial"/>
+                <field name="x_frame_serial"      string="Frame Serial"/>
+
+                <separator/>
+
+                <filter name="filter_blacklisted"
+                        string="Blacklisted"
+                        domain="[('x_blacklisted', '=', True)]"/>
+                <filter name="filter_active"
+                        string="Active (Not Blacklisted)"
+                        domain="[('x_blacklisted', '=', False)]"/>
+
+                <group expand="0" string="Group By">
+                    <filter name="group_by_product"
+                            string="Product Variant"
+                            context="{'group_by': 'product_id'}"/>
+                    <filter name="group_by_blacklisted"
+                            string="Blacklisted Status"
+                            context="{'group_by': 'x_blacklisted'}"/>
+                </group>
+
+            </search>
+        </field>
+    </record>
+
+    <!-- ── Window action ──────────────────────────────────────────────── -->
+    <record id="action_bike_traceability" model="ir.actions.act_window">
+        <field name="name">Bike Traceability</field>
+        <field name="res_model">stock.lot</field>
+        <field name="view_mode">list,form</field>
+        <field name="domain">[('product_id.product_tmpl_id', '=', ref('elegomotors_setup.tmpl_ego_scooter'))]</field>
+        <field name="context">{'create': False}</field>
+        <field name="view_ids" eval="[(5, 0, 0),
+            (0, 0, {'view_mode': 'list', 'view_id': ref('view_bike_traceability_list')})]"/>
+        <field name="search_view_id" ref="view_bike_traceability_search"/>
+        <field name="help" type="html">
+            <p class="o_view_nocontent_smiling_face">
+                No bikes found.
+            </p>
+            <p>
+                Search by chassis number, motor serial, battery serial,
+                or any other component serial number.
+            </p>
+        </field>
+    </record>
+
+    <!-- ── Menu: Manufacturing > Operations > Bike Traceability ───────── -->
+    <menuitem
+        id="menu_bike_traceability"
+        name="Bike Traceability"
+        parent="mrp.menu_mrp_production_action"
+        action="action_bike_traceability"
+        sequence="10"/>
+
+</odoo>

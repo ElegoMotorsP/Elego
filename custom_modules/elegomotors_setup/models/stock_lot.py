@@ -33,3 +33,18 @@ class StockLot(models.Model):
         index=True,
         help='Set to True when this serial/lot has failed QC. Prevents sale or store transfer.',
     )
+
+    def action_view_manufacturing_orders(self):
+        self.ensure_one()
+        mo = self.env['mrp.production'].search(
+            [('lot_producing_id', '=', self.id)], limit=1
+        )
+        if not mo:
+            return {'type': 'ir.actions.act_window_close'}
+        return {
+            'name': 'Manufacturing Order',
+            'type': 'ir.actions.act_window',
+            'res_model': 'mrp.production',
+            'view_mode': 'form',
+            'res_id': mo.id,
+        }
