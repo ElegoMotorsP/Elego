@@ -128,6 +128,12 @@ class ElegomotorsBulkBarcodeWizard(models.TransientModel):
                         'x_charger_serial':    line.x_charger_serial,
                     })
 
+                # Snapshot open MOs before splitting so we can find the new one.
+                if not is_last:
+                    pre_ids = set(self.env['mrp.production'].search([
+                        ('state', 'not in', ('done', 'cancel')),
+                    ]).ids)
+
                 # Mark this unit done. skip_backorder=True suppresses the dialog
                 # and auto-creates the backorder MO for the remaining units.
                 current_mo.with_context(
@@ -136,11 +142,12 @@ class ElegomotorsBulkBarcodeWizard(models.TransientModel):
                 ).button_mark_done()
 
                 if not is_last:
-                    # Find the backorder Odoo just created for the next unit
+                    # Find the backorder Odoo just created by comparing snapshots.
+                    # (mrp.production.backorder_id is not queryable in Odoo 18.)
                     backorder = self.env['mrp.production'].search([
-                        ('backorder_id', '=', current_mo.id),
+                        ('id', 'not in', list(pre_ids)),
                         ('state', 'not in', ('done', 'cancel')),
-                    ], limit=1)
+                    ], order='id asc', limit=1)
                     if not backorder:
                         raise UserError(
                             f'Expected a backorder after producing unit {i + 1} of '
