@@ -257,11 +257,24 @@ class MrpProduction(models.Model):
                                 'target': 'new',
                             }
                         else:
-                            raise UserError(
-                                f'{production.name}: A serial number must be assigned before '
-                                f'marking done. Open each Manufacturing Order individually '
-                                f'to scan component barcodes first.'
+                            # Multi-MO: open bulk wizard for all EGO-S1 MOs without a lot
+                            ego_mos_without_lot = self.filtered(
+                                lambda p: p.product_id.product_tmpl_id == ego_tmpl
+                                          and not p.lot_producing_id
                             )
+                            if ego_mos_without_lot:
+                                wizard = self.env['elegomotors.bulk.barcode.wizard'].create({
+                                    'production_ids': [(6, 0, ego_mos_without_lot.ids)],
+                                })
+                                return {
+                                    'type': 'ir.actions.act_window',
+                                    'name': 'Scan Component Barcodes — Bulk Production',
+                                    'res_model': 'elegomotors.bulk.barcode.wizard',
+                                    'res_id': wizard.id,
+                                    'view_mode': 'form',
+                                    'target': 'new',
+                                }
+                            # All EGO-S1 MOs already have lots — fall through to super()
 
         result = super().button_mark_done()
 

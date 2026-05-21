@@ -1,0 +1,102 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+    <!--
+        ElegoMotors — Bulk Barcode Capture Wizard
+
+        Opened automatically when "Produce All" / "Mark as Done" is clicked on
+        multiple EGO-S1 Manufacturing Orders that don't yet have lots assigned.
+
+        The wizard shows one row per MO in an editable table.  The user scans
+        (or types) all four component serials for each unit.  On confirm, chassis
+        serials are auto-generated and the component serials are linked to each
+        bike's lot record.
+
+        After the wizard closes, the user clicks "Produce All" again — all MOs
+        now have lots assigned so production proceeds without re-opening the wizard.
+    -->
+
+    <record id="view_bulk_barcode_wizard_form" model="ir.ui.view">
+        <field name="name">elegomotors.bulk.barcode.wizard.form</field>
+        <field name="model">elegomotors.bulk.barcode.wizard</field>
+        <field name="arch" type="xml">
+            <form string="Scan Component Barcodes — Bulk Production">
+                <sheet>
+                    <!-- Hidden computed fields needed for display expressions -->
+                    <field name="all_complete"       invisible="1"/>
+                    <field name="progress_display"   invisible="1"/>
+
+                    <!-- Header bar: info + auto-scan toggle -->
+                    <div class="d-flex justify-content-between align-items-start mb-3 gap-3">
+                        <div class="alert alert-info mb-0 flex-grow-1" role="alert">
+                            <strong>Bulk Barcode Scan</strong> — Scan all 4 component
+                            barcodes for each EGO-S1 unit in the table below.
+                            After confirming, chassis serials are auto-generated and
+                            each set of barcodes is linked to its specific unit.
+                            Click <strong>Produce All</strong> again once this wizard closes.
+                        </div>
+                        <div class="d-flex flex-column align-items-center gap-1 text-nowrap">
+                            <span class="text-muted small fw-semibold">Auto-Advance</span>
+                            <field name="x_auto_scan" widget="boolean_toggle" nolabel="1"/>
+                        </div>
+                    </div>
+
+                    <!-- Progress indicator -->
+                    <div class="d-flex align-items-center gap-3 mb-3">
+                        <field name="progress_display" readonly="1" nolabel="1"
+                               class="badge bg-success text-white fs-6"
+                               invisible="not all_complete"/>
+                        <field name="progress_display" readonly="1" nolabel="1"
+                               class="badge bg-secondary text-white fs-6"
+                               invisible="all_complete"/>
+                    </div>
+
+                    <!-- Editable unit table -->
+                    <field name="line_ids" widget="one2many_list" nolabel="1">
+                        <list editable="bottom"
+                              decoration-success="all_scanned"
+                              decoration-muted="not all_scanned">
+                            <field name="mo_name"
+                                   string="MO Reference"
+                                   readonly="1"
+                                   optional="show"/>
+                            <field name="x_motor_serial"
+                                   string="Motor Serial"
+                                   placeholder="Scan motor barcode…"
+                                   optional="show"/>
+                            <field name="x_battery_serial"
+                                   string="Battery Serial"
+                                   placeholder="Scan battery barcode…"
+                                   optional="show"/>
+                            <field name="x_controller_serial"
+                                   string="Controller Serial"
+                                   placeholder="Scan controller barcode…"
+                                   optional="show"/>
+                            <field name="x_charger_serial"
+                                   string="Charger Serial"
+                                   placeholder="Scan charger barcode…"
+                                   optional="show"/>
+                            <field name="all_scanned"
+                                   string="Done?"
+                                   readonly="1"
+                                   widget="boolean"
+                                   optional="show"/>
+                        </list>
+                    </field>
+
+                    <div class="alert alert-success mt-3 mb-0" invisible="not all_complete">
+                        All units scanned — click
+                        <strong>Confirm &amp; Generate Serials</strong> to proceed.
+                    </div>
+                </sheet>
+                <footer>
+                    <button name="action_confirm"
+                            string="Confirm &amp; Generate Serials"
+                            type="object"
+                            class="btn-primary"/>
+                    <button string="Cancel" special="cancel" class="btn-secondary"/>
+                </footer>
+            </form>
+        </field>
+    </record>
+
+</odoo>
