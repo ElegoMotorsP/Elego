@@ -106,20 +106,39 @@ class ElegomotorsBulkBarcodeWizard(models.TransientModel):
                     )
 
         # 4. Generate chassis serial + write component serials + mark done for each unit.
-        #    For MOs with qty > 1, process units sequentially: produce unit 1, find the
-        #    auto-created backorder, produce unit 2 on that backorder, and so on.
+        #    For MOs with qty > 1, pre-split into N individual qty=1 productions so
+        #    that each unit can be marked done independently with no backorder dialog.
+        #    (In Odoo 18, skip_backorder=True cancels remaining qty rather than
+        #    creating a backorder MO, so sequential backorder chaining does not work.)
         for mo in self.production_ids.sorted('id'):
             lines = self.line_ids.filtered(
                 lambda l: l.production_id == mo
             ).sorted('unit_index')
 
-            current_mo = mo
-            for i, line in enumerate(lines):
-                is_last = (i == len(lines) - 1)
+            total = len(lines)
 
+            if total > 1:
+                # _split_productions({mo: [1,1,...,1]}) splits the MO into N qty=1
+                # productions.  It modifies the original to qty=amounts[-1] and
+                # creates len(amounts)-1 copies for the earlier amounts.
+                # Return order: [original, copy1, copy2, ...] where original holds
+                # amounts[-1] (last unit).  Re-order to [copies_asc, original] so
+                # productions[0] = unit 1, productions[1] = unit 2, etc.
+                split_result = mo._split_productions({mo: [1.0] * total})
+                if len(split_result) != total:
+                    raise UserError(
+                        f'{mo.name}: expected {total} split productions, '
+                        f'got {len(split_result)}. Contact your administrator.'
+                    )
+                new_copies = (split_result - mo).sorted('id')
+                productions = new_copies + mo  # [unit1_mo, unit2_mo, ..., unitN_mo]
+            else:
+                productions = mo
+
+            for split_mo, line in zip(productions, lines):
                 # Generate chassis serial for this unit (sets qty_producing = 1)
-                current_mo.with_context(skip_barcode_wizard=True).action_generate_serial()
-                lot = current_mo.lot_producing_id
+                split_mo.with_context(skip_barcode_wizard=True).action_generate_serial()
+                lot = split_mo.lot_producing_id
                 if lot:
                     lot.write({
                         'x_motor_serial':      line.x_motor_serial,
@@ -127,34 +146,8 @@ class ElegomotorsBulkBarcodeWizard(models.TransientModel):
                         'x_controller_serial': line.x_controller_serial,
                         'x_charger_serial':    line.x_charger_serial,
                     })
-
-                # Snapshot open MOs before splitting so we can find the new one.
-                if not is_last:
-                    pre_ids = set(self.env['mrp.production'].search([
-                        ('state', 'not in', ('done', 'cancel')),
-                    ]).ids)
-
-                # Mark this unit done. skip_backorder=True suppresses the dialog
-                # and auto-creates the backorder MO for the remaining units.
-                current_mo.with_context(
-                    skip_barcode_wizard=True,
-                    skip_backorder=True,
-                ).button_mark_done()
-
-                if not is_last:
-                    # Find the backorder Odoo just created by comparing snapshots.
-                    # (mrp.production.backorder_id is not queryable in Odoo 18.)
-                    backorder = self.env['mrp.production'].search([
-                        ('id', 'not in', list(pre_ids)),
-                        ('state', 'not in', ('done', 'cancel')),
-                    ], order='id asc', limit=1)
-                    if not backorder:
-                        raise UserError(
-                            f'Expected a backorder after producing unit {i + 1} of '
-                            f'{mo.name}, but none was found. '
-                            f'Please check the Manufacturing Order manually.'
-                        )
-                    current_mo = backorder
+                # product_qty == qty_producing == 1 → no backorder dialog needed
+                split_mo.with_context(skip_barcode_wizard=True).button_mark_done()
 
         return {'type': 'ir.actions.act_window_close'}
 
