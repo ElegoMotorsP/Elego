@@ -29,9 +29,9 @@
                     <div class="d-flex justify-content-between align-items-start mb-3 gap-3">
                         <div class="alert alert-info mb-0 flex-grow-1" role="alert">
                             <strong>Bulk Barcode Scan</strong> — For each unit, scan
-                            the <strong>Chassis No.</strong> (frame plate) first, then
-                            the 4 component barcodes. Each chassis number becomes the
-                            unit's serial number.
+                            <strong>Chassis</strong>, <strong>Motor</strong>, and
+                            <strong>Controller</strong> (required). Battery and Charger
+                            are optional.
                         </div>
                         <div class="d-flex flex-column align-items-center gap-1 text-nowrap">
                             <span class="text-muted small fw-semibold">Auto-Advance</span>
@@ -70,16 +70,16 @@
                                    string="Motor Serial"
                                    placeholder="Scan motor barcode…"
                                    optional="show"/>
-                            <field name="x_battery_serial"
-                                   string="Battery Serial"
-                                   placeholder="Scan battery barcode…"
-                                   optional="show"/>
                             <field name="x_controller_serial"
                                    string="Controller Serial"
                                    placeholder="Scan controller barcode…"
                                    optional="show"/>
+                            <field name="x_battery_serial"
+                                   string="Battery (opt.)"
+                                   placeholder="Scan battery barcode…"
+                                   optional="show"/>
                             <field name="x_charger_serial"
-                                   string="Charger Serial"
+                                   string="Charger (opt.)"
                                    placeholder="Scan charger barcode…"
                                    optional="show"/>
                             <field name="all_scanned"

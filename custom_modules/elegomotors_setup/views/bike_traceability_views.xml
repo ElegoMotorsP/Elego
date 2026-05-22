@@ -20,9 +20,11 @@
         <field name="arch" type="xml">
             <list string="Bike Traceability" create="false"
                   decoration-danger="x_blacklisted">
-                <field name="name"                string="Chassis No."         optional="show"/>
+                <field name="name"                string="Serial No."          optional="show"/>
+                <field name="x_chassis_serial"    string="Chassis No."         optional="show"/>
                 <field name="product_id"          string="Variant"             optional="show"/>
                 <field name="x_color"             string="Colour"              optional="show"/>
+                <field name="x_battery_type"      string="Battery Type"        optional="show"/>
                 <field name="x_motor_serial"      string="Motor Serial"        optional="show"/>
                 <field name="x_battery_serial"    string="Battery Serial"      optional="show"/>
                 <field name="x_controller_serial" string="Controller Serial"   optional="show"/>
@@ -42,10 +44,11 @@
         <field name="arch" type="xml">
             <search string="Search Bikes">
 
-                <!-- Universal search: one query, all seven serial fields -->
+                <!-- Universal search: one query across all serial fields -->
                 <field name="name" string="Any Serial No."
-                    filter_domain="['|', '|', '|', '|', '|', '|',
+                    filter_domain="['|', '|', '|', '|', '|', '|', '|',
                         ('name',                'ilike', self),
+                        ('x_chassis_serial',    'ilike', self),
                         ('x_motor_serial',      'ilike', self),
                         ('x_battery_serial',    'ilike', self),
                         ('x_controller_serial', 'ilike', self),
@@ -54,7 +57,8 @@
                         ('x_frame_serial',      'ilike', self)]"/>
 
                 <!-- Per-field searches for precise lookups -->
-                <field name="name"                string="Chassis No."/>
+                <field name="name"                string="Serial No."/>
+                <field name="x_chassis_serial"    string="Chassis No."/>
                 <field name="x_color"             string="Colour"/>
                 <field name="x_motor_serial"      string="Motor Serial"/>
                 <field name="x_battery_serial"    string="Battery Serial"/>

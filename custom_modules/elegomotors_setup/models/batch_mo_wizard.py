@@ -29,32 +29,23 @@ class BatchMoWizard(models.TransientModel):
         string='Variants to Produce',
     )
 
-    # Computed attribute value sets — filtered to values defined on the selected template.
+    # Color values available on the selected template (drives variant selection)
     valid_color_value_ids = fields.Many2many(
         'product.attribute.value',
         compute='_compute_valid_attribute_values',
         string='Valid Colors',
-    )
-    valid_battery_value_ids = fields.Many2many(
-        'product.attribute.value',
-        compute='_compute_valid_attribute_values',
-        string='Valid Battery Types',
     )
 
     @api.depends('product_tmpl_id', 'product_tmpl_id.attribute_line_ids')
     def _compute_valid_attribute_values(self):
         Pav = self.env['product.attribute.value']
         for wizard in self:
-            color_ids = battery_ids = Pav
+            color_ids = Pav
             if wizard.product_tmpl_id:
                 for attr_line in wizard.product_tmpl_id.attribute_line_ids:
-                    name = attr_line.attribute_id.name
-                    if name == 'Color':
+                    if attr_line.attribute_id.name == 'Color':
                         color_ids = attr_line.value_ids
-                    elif name == 'Battery Type':
-                        battery_ids = attr_line.value_ids
             wizard.valid_color_value_ids = color_ids
-            wizard.valid_battery_value_ids = battery_ids
 
     @api.onchange('product_tmpl_id')
     def _onchange_product_tmpl_id(self):
@@ -80,7 +71,7 @@ class BatchMoWizard(models.TransientModel):
         for line in active_lines:
             product = line._resolve_product_variant()
             if not product:
-                label = line.variant_display or line.color_value_id.name or '(base)'
+                label = line.variant_display or (line.color_value_id.name if line.color_value_id else '(base)')
                 raise UserError(
                     f'Could not find a matching product variant for: {label}\n'
                     f'Please verify that the product attributes are fully configured in Odoo.'
@@ -102,6 +93,7 @@ class BatchMoWizard(models.TransientModel):
                 'bom_id': bom.id if bom else False,
                 'x_batch_mo_ref': batch_ref,
                 'x_color': color_name,
+                'x_battery_type': line.battery_type or '',
             })
             created_mos |= mo
 
@@ -131,11 +123,13 @@ class BatchMoWizardLine(models.TransientModel):
         string='Color',
         domain="[('attribute_id.name', '=', 'Color')]",
     )
-    battery_value_id = fields.Many2one(
-        'product.attribute.value',
-        string='Battery Type',
-        domain="[('attribute_id.name', '=', 'Battery Type')]",
-    )
+    battery_type = fields.Selection([
+        ('Lithium 60V30Ah',   'Lithium 60V30Ah'),
+        ('Lithium 60V39Ah',   'Lithium 60V39Ah'),
+        ('Lead Acid 60V32Ah', 'Lead Acid 60V32Ah'),
+        ('Lead Acid 72V32Ah', 'Lead Acid 72V32Ah'),
+        ('Without Battery',   'Without Battery'),
+    ], string='Battery Type')
     qty = fields.Float(string='Quantity', default=1.0)
 
     variant_display = fields.Char(
@@ -143,40 +137,39 @@ class BatchMoWizardLine(models.TransientModel):
         compute='_compute_variant_display',
     )
 
-    @api.depends('color_value_id', 'battery_value_id')
+    @api.depends('color_value_id', 'battery_type')
     def _compute_variant_display(self):
         for line in self:
             parts = []
             if line.color_value_id:
                 parts.append(line.color_value_id.name)
-            if line.battery_value_id:
-                parts.append(line.battery_value_id.name)
+            if line.battery_type:
+                parts.append(line.battery_type)
             line.variant_display = ' | '.join(parts) if parts else '(base product)'
 
     def _resolve_product_variant(self):
-        """Match Battery Type attribute to the correct product.product variant.
-        Color is not a product variant attribute — it is stored as x_color on the MO.
+        """Match Color attribute to the correct product.product variant.
+        Battery Type is a free-text label stored as x_battery_type on the MO — not a variant.
         """
         tmpl = self.wizard_id.product_tmpl_id
         if not tmpl:
             return False
 
-        # Only Battery Type drives the variant; Color is a production label only
-        battery_val_id = self.battery_value_id.id if self.battery_value_id else None
+        color_val_id = self.color_value_id.id if self.color_value_id else None
 
         for variant in tmpl.product_variant_ids:
-            variant_battery_ids = set(
+            variant_color_ids = set(
                 variant.product_template_attribute_value_ids.filtered(
-                    lambda ptav: ptav.attribute_id.name == 'Battery Type'
+                    lambda ptav: ptav.attribute_id.name == 'Color'
                 ).mapped('product_attribute_value_id.id')
             )
-            if battery_val_id and variant_battery_ids == {battery_val_id}:
+            if color_val_id and variant_color_ids == {color_val_id}:
                 return variant
-            if not battery_val_id and not variant_battery_ids:
+            if not color_val_id and not variant_color_ids:
                 return variant
 
-        # Single variant template with no battery attribute — use it directly
-        if not battery_val_id and len(tmpl.product_variant_ids) == 1:
+        # Single variant template with no Color attribute — use it directly
+        if not color_val_id and len(tmpl.product_variant_ids) == 1:
             return tmpl.product_variant_ids[0]
 
         return False

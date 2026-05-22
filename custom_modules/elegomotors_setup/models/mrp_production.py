@@ -30,6 +30,7 @@ class MrpProduction(models.Model):
     )
 
     # Component serial numbers from the generated lot — shown on MO form after scanning
+    x_lot_chassis_serial    = fields.Char(related='lot_producing_id.x_chassis_serial',    string='Chassis No.',      readonly=True)
     x_lot_motor_serial      = fields.Char(related='lot_producing_id.x_motor_serial',      string='Hub Motor S/N',    readonly=True)
     x_lot_battery_serial    = fields.Char(related='lot_producing_id.x_battery_serial',    string='Battery Pack S/N', readonly=True)
     x_lot_controller_serial = fields.Char(related='lot_producing_id.x_controller_serial', string='Controller S/N',   readonly=True)
@@ -42,6 +43,9 @@ class MrpProduction(models.Model):
         ('gray',  'Gray'),
         ('white', 'White'),
     ], string='Colour', copy=True)
+
+    # Battery type selected in batch wizard — stored as a label on the MO and lot
+    x_battery_type = fields.Char(string='Battery Type', copy=True)
 
     # Req 2: Batch MO reference — links all MOs created together from the batch wizard
     x_batch_mo_ref = fields.Char(
@@ -414,36 +418,55 @@ class MrpBarcodeWizard(models.TransientModel):
     )
     x_chassis_serial    = fields.Char(string='Chassis No. (Frame Plate)')
     x_motor_serial      = fields.Char(string='Hub Motor Serial No.')
-    x_battery_serial    = fields.Char(string='Battery Pack Serial No.')
     x_controller_serial = fields.Char(string='Motor Controller Serial No.')
-    x_charger_serial    = fields.Char(string='Charger Serial No.')
+    x_battery_serial    = fields.Char(string='Battery Pack Serial No. (optional)')
+    x_charger_serial    = fields.Char(string='Charger Serial No. (optional)')
 
     # Req 4: auto-advance toggle (default True = scanner auto-moves to next field)
     x_auto_scan = fields.Boolean(string='Auto-Advance on Scan', default=True)
 
     chassis_scanned    = fields.Boolean(compute='_compute_scan_progress')
     motor_scanned      = fields.Boolean(compute='_compute_scan_progress')
-    battery_scanned    = fields.Boolean(compute='_compute_scan_progress')
     controller_scanned = fields.Boolean(compute='_compute_scan_progress')
+    battery_scanned    = fields.Boolean(compute='_compute_scan_progress')
     charger_scanned    = fields.Boolean(compute='_compute_scan_progress')
     all_scanned        = fields.Boolean(compute='_compute_scan_progress')
 
-    @api.depends('x_chassis_serial', 'x_motor_serial', 'x_battery_serial', 'x_controller_serial', 'x_charger_serial')
+    @api.depends('x_chassis_serial', 'x_motor_serial', 'x_controller_serial', 'x_battery_serial', 'x_charger_serial')
     def _compute_scan_progress(self):
         for rec in self:
             rec.chassis_scanned    = bool(rec.x_chassis_serial)
             rec.motor_scanned      = bool(rec.x_motor_serial)
-            rec.battery_scanned    = bool(rec.x_battery_serial)
             rec.controller_scanned = bool(rec.x_controller_serial)
+            rec.battery_scanned    = bool(rec.x_battery_serial)
             rec.charger_scanned    = bool(rec.x_charger_serial)
+            # Battery and charger are optional — only chassis + motor + controller required
             rec.all_scanned = bool(
-                rec.x_chassis_serial and rec.x_motor_serial and rec.x_battery_serial
-                and rec.x_controller_serial and rec.x_charger_serial
+                rec.x_chassis_serial and rec.x_motor_serial and rec.x_controller_serial
             )
 
-    @api.onchange('x_chassis_serial', 'x_motor_serial', 'x_battery_serial', 'x_controller_serial', 'x_charger_serial')
+    @api.onchange('x_chassis_serial', 'x_motor_serial', 'x_controller_serial', 'x_battery_serial', 'x_charger_serial')
     def _onchange_barcodes(self):
         self._compute_scan_progress()
+
+    def _get_next_lot_serial(self, production):
+        """Return the next auto-generated serial name for this bike template."""
+        seq_map = [
+            ('elegomotors_setup.tmpl_ego_scooter', 'elegomotors_setup.seq_ego_s1_serial'),
+            ('elegomotors_setup.tmpl_elego_11',    'elegomotors_setup.seq_elego_11_serial'),
+            ('elegomotors_setup.tmpl_elego_12',    'elegomotors_setup.seq_elego_12_serial'),
+            ('elegomotors_setup.tmpl_elego_20p',   'elegomotors_setup.seq_elego_20p_serial'),
+        ]
+        tmpl = production.product_id.product_tmpl_id
+        for tmpl_ref, seq_ref in seq_map:
+            t = self.env.ref(tmpl_ref, raise_if_not_found=False)
+            seq = self.env.ref(seq_ref, raise_if_not_found=False)
+            if t and seq and tmpl == t:
+                return seq.next_by_id()
+        raise UserError(
+            f'No serial number sequence configured for product "{production.product_id.name}". '
+            f'Contact your administrator.'
+        )
 
     def action_confirm(self):
         self.ensure_one()
@@ -451,13 +474,9 @@ class MrpBarcodeWizard(models.TransientModel):
         if not self.x_chassis_serial:
             missing.append('Chassis No. (Frame Plate)')
         if not self.x_motor_serial:
-            missing.append('Hub Motor (250W BLDC)')
-        if not self.x_battery_serial:
-            missing.append('Battery Pack')
+            missing.append('Hub Motor')
         if not self.x_controller_serial:
-            missing.append('Motor Controller (BLDC 48V)')
-        if not self.x_charger_serial:
-            missing.append('Charger')
+            missing.append('Motor Controller')
         if missing:
             raise UserError(
                 'Please scan the following barcodes before confirming:\n'
@@ -467,54 +486,69 @@ class MrpBarcodeWizard(models.TransientModel):
         production = self.production_id
         Lot = self.env['stock.lot']
 
-        # Chassis number must not already exist for this product
-        existing_chassis = Lot.search([
-            ('name', '=', self.x_chassis_serial),
-            ('product_id', '=', production.product_id.id),
-        ], limit=1)
+        # Chassis plate number must be globally unique
+        existing_chassis = Lot.search([('x_chassis_serial', '=', self.x_chassis_serial)], limit=1)
         if existing_chassis:
             raise UserError(
-                f'Chassis number "{self.x_chassis_serial}" is already in use on lot '
-                f'{existing_chassis.name}. Please verify the frame plate barcode.'
+                f'Chassis number "{self.x_chassis_serial}" is already registered on '
+                f'serial {existing_chassis.name}. Please verify the frame plate barcode.'
             )
 
-        # Each component serial must be unique across all existing lots
+        # Required component serials must be unique
         for field_name, label in [
             ('x_motor_serial',      'Hub Motor'),
-            ('x_battery_serial',    'Battery Pack'),
             ('x_controller_serial', 'Motor Controller'),
-            ('x_charger_serial',    'Charger'),
         ]:
             val = getattr(self, field_name)
             existing = Lot.search([(field_name, '=', val)], limit=1)
             if existing:
                 raise UserError(
-                    f'{label} serial "{val}" is already registered on lot {existing.name}. '
-                    f'Please verify the barcode.'
+                    f'{label} serial "{val}" is already registered on serial '
+                    f'{existing.name}. Please verify the barcode.'
                 )
 
-        scanned = [self.x_motor_serial, self.x_battery_serial,
-                   self.x_controller_serial, self.x_charger_serial]
-        if len(scanned) != len(set(scanned)):
+        # Optional serials: only check uniqueness if provided
+        for field_name, label in [
+            ('x_battery_serial', 'Battery Pack'),
+            ('x_charger_serial', 'Charger'),
+        ]:
+            val = getattr(self, field_name)
+            if val:
+                existing = Lot.search([(field_name, '=', val)], limit=1)
+                if existing:
+                    raise UserError(
+                        f'{label} serial "{val}" is already registered on serial '
+                        f'{existing.name}. Please verify the barcode.'
+                    )
+
+        # No duplicate serials within this wizard (only non-empty values)
+        scanned_values = [v for v in [
+            self.x_chassis_serial, self.x_motor_serial, self.x_controller_serial,
+            self.x_battery_serial, self.x_charger_serial,
+        ] if v]
+        if len(scanned_values) != len(set(scanned_values)):
             raise UserError(
                 'Duplicate serial numbers detected. '
                 'Each component must have a unique serial number.'
             )
 
-        # Create lot using the scanned chassis number as the lot name
+        # Auto-generate the bike serial number from the model sequence
+        lot_name = self._get_next_lot_serial(production)
         lot = Lot.create({
-            'name':       self.x_chassis_serial,
+            'name':       lot_name,
             'product_id': production.product_id.id,
             'company_id': production.company_id.id,
         })
         production.lot_producing_id = lot
         production.qty_producing    = 1
         lot.write({
+            'x_chassis_serial':    self.x_chassis_serial,
             'x_motor_serial':      self.x_motor_serial,
-            'x_battery_serial':    self.x_battery_serial,
             'x_controller_serial': self.x_controller_serial,
-            'x_charger_serial':    self.x_charger_serial,
+            'x_battery_serial':    self.x_battery_serial or '',
+            'x_charger_serial':    self.x_charger_serial or '',
             'x_color':             production.x_color or '',
+            'x_battery_type':      production.x_battery_type or '',
         })
         production.with_context(skip_barcode_wizard=True).button_mark_done()
         return {'type': 'ir.actions.act_window_close'}

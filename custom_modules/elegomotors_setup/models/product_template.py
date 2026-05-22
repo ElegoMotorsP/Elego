@@ -91,71 +91,65 @@ class ProductTemplate(models.Model):
 
     @api.model
     def _ensure_new_model_attributes(self):
-        """Idempotent setup of Battery Type variants for Elego 1.1, 1.2, and 2.0+.
+        """Set up Color (Red/Gray/Black/White) as the variant attribute for Elego 1.1, 1.2, 2.0+.
 
-        Battery type values from the official model master list (PDF):
-          - Lithium 60V30Ah
-          - Lithium 60V39Ah
-          - Lead Acid 60V32Ah
-          - Lead Acid 72V32Ah
-          - Without Battery
-
-        Elego 2.0+ does not have Lead Acid 72V32Ah.
+        Each model gets 4 inventory-tracked variants by colour. Battery Type is NOT
+        a product variant — it is recorded as x_battery_type on the MO and lot.
         Runs on every upgrade; safe to call repeatedly.
         """
+        color_attr = self.env.ref(
+            'elegomotors_setup.attr_ego_color', raise_if_not_found=False
+        )
         battery_attr = self.env.ref(
             'elegomotors_setup.attr_battery_type', raise_if_not_found=False
         )
-        if not battery_attr:
+        if not color_attr:
             return
 
         AttrValue = self.env['product.attribute.value']
         AttrLine  = self.env['product.template.attribute.line']
 
-        all_battery_names = [
-            'Lithium 60V30Ah',
-            'Lithium 60V39Ah',
-            'Lead Acid 60V32Ah',
-            'Lead Acid 72V32Ah',
-            'Without Battery',
-        ]
-        elego_20p_battery_names = [n for n in all_battery_names if n != 'Lead Acid 72V32Ah']
-
-        def _get_or_create_values(names):
+        def _get_or_create_color_values(names):
             ids = []
             for name in names:
                 val = AttrValue.search(
-                    [('attribute_id', '=', battery_attr.id), ('name', '=', name)], limit=1
+                    [('attribute_id', '=', color_attr.id), ('name', '=', name)], limit=1
                 )
                 if not val:
-                    val = AttrValue.create({'attribute_id': battery_attr.id, 'name': name})
+                    val = AttrValue.create({'attribute_id': color_attr.id, 'name': name})
                 ids.append(val.id)
             return ids
 
-        def _ensure_battery_line(tmpl, value_ids):
-            line = tmpl.attribute_line_ids.filtered(
-                lambda l: l.attribute_id == battery_attr
-            )
+        def _ensure_color_line(tmpl, value_ids):
+            line = tmpl.attribute_line_ids.filtered(lambda l: l.attribute_id == color_attr)
             if line:
                 line.write({'value_ids': [(6, 0, value_ids)]})
             else:
                 AttrLine.create({
                     'product_tmpl_id': tmpl.id,
-                    'attribute_id':    battery_attr.id,
+                    'attribute_id':    color_attr.id,
                     'value_ids':       [(4, vid) for vid in value_ids],
                 })
 
-        all_ids       = _get_or_create_values(all_battery_names)
-        elego_20p_ids = _get_or_create_values(elego_20p_battery_names)
+        color_ids = _get_or_create_color_values(['Red', 'Gray', 'Black', 'White'])
 
-        for tmpl_ref, value_ids in [
-            ('elegomotors_setup.tmpl_elego_11',  all_ids),
-            ('elegomotors_setup.tmpl_elego_12',  all_ids),
-            ('elegomotors_setup.tmpl_elego_20p', elego_20p_ids),
+        for tmpl_ref in [
+            'elegomotors_setup.tmpl_elego_11',
+            'elegomotors_setup.tmpl_elego_12',
+            'elegomotors_setup.tmpl_elego_20p',
         ]:
             tmpl = self.env.ref(tmpl_ref, raise_if_not_found=False)
-            if tmpl:
-                _ensure_battery_line(tmpl, value_ids)
+            if not tmpl:
+                continue
+            # Remove Battery Type attribute line if present — not a variant for new models
+            if battery_attr:
+                bat_line = tmpl.attribute_line_ids.filtered(
+                    lambda l: l.attribute_id == battery_attr
+                )
+                if bat_line:
+                    bat_line.unlink()
+            # Ensure Color attribute line with Red / Gray / Black / White
+            _ensure_color_line(tmpl, color_ids)
 
     @api.model_create_multi
     def create(self, vals_list):

@@ -58,16 +58,22 @@
                     </group>
                     <group string="Warranty-Critical Component Serials">
                         <group>
+                            <field name="x_chassis_serial"
+                                   placeholder="Chassis / frame plate serial no."/>
                             <field name="x_motor_serial"
                                    placeholder="Scan or enter Hub Motor serial no."/>
-                            <field name="x_battery_serial"
-                                   placeholder="Scan or enter Battery Pack serial no."/>
                             <field name="x_controller_serial"
                                    placeholder="Scan or enter Motor Controller serial no."/>
+                            <field name="x_battery_serial"
+                                   placeholder="Scan or enter Battery Pack serial no."/>
                             <field name="x_charger_serial"
                                    placeholder="Scan or enter Charger serial no."/>
                         </group>
                         <group>
+                            <field name="x_color"
+                                   placeholder="Colour"/>
+                            <field name="x_battery_type"
+                                   placeholder="Battery Type"/>
                             <field name="x_cluster_serial"
                                    placeholder="Scan or enter Instrument Cluster serial no."/>
                             <field name="x_frame_serial"

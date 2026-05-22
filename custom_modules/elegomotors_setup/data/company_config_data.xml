@@ -62,13 +62,47 @@
             <field name="company_id" ref="base.main_company"/>
         </record>
 
-        <!-- Sequence: EV Scooter Serial Numbers — EGO-S1-YYMM-NNNN, resets monthly.
-             Linked to the EGO-S1 product via lot_sequence_id in bom_data_fix.xml.
-             use_date_range=True resets the counter at each month boundary. -->
+        <!-- Sequence: EGO-S1 Serial Numbers — EGO-S1-YYMM-NNNN, resets monthly. -->
         <record id="seq_ego_s1_serial" model="ir.sequence">
             <field name="name">ElegoMotors EV Scooter Serial Number</field>
             <field name="code">ego.s1.serial</field>
             <field name="prefix">EGO-S1-%(y)s%(month)s-</field>
+            <field name="padding">4</field>
+            <field name="number_next">1</field>
+            <field name="number_increment">1</field>
+            <field name="use_date_range" eval="True"/>
+            <field name="company_id" ref="base.main_company"/>
+        </record>
+
+        <!-- Sequence: Elego 1.1 Serial Numbers — EL11-YYMM-NNNN, resets monthly. -->
+        <record id="seq_elego_11_serial" model="ir.sequence">
+            <field name="name">Elego 1.1 Serial Number</field>
+            <field name="code">elego.11.serial</field>
+            <field name="prefix">EL11-%(y)s%(month)s-</field>
+            <field name="padding">4</field>
+            <field name="number_next">1</field>
+            <field name="number_increment">1</field>
+            <field name="use_date_range" eval="True"/>
+            <field name="company_id" ref="base.main_company"/>
+        </record>
+
+        <!-- Sequence: Elego 1.2 Serial Numbers — EL12-YYMM-NNNN, resets monthly. -->
+        <record id="seq_elego_12_serial" model="ir.sequence">
+            <field name="name">Elego 1.2 Serial Number</field>
+            <field name="code">elego.12.serial</field>
+            <field name="prefix">EL12-%(y)s%(month)s-</field>
+            <field name="padding">4</field>
+            <field name="number_next">1</field>
+            <field name="number_increment">1</field>
+            <field name="use_date_range" eval="True"/>
+            <field name="company_id" ref="base.main_company"/>
+        </record>
+
+        <!-- Sequence: Elego 2.0+ Serial Numbers — EL20-YYMM-NNNN, resets monthly. -->
+        <record id="seq_elego_20p_serial" model="ir.sequence">
+            <field name="name">Elego 2.0+ Serial Number</field>
+            <field name="code">elego.20p.serial</field>
+            <field name="prefix">EL20-%(y)s%(month)s-</field>
             <field name="padding">4</field>
             <field name="number_next">1</field>
             <field name="number_increment">1</field>

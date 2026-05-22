@@ -155,28 +155,33 @@
                        string="Colour"
                        readonly="state in ('done', 'cancel')"
                        invisible="not x_color"/>
+                <field name="x_battery_type"
+                       string="Battery Type"
+                       readonly="state in ('done', 'cancel')"
+                       invisible="not x_battery_type"/>
             </xpath>
         </field>
     </record>
 
-    <!-- Barcode Capture Wizard — opened by action_generate_serial() for EGO-S1 MOs -->
+    <!-- Barcode Capture Wizard — opened by action_generate_serial() for ElegoMotors bike MOs -->
     <record id="view_mrp_barcode_wizard_form" model="ir.ui.view">
         <field name="name">elegomotors.barcode.capture.wizard.form</field>
         <field name="model">elegomotors.barcode.capture.wizard</field>
         <field name="arch" type="xml">
-            <form string="Scan Component Barcodes — EGO-S1">
+            <form string="Scan Component Barcodes">
                 <sheet>
                     <field name="chassis_scanned"    invisible="1"/>
                     <field name="motor_scanned"      invisible="1"/>
-                    <field name="battery_scanned"    invisible="1"/>
                     <field name="controller_scanned" invisible="1"/>
+                    <field name="battery_scanned"    invisible="1"/>
                     <field name="charger_scanned"    invisible="1"/>
                     <field name="all_scanned"        invisible="1"/>
 
                     <div class="d-flex justify-content-between align-items-center mb-2">
                         <div class="alert alert-info mb-0 flex-grow-1 me-3" role="alert">
-                            <strong>Barcode Scan Required</strong> — Scan the chassis
-                            number (frame plate) first, then all 4 component barcodes.
+                            <strong>Barcode Scan Required</strong> — Scan chassis,
+                            hub motor, and controller (required). Battery and charger
+                            are optional.
                         </div>
                         <div class="d-flex align-items-center gap-2 text-nowrap">
                             <span class="text-muted small">Auto-Advance</span>
@@ -196,39 +201,42 @@
                               invisible="motor_scanned">1. Hub Motor</span>
 
                         <span class="badge bg-success text-white fs-6"
-                              invisible="not battery_scanned">2. Battery Pack &#10003;</span>
+                              invisible="not controller_scanned">2. Controller &#10003;</span>
                         <span class="badge bg-secondary text-white fs-6"
-                              invisible="battery_scanned">2. Battery Pack</span>
+                              invisible="controller_scanned">2. Controller</span>
 
                         <span class="badge bg-success text-white fs-6"
-                              invisible="not controller_scanned">3. Controller &#10003;</span>
-                        <span class="badge bg-secondary text-white fs-6"
-                              invisible="controller_scanned">3. Controller</span>
+                              invisible="not battery_scanned">3. Battery &#10003;</span>
+                        <span class="badge bg-light text-muted fs-6"
+                              invisible="battery_scanned">3. Battery (opt.)</span>
 
                         <span class="badge bg-success text-white fs-6"
                               invisible="not charger_scanned">4. Charger &#10003;</span>
-                        <span class="badge bg-secondary text-white fs-6"
-                              invisible="charger_scanned">4. Charger</span>
+                        <span class="badge bg-light text-muted fs-6"
+                              invisible="charger_scanned">4. Charger (opt.)</span>
                     </div>
 
-                    <group string="Frame Plate">
+                    <group>
                         <field name="x_chassis_serial"
+                               string="Chassis No."
                                placeholder="Scan chassis / frame plate barcode…"
                                autofocus="1"/>
-                    </group>
-                    <group string="Component Barcodes">
                         <field name="x_motor_serial"
+                               string="Hub Motor Serial No."
                                placeholder="Scan Hub Motor barcode…"/>
-                        <field name="x_battery_serial"
-                               placeholder="Scan Battery Pack barcode…"/>
                         <field name="x_controller_serial"
+                               string="Motor Controller Serial No."
                                placeholder="Scan Motor Controller barcode…"/>
+                        <field name="x_battery_serial"
+                               string="Battery Pack Serial No. (optional)"
+                               placeholder="Scan Battery Pack barcode…"/>
                         <field name="x_charger_serial"
+                               string="Charger Serial No. (optional)"
                                placeholder="Scan Charger barcode…"/>
                     </group>
 
                     <div class="alert alert-success mt-3 mb-0" invisible="not all_scanned">
-                        All 5 barcodes scanned — click
+                        Required barcodes scanned — click
                         <strong>Confirm &amp; Produce</strong> to proceed.
                     </div>
                 </sheet>
