@@ -35,6 +35,14 @@ class MrpProduction(models.Model):
     x_lot_controller_serial = fields.Char(related='lot_producing_id.x_controller_serial', string='Controller S/N',   readonly=True)
     x_lot_charger_serial    = fields.Char(related='lot_producing_id.x_charger_serial',    string='Charger S/N',      readonly=True)
 
+    # Colour selected in batch MO wizard — stored on MO and copied to the finished lot
+    x_color = fields.Selection([
+        ('red',   'Red'),
+        ('black', 'Black'),
+        ('gray',  'Gray'),
+        ('white', 'White'),
+    ], string='Colour', copy=True)
+
     # Req 2: Batch MO reference — links all MOs created together from the batch wizard
     x_batch_mo_ref = fields.Char(
         string='Batch Reference',
@@ -186,11 +194,9 @@ class MrpProduction(models.Model):
                     f'(Store) before production quantities can be recorded.'
                 )
         if not self.env.context.get('skip_barcode_wizard'):
-            ego_tmpl = self.env.ref(
-                'elegomotors_setup.tmpl_ego_scooter', raise_if_not_found=False
-            )
+            ego_tmpls = self._get_ego_templates()
             self.ensure_one()
-            if ego_tmpl and self.product_id.product_tmpl_id == ego_tmpl:
+            if ego_tmpls and self.product_id.product_tmpl_id in ego_tmpls:
                 wizard = self.env['elegomotors.barcode.capture.wizard'].create({
                     'production_id': self.id,
                 })
@@ -231,17 +237,14 @@ class MrpProduction(models.Model):
                     f'{production.name}.\nPending transfer(s): {names}'
                 )
 
-        # Guard 3: EGO-S1 requires component serials scanned before marking done.
-        # This intercepts any path that skips action_generate_serial (including
-        # "Produce All" from list view or direct Mark as Done without scanning).
+        # Guard 3: ElegoMotors bike templates require component serials scanned before
+        # marking done. Intercepts any path that skips the barcode wizard.
         if not self.env.su:
-            ego_tmpl = self.env.ref(
-                'elegomotors_setup.tmpl_ego_scooter', raise_if_not_found=False
-            )
-            if ego_tmpl:
+            ego_tmpls = self._get_ego_templates()
+            if ego_tmpls:
                 for production in self:
                     if (
-                        production.product_id.product_tmpl_id == ego_tmpl
+                        production.product_id.product_tmpl_id in ego_tmpls
                         and not production.lot_producing_id
                     ):
                         if len(self) == 1 and int(production.product_qty) <= 1:
@@ -264,7 +267,7 @@ class MrpProduction(models.Model):
                                 mos_for_wizard = production
                             else:
                                 mos_for_wizard = self.filtered(
-                                    lambda p: p.product_id.product_tmpl_id == ego_tmpl
+                                    lambda p: p.product_id.product_tmpl_id in ego_tmpls
                                               and not p.lot_producing_id
                                 )
                             if mos_for_wizard:
@@ -295,6 +298,21 @@ class MrpProduction(models.Model):
                     # QC pending — defer FG transfer, notify Pratik to inspect
                     production._notify_qc_needed()
 
+        return result
+
+    def _get_ego_templates(self):
+        """Return a recordset of all ElegoMotors bike product templates."""
+        refs = [
+            'elegomotors_setup.tmpl_ego_scooter',
+            'elegomotors_setup.tmpl_elego_11',
+            'elegomotors_setup.tmpl_elego_12',
+            'elegomotors_setup.tmpl_elego_20p',
+        ]
+        result = self.env['product.template']
+        for ref in refs:
+            tmpl = self.env.ref(ref, raise_if_not_found=False)
+            if tmpl:
+                result |= tmpl
         return result
 
     def _notify_qc_needed(self):
@@ -394,6 +412,7 @@ class MrpBarcodeWizard(models.TransientModel):
         'mrp.production', string='Manufacturing Order',
         readonly=True, required=True, ondelete='cascade',
     )
+    x_chassis_serial    = fields.Char(string='Chassis No. (Frame Plate)')
     x_motor_serial      = fields.Char(string='Hub Motor Serial No.')
     x_battery_serial    = fields.Char(string='Battery Pack Serial No.')
     x_controller_serial = fields.Char(string='Motor Controller Serial No.')
@@ -402,35 +421,39 @@ class MrpBarcodeWizard(models.TransientModel):
     # Req 4: auto-advance toggle (default True = scanner auto-moves to next field)
     x_auto_scan = fields.Boolean(string='Auto-Advance on Scan', default=True)
 
+    chassis_scanned    = fields.Boolean(compute='_compute_scan_progress')
     motor_scanned      = fields.Boolean(compute='_compute_scan_progress')
     battery_scanned    = fields.Boolean(compute='_compute_scan_progress')
     controller_scanned = fields.Boolean(compute='_compute_scan_progress')
     charger_scanned    = fields.Boolean(compute='_compute_scan_progress')
     all_scanned        = fields.Boolean(compute='_compute_scan_progress')
 
-    @api.depends('x_motor_serial', 'x_battery_serial', 'x_controller_serial', 'x_charger_serial')
+    @api.depends('x_chassis_serial', 'x_motor_serial', 'x_battery_serial', 'x_controller_serial', 'x_charger_serial')
     def _compute_scan_progress(self):
         for rec in self:
+            rec.chassis_scanned    = bool(rec.x_chassis_serial)
             rec.motor_scanned      = bool(rec.x_motor_serial)
             rec.battery_scanned    = bool(rec.x_battery_serial)
             rec.controller_scanned = bool(rec.x_controller_serial)
             rec.charger_scanned    = bool(rec.x_charger_serial)
             rec.all_scanned = bool(
-                rec.x_motor_serial and rec.x_battery_serial
+                rec.x_chassis_serial and rec.x_motor_serial and rec.x_battery_serial
                 and rec.x_controller_serial and rec.x_charger_serial
             )
 
-    @api.onchange('x_motor_serial', 'x_battery_serial', 'x_controller_serial', 'x_charger_serial')
+    @api.onchange('x_chassis_serial', 'x_motor_serial', 'x_battery_serial', 'x_controller_serial', 'x_charger_serial')
     def _onchange_barcodes(self):
         self._compute_scan_progress()
 
     def action_confirm(self):
         self.ensure_one()
         missing = []
+        if not self.x_chassis_serial:
+            missing.append('Chassis No. (Frame Plate)')
         if not self.x_motor_serial:
             missing.append('Hub Motor (250W BLDC)')
         if not self.x_battery_serial:
-            missing.append('Battery Pack (48V 20Ah)')
+            missing.append('Battery Pack')
         if not self.x_controller_serial:
             missing.append('Motor Controller (BLDC 48V)')
         if not self.x_charger_serial:
@@ -440,9 +463,22 @@ class MrpBarcodeWizard(models.TransientModel):
                 'Please scan the following barcodes before confirming:\n'
                 + '\n'.join(f'  \u2022 {m}' for m in missing)
             )
-        # Req 5: each serial must be unique across all existing lots
-        current_lot_id = self.production_id.lot_producing_id.id or 0
+
+        production = self.production_id
         Lot = self.env['stock.lot']
+
+        # Chassis number must not already exist for this product
+        existing_chassis = Lot.search([
+            ('name', '=', self.x_chassis_serial),
+            ('product_id', '=', production.product_id.id),
+        ], limit=1)
+        if existing_chassis:
+            raise UserError(
+                f'Chassis number "{self.x_chassis_serial}" is already in use on lot '
+                f'{existing_chassis.name}. Please verify the frame plate barcode.'
+            )
+
+        # Each component serial must be unique across all existing lots
         for field_name, label in [
             ('x_motor_serial',      'Hub Motor'),
             ('x_battery_serial',    'Battery Pack'),
@@ -450,15 +486,13 @@ class MrpBarcodeWizard(models.TransientModel):
             ('x_charger_serial',    'Charger'),
         ]:
             val = getattr(self, field_name)
-            domain = [(field_name, '=', val)]
-            if current_lot_id:
-                domain += [('id', '!=', current_lot_id)]
-            existing = Lot.search(domain, limit=1)
+            existing = Lot.search([(field_name, '=', val)], limit=1)
             if existing:
                 raise UserError(
                     f'{label} serial "{val}" is already registered on lot {existing.name}. '
                     f'Please verify the barcode.'
                 )
+
         scanned = [self.x_motor_serial, self.x_battery_serial,
                    self.x_controller_serial, self.x_charger_serial]
         if len(scanned) != len(set(scanned)):
@@ -466,14 +500,21 @@ class MrpBarcodeWizard(models.TransientModel):
                 'Duplicate serial numbers detected. '
                 'Each component must have a unique serial number.'
             )
-        production = self.production_id
-        production.with_context(skip_barcode_wizard=True).action_generate_serial()
-        lot = production.lot_producing_id
-        if lot:
-            lot.write({
-                'x_motor_serial':      self.x_motor_serial,
-                'x_battery_serial':    self.x_battery_serial,
-                'x_controller_serial': self.x_controller_serial,
-                'x_charger_serial':    self.x_charger_serial,
-            })
+
+        # Create lot using the scanned chassis number as the lot name
+        lot = Lot.create({
+            'name':       self.x_chassis_serial,
+            'product_id': production.product_id.id,
+            'company_id': production.company_id.id,
+        })
+        production.lot_producing_id = lot
+        production.qty_producing    = 1
+        lot.write({
+            'x_motor_serial':      self.x_motor_serial,
+            'x_battery_serial':    self.x_battery_serial,
+            'x_controller_serial': self.x_controller_serial,
+            'x_charger_serial':    self.x_charger_serial,
+            'x_color':             production.x_color or '',
+        })
+        production.with_context(skip_barcode_wizard=True).button_mark_done()
         return {'type': 'ir.actions.act_window_close'}

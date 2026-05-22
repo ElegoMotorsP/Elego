@@ -140,7 +140,7 @@
         </field>
     </record>
 
-    <!-- Req 2: Batch Reference field shown on MO form when set -->
+    <!-- Req 2: Batch Reference + Colour fields shown on MO form -->
     <record id="mrp_production_form_batch_ref" model="ir.ui.view">
         <field name="name">mrp.production.form.batch.ref</field>
         <field name="model">mrp.production</field>
@@ -151,6 +151,10 @@
                        string="Batch Ref."
                        readonly="1"
                        invisible="not x_batch_mo_ref"/>
+                <field name="x_color"
+                       string="Colour"
+                       readonly="state in ('done', 'cancel')"
+                       invisible="not x_color"/>
             </xpath>
         </field>
     </record>
@@ -162,6 +166,7 @@
         <field name="arch" type="xml">
             <form string="Scan Component Barcodes — EGO-S1">
                 <sheet>
+                    <field name="chassis_scanned"    invisible="1"/>
                     <field name="motor_scanned"      invisible="1"/>
                     <field name="battery_scanned"    invisible="1"/>
                     <field name="controller_scanned" invisible="1"/>
@@ -170,10 +175,9 @@
 
                     <div class="d-flex justify-content-between align-items-center mb-2">
                         <div class="alert alert-info mb-0 flex-grow-1 me-3" role="alert">
-                            <strong>Barcode Scan Required</strong> — Scan all 4 component
-                            barcodes before generating the EGO-S1 serial number.
+                            <strong>Barcode Scan Required</strong> — Scan the chassis
+                            number (frame plate) first, then all 4 component barcodes.
                         </div>
-                        <!-- Req 4: Manual/Auto scan toggle -->
                         <div class="d-flex align-items-center gap-2 text-nowrap">
                             <span class="text-muted small">Auto-Advance</span>
                             <field name="x_auto_scan" widget="boolean_toggle" nolabel="1"/>
@@ -182,46 +186,55 @@
 
                     <div class="d-flex gap-2 mb-3 flex-wrap">
                         <span class="badge bg-success text-white fs-6"
-                              invisible="not motor_scanned">1. Hub Motor ✓</span>
+                              invisible="not chassis_scanned">0. Chassis &#10003;</span>
+                        <span class="badge bg-secondary text-white fs-6"
+                              invisible="chassis_scanned">0. Chassis</span>
+
+                        <span class="badge bg-success text-white fs-6"
+                              invisible="not motor_scanned">1. Hub Motor &#10003;</span>
                         <span class="badge bg-secondary text-white fs-6"
                               invisible="motor_scanned">1. Hub Motor</span>
 
                         <span class="badge bg-success text-white fs-6"
-                              invisible="not battery_scanned">2. Battery Pack ✓</span>
+                              invisible="not battery_scanned">2. Battery Pack &#10003;</span>
                         <span class="badge bg-secondary text-white fs-6"
                               invisible="battery_scanned">2. Battery Pack</span>
 
                         <span class="badge bg-success text-white fs-6"
-                              invisible="not controller_scanned">3. Controller ✓</span>
+                              invisible="not controller_scanned">3. Controller &#10003;</span>
                         <span class="badge bg-secondary text-white fs-6"
                               invisible="controller_scanned">3. Controller</span>
 
                         <span class="badge bg-success text-white fs-6"
-                              invisible="not charger_scanned">4. Charger ✓</span>
+                              invisible="not charger_scanned">4. Charger &#10003;</span>
                         <span class="badge bg-secondary text-white fs-6"
                               invisible="charger_scanned">4. Charger</span>
                     </div>
 
+                    <group string="Frame Plate">
+                        <field name="x_chassis_serial"
+                               placeholder="Scan chassis / frame plate barcode…"
+                               autofocus="1"/>
+                    </group>
                     <group string="Component Barcodes">
                         <field name="x_motor_serial"
-                               placeholder="Scan Hub Motor 250W BLDC barcode…"
-                               autofocus="1"/>
+                               placeholder="Scan Hub Motor barcode…"/>
                         <field name="x_battery_serial"
-                               placeholder="Scan Li-ion Battery Pack 48V 20Ah barcode…"/>
+                               placeholder="Scan Battery Pack barcode…"/>
                         <field name="x_controller_serial"
-                               placeholder="Scan Motor Controller BLDC 48V barcode…"/>
+                               placeholder="Scan Motor Controller barcode…"/>
                         <field name="x_charger_serial"
                                placeholder="Scan Charger barcode…"/>
                     </group>
 
                     <div class="alert alert-success mt-3 mb-0" invisible="not all_scanned">
-                        All 4 component barcodes scanned — click
-                        <strong>Generate Serial &amp; Confirm</strong> to proceed.
+                        All 5 barcodes scanned — click
+                        <strong>Confirm &amp; Produce</strong> to proceed.
                     </div>
                 </sheet>
                 <footer>
                     <button name="action_confirm"
-                            string="Generate Serial &amp; Confirm"
+                            string="Confirm &amp; Produce"
                             type="object"
                             class="btn-primary"/>
                     <button string="Cancel" class="btn-secondary" special="cancel"/>

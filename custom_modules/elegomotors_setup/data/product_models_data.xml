@@ -1,0 +1,72 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+    <!--
+        ElegoMotors — Bike Model Product Templates
+
+        Three bike models based on the official model master list:
+          Elego 1.1  — 5 battery options
+          Elego 1.2  — 5 battery options
+          Elego 2.0+ — 4 battery options (no Lead Acid 72V32Ah)
+
+        Battery Type is the only inventory-tracked variant attribute.
+        Colour is recorded as x_color on the MO and stock.lot (not a variant).
+        Side Guards are sold as separate storable products (sale_products_data.xml).
+
+        Product templates are noupdate="1" so UI price/description edits are preserved.
+        The attribute setup function is noupdate="0" and runs on every upgrade.
+    -->
+
+    <data noupdate="1">
+
+        <!-- ── Elego 1.1 ─────────────────────────────────────────────────── -->
+        <record id="tmpl_elego_11" model="product.template">
+            <field name="name">Elego 1.1</field>
+            <field name="is_storable" eval="True"/>
+            <field name="sale_ok" eval="True"/>
+            <field name="purchase_ok" eval="False"/>
+            <field name="categ_id" ref="product.product_category_all"/>
+            <field name="uom_id" ref="uom.product_uom_unit"/>
+            <field name="uom_po_id" ref="uom.product_uom_unit"/>
+            <field name="list_price">65000.0</field>
+            <field name="standard_price">45000.0</field>
+            <field name="route_ids" eval="[(4, ref('mrp.route_warehouse0_manufacture'))]"/>
+        </record>
+
+        <!-- ── Elego 1.2 ─────────────────────────────────────────────────── -->
+        <record id="tmpl_elego_12" model="product.template">
+            <field name="name">Elego 1.2</field>
+            <field name="is_storable" eval="True"/>
+            <field name="sale_ok" eval="True"/>
+            <field name="purchase_ok" eval="False"/>
+            <field name="categ_id" ref="product.product_category_all"/>
+            <field name="uom_id" ref="uom.product_uom_unit"/>
+            <field name="uom_po_id" ref="uom.product_uom_unit"/>
+            <field name="list_price">70000.0</field>
+            <field name="standard_price">48000.0</field>
+            <field name="route_ids" eval="[(4, ref('mrp.route_warehouse0_manufacture'))]"/>
+        </record>
+
+        <!-- ── Elego 2.0+ ────────────────────────────────────────────────── -->
+        <record id="tmpl_elego_20p" model="product.template">
+            <field name="name">Elego 2.0+</field>
+            <field name="is_storable" eval="True"/>
+            <field name="sale_ok" eval="True"/>
+            <field name="purchase_ok" eval="False"/>
+            <field name="categ_id" ref="product.product_category_all"/>
+            <field name="uom_id" ref="uom.product_uom_unit"/>
+            <field name="uom_po_id" ref="uom.product_uom_unit"/>
+            <field name="list_price">75000.0</field>
+            <field name="standard_price">52000.0</field>
+            <field name="route_ids" eval="[(4, ref('mrp.route_warehouse0_manufacture'))]"/>
+        </record>
+
+    </data>
+
+    <!-- Attribute setup runs on every upgrade (noupdate="0").
+         Creates Battery Type values from the PDF model master list and
+         assigns the attribute line to each of the 3 new templates. -->
+    <data noupdate="0">
+        <function model="product.template" name="_ensure_new_model_attributes"/>
+    </data>
+
+</odoo>

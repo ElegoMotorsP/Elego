@@ -63,18 +63,19 @@ class ElegomotorsBulkBarcodeWizard(models.TransientModel):
     def action_confirm(self):
         self.ensure_one()
 
-        # 1. All rows must have all 4 serials
+        # 1. All rows must have all 5 serials (chassis + 4 components)
         incomplete = self.line_ids.filtered(lambda l: not l.all_scanned)
         if incomplete:
             labels = ', '.join(incomplete.mapped('mo_name'))
             raise UserError(
-                f'Please scan all 4 component serials for the following unit(s):\n{labels}'
+                f'Please scan the chassis number and all 4 component serials for:\n{labels}'
             )
 
-        # 2. No duplicate serials within this batch
+        # 2. No duplicate serials within this batch (chassis + components)
         all_serials = []
         for line in self.line_ids:
             for val in [
+                line.x_chassis_serial,
                 line.x_motor_serial,
                 line.x_battery_serial,
                 line.x_controller_serial,
@@ -82,34 +83,42 @@ class ElegomotorsBulkBarcodeWizard(models.TransientModel):
             ]:
                 if val in all_serials:
                     raise UserError(
-                        f'Serial "{val}" appears more than once across the units in this batch. '
-                        f'Each component must have a unique serial number.'
+                        f'Serial "{val}" appears more than once in this batch. '
+                        f'Each serial must be unique.'
                     )
                 all_serials.append(val)
 
         # 3. No conflict with already-existing lots
         Lot = self.env['stock.lot']
-        serial_fields = [
+        component_fields = [
             ('x_motor_serial',      'Hub Motor'),
             ('x_battery_serial',    'Battery Pack'),
             ('x_controller_serial', 'Motor Controller'),
             ('x_charger_serial',    'Charger'),
         ]
         for line in self.line_ids:
-            for field_name, label in serial_fields:
+            # Chassis number must not already exist for this product
+            existing_chassis = Lot.search([
+                ('name', '=', line.x_chassis_serial),
+                ('product_id', '=', line.production_id.product_id.id),
+            ], limit=1)
+            if existing_chassis:
+                raise UserError(
+                    f'Chassis "{line.x_chassis_serial}" is already in use '
+                    f'(lot {existing_chassis.name}) for {line.mo_name}.'
+                )
+            for field_name, label in component_fields:
                 val = getattr(line, field_name)
                 existing = Lot.search([(field_name, '=', val)], limit=1)
                 if existing:
                     raise UserError(
                         f'{label} serial "{val}" is already registered on lot '
-                        f'{existing.name}. Please verify the barcode for {line.mo_name}.'
+                        f'{existing.name}. Please verify barcode for {line.mo_name}.'
                     )
 
-        # 4. Generate chassis serial + write component serials + mark done for each unit.
+        # 4. Create chassis lot + write component serials + mark done for each unit.
         #    For MOs with qty > 1, pre-split into N individual qty=1 productions so
         #    that each unit can be marked done independently with no backorder dialog.
-        #    (In Odoo 18, skip_backorder=True cancels remaining qty rather than
-        #    creating a backorder MO, so sequential backorder chaining does not work.)
         for mo in self.production_ids.sorted('id'):
             lines = self.line_ids.filtered(
                 lambda l: l.production_id == mo
@@ -118,12 +127,6 @@ class ElegomotorsBulkBarcodeWizard(models.TransientModel):
             total = len(lines)
 
             if total > 1:
-                # _split_productions({mo: [1,1,...,1]}) splits the MO into N qty=1
-                # productions.  It modifies the original to qty=amounts[-1] and
-                # creates len(amounts)-1 copies for the earlier amounts.
-                # Return order: [original, copy1, copy2, ...] where original holds
-                # amounts[-1] (last unit).  Re-order to [copies_asc, original] so
-                # productions[0] = unit 1, productions[1] = unit 2, etc.
                 split_result = mo._split_productions({mo: [1.0] * total})
                 if len(split_result) != total:
                     raise UserError(
@@ -136,17 +139,21 @@ class ElegomotorsBulkBarcodeWizard(models.TransientModel):
                 productions = mo
 
             for split_mo, line in zip(productions, lines):
-                # Generate chassis serial for this unit (sets qty_producing = 1)
-                split_mo.with_context(skip_barcode_wizard=True).action_generate_serial()
-                lot = split_mo.lot_producing_id
-                if lot:
-                    lot.write({
-                        'x_motor_serial':      line.x_motor_serial,
-                        'x_battery_serial':    line.x_battery_serial,
-                        'x_controller_serial': line.x_controller_serial,
-                        'x_charger_serial':    line.x_charger_serial,
-                    })
-                # product_qty == qty_producing == 1 → no backorder dialog needed
+                # Create lot using the scanned chassis number as lot name
+                lot = Lot.create({
+                    'name':       line.x_chassis_serial,
+                    'product_id': split_mo.product_id.id,
+                    'company_id': split_mo.company_id.id,
+                })
+                split_mo.lot_producing_id = lot
+                split_mo.qty_producing    = 1
+                lot.write({
+                    'x_motor_serial':      line.x_motor_serial,
+                    'x_battery_serial':    line.x_battery_serial,
+                    'x_controller_serial': line.x_controller_serial,
+                    'x_charger_serial':    line.x_charger_serial,
+                    'x_color':             split_mo.x_color or '',
+                })
                 split_mo.with_context(skip_barcode_wizard=True).button_mark_done()
 
         return {'type': 'ir.actions.act_window_close'}
@@ -164,6 +171,7 @@ class ElegomotorsBulkBarcodeWizardLine(models.TransientModel):
     mo_name       = fields.Char(string='MO / Unit', readonly=True)
     unit_index    = fields.Integer(string='Unit #', default=1)
 
+    x_chassis_serial    = fields.Char(string='Chassis No.')
     x_motor_serial      = fields.Char(string='Motor Serial')
     x_battery_serial    = fields.Char(string='Battery Serial')
     x_controller_serial = fields.Char(string='Controller Serial')
@@ -175,11 +183,12 @@ class ElegomotorsBulkBarcodeWizardLine(models.TransientModel):
         store=True,
     )
 
-    @api.depends('x_motor_serial', 'x_battery_serial', 'x_controller_serial', 'x_charger_serial')
+    @api.depends('x_chassis_serial', 'x_motor_serial', 'x_battery_serial', 'x_controller_serial', 'x_charger_serial')
     def _compute_all_scanned(self):
         for line in self:
             line.all_scanned = bool(
-                line.x_motor_serial
+                line.x_chassis_serial
+                and line.x_motor_serial
                 and line.x_battery_serial
                 and line.x_controller_serial
                 and line.x_charger_serial

@@ -27,6 +27,7 @@ class StockLot(models.Model):
     x_charger_serial    = fields.Char(string='Charger Serial No.',            index=True)
     x_cluster_serial    = fields.Char(string='Instrument Cluster Serial No.', index=True)
     x_frame_serial      = fields.Char(string='Frame Assembly Serial No.',     index=True)
+    x_color             = fields.Char(string='Colour',                          index=True)
     x_blacklisted       = fields.Boolean(
         string='Blacklisted (QC Fail)',
         default=False,

@@ -28,11 +28,10 @@
                     <!-- Header bar: info + auto-scan toggle -->
                     <div class="d-flex justify-content-between align-items-start mb-3 gap-3">
                         <div class="alert alert-info mb-0 flex-grow-1" role="alert">
-                            <strong>Bulk Barcode Scan</strong> — Scan all 4 component
-                            barcodes for each EGO-S1 unit in the table below.
-                            After confirming, chassis serials are auto-generated and
-                            each set of barcodes is linked to its specific unit.
-                            Click <strong>Produce All</strong> again once this wizard closes.
+                            <strong>Bulk Barcode Scan</strong> — For each unit, scan
+                            the <strong>Chassis No.</strong> (frame plate) first, then
+                            the 4 component barcodes. Each chassis number becomes the
+                            unit's serial number.
                         </div>
                         <div class="d-flex flex-column align-items-center gap-1 text-nowrap">
                             <span class="text-muted small fw-semibold">Auto-Advance</span>
@@ -63,6 +62,10 @@
                                    string="Unit #"
                                    readonly="1"
                                    optional="show"/>
+                            <field name="x_chassis_serial"
+                                   string="Chassis No."
+                                   placeholder="Scan frame plate…"
+                                   optional="show"/>
                             <field name="x_motor_serial"
                                    string="Motor Serial"
                                    placeholder="Scan motor barcode…"
@@ -89,12 +92,12 @@
 
                     <div class="alert alert-success mt-3 mb-0" invisible="not all_complete">
                         All units scanned — click
-                        <strong>Confirm &amp; Generate Serials</strong> to proceed.
+                        <strong>Confirm &amp; Produce All</strong> to proceed.
                     </div>
                 </sheet>
                 <footer>
                     <button name="action_confirm"
-                            string="Confirm &amp; Generate Serials"
+                            string="Confirm &amp; Produce All"
                             type="object"
                             class="btn-primary"/>
                     <button string="Cancel" special="cancel" class="btn-secondary"/>

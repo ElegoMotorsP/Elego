@@ -19,7 +19,6 @@
             <field name="po_double_validation">two_step</field>
             <field name="po_double_validation_amount">0.0</field>
             <field name="po_lock">lock</field>
-            <!--<field name="currency_id" ref="base.INR"/>-->
             <!-- SO approval (sale_order_approval): enable in Settings when Enterprise sale_order_approval is installed. -->
         </record>
 
@@ -97,6 +96,11 @@
         <record id="stock.warehouse0" model="stock.warehouse">
             <field name="manufacture_steps">pbm</field>
             <field name="pbm_type_id" ref="elegomotors_setup.picking_type_production_issue"/>
+        </record>
+
+        <!-- Set INR as company currency (applied on every upgrade) -->
+        <record id="base.main_company" model="res.company">
+            <field name="currency_id" ref="base.INR"/>
         </record>
 
         <!-- REMOVE Work Orders / MRP Routings from all internal users.

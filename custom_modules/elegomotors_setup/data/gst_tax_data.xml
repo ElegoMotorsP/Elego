@@ -1,0 +1,149 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+    <!--
+        ElegoMotors — GST Tax Configuration
+
+        Two GST slabs for accessories (Battery Packs, Side Guards):
+          5%  — when sold bundled with a bike (sales team changes tax on SO line)
+         18%  — when sold standalone (default on product)
+
+        Default taxes on sale products use intra-state (CGST + SGST).
+        The "Other States" fiscal position auto-maps CGST+SGST → IGST for
+        customers outside Maharashtra.
+
+        All records are noupdate="1" — created once, managed via UI after.
+    -->
+
+    <data noupdate="1">
+
+        <!-- ── Tax Groups ────────────────────────────────────────────── -->
+
+        <record id="tax_group_gst_5" model="account.tax.group">
+            <field name="name">GST 5%</field>
+            <field name="sequence">10</field>
+        </record>
+
+        <record id="tax_group_gst_18" model="account.tax.group">
+            <field name="name">GST 18%</field>
+            <field name="sequence">20</field>
+        </record>
+
+        <!-- ── 5% GST — accessories sold with a bike ─────────────────── -->
+
+        <record id="tax_cgst_2_5" model="account.tax">
+            <field name="name">CGST 2.5%</field>
+            <field name="type_tax_use">sale</field>
+            <field name="amount_type">percent</field>
+            <field name="amount">2.5</field>
+            <field name="company_id" ref="base.main_company"/>
+            <field name="tax_group_id" ref="tax_group_gst_5"/>
+            <field name="description">CGST 2.5%</field>
+        </record>
+
+        <record id="tax_sgst_2_5" model="account.tax">
+            <field name="name">SGST 2.5%</field>
+            <field name="type_tax_use">sale</field>
+            <field name="amount_type">percent</field>
+            <field name="amount">2.5</field>
+            <field name="company_id" ref="base.main_company"/>
+            <field name="tax_group_id" ref="tax_group_gst_5"/>
+            <field name="description">SGST 2.5%</field>
+        </record>
+
+        <record id="tax_igst_5" model="account.tax">
+            <field name="name">IGST 5%</field>
+            <field name="type_tax_use">sale</field>
+            <field name="amount_type">percent</field>
+            <field name="amount">5.0</field>
+            <field name="company_id" ref="base.main_company"/>
+            <field name="tax_group_id" ref="tax_group_gst_5"/>
+            <field name="description">IGST 5%</field>
+        </record>
+
+        <!-- ── 18% GST — accessories sold standalone ─────────────────── -->
+
+        <record id="tax_cgst_9" model="account.tax">
+            <field name="name">CGST 9%</field>
+            <field name="type_tax_use">sale</field>
+            <field name="amount_type">percent</field>
+            <field name="amount">9.0</field>
+            <field name="company_id" ref="base.main_company"/>
+            <field name="tax_group_id" ref="tax_group_gst_18"/>
+            <field name="description">CGST 9%</field>
+        </record>
+
+        <record id="tax_sgst_9" model="account.tax">
+            <field name="name">SGST 9%</field>
+            <field name="type_tax_use">sale</field>
+            <field name="amount_type">percent</field>
+            <field name="amount">9.0</field>
+            <field name="company_id" ref="base.main_company"/>
+            <field name="tax_group_id" ref="tax_group_gst_18"/>
+            <field name="description">SGST 9%</field>
+        </record>
+
+        <record id="tax_igst_18" model="account.tax">
+            <field name="name">IGST 18%</field>
+            <field name="type_tax_use">sale</field>
+            <field name="amount_type">percent</field>
+            <field name="amount">18.0</field>
+            <field name="company_id" ref="base.main_company"/>
+            <field name="tax_group_id" ref="tax_group_gst_18"/>
+            <field name="description">IGST 18%</field>
+        </record>
+
+        <!-- ── Fiscal Positions ──────────────────────────────────────── -->
+
+        <!--
+            Maharashtra (Intra-State): no tax mapping required.
+            Products already default to CGST+SGST. This FP exists so that
+            Maharashtra customers match here (sequence 10) before the
+            lower-priority Other States FP (sequence 20) can claim them.
+        -->
+        <record id="fiscal_position_maharashtra" model="account.fiscal.position">
+            <field name="name">Maharashtra (Intra-State GST)</field>
+            <field name="auto_apply" eval="True"/>
+            <field name="state_ids" eval="[(4, ref('base.state_in_mh'))]"/>
+            <field name="sequence">10</field>
+            <field name="note">CGST + SGST applies for customers in Maharashtra.</field>
+        </record>
+
+        <!--
+            Other States (Inter-State): maps CGST 2.5% → IGST 5% and removes
+            SGST 2.5% (same for 9% pair), giving the correct IGST-only total.
+        -->
+        <record id="fiscal_position_other_states" model="account.fiscal.position">
+            <field name="name">Other States (Inter-State IGST)</field>
+            <field name="auto_apply" eval="True"/>
+            <field name="country_id" ref="base.in"/>
+            <field name="sequence">20</field>
+            <field name="note">IGST applies for customers outside Maharashtra.</field>
+        </record>
+
+        <!-- 5% slab: CGST 2.5% → IGST 5%, SGST 2.5% → removed -->
+        <record id="fiscal_tax_map_cgst_2_5_to_igst_5" model="account.fiscal.position.tax">
+            <field name="position_id" ref="fiscal_position_other_states"/>
+            <field name="tax_src_id"  ref="tax_cgst_2_5"/>
+            <field name="tax_dest_id" ref="tax_igst_5"/>
+        </record>
+        <record id="fiscal_tax_map_sgst_2_5_removed" model="account.fiscal.position.tax">
+            <field name="position_id" ref="fiscal_position_other_states"/>
+            <field name="tax_src_id"  ref="tax_sgst_2_5"/>
+            <!-- tax_dest_id omitted → SGST 2.5% is removed for inter-state customers -->
+        </record>
+
+        <!-- 18% slab: CGST 9% → IGST 18%, SGST 9% → removed -->
+        <record id="fiscal_tax_map_cgst_9_to_igst_18" model="account.fiscal.position.tax">
+            <field name="position_id" ref="fiscal_position_other_states"/>
+            <field name="tax_src_id"  ref="tax_cgst_9"/>
+            <field name="tax_dest_id" ref="tax_igst_18"/>
+        </record>
+        <record id="fiscal_tax_map_sgst_9_removed" model="account.fiscal.position.tax">
+            <field name="position_id" ref="fiscal_position_other_states"/>
+            <field name="tax_src_id"  ref="tax_sgst_9"/>
+            <!-- tax_dest_id omitted → SGST 9% is removed for inter-state customers -->
+        </record>
+
+    </data>
+
+</odoo>

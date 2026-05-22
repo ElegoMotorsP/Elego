@@ -1,0 +1,115 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+    <!--
+        ElegoMotors — Accessory Sale Products
+
+        Battery Packs and Side Guards sold as separate SO line items.
+        Default tax: CGST 9% + SGST 9% (GST 18% intra-state).
+        When bundled with a bike, the sales team manually changes tax to
+        CGST 2.5% + SGST 2.5% on the SO line.
+
+        The "Other States" fiscal position auto-converts CGST+SGST → IGST
+        for inter-state customers (see gst_tax_data.xml).
+
+        All records are noupdate="1" — UI price edits are preserved on upgrade.
+    -->
+
+    <data noupdate="1">
+
+        <!-- ── Battery Pack products ─────────────────────────────────── -->
+
+        <record id="prod_battery_lithium_60v30ah" model="product.template">
+            <field name="name">Battery Pack — Lithium 60V30Ah</field>
+            <field name="is_storable" eval="True"/>
+            <field name="sale_ok" eval="True"/>
+            <field name="purchase_ok" eval="False"/>
+            <field name="categ_id" ref="product.product_category_all"/>
+            <field name="uom_id" ref="uom.product_uom_unit"/>
+            <field name="uom_po_id" ref="uom.product_uom_unit"/>
+            <field name="list_price">18000.0</field>
+            <field name="taxes_id" eval="[(6, 0, [
+                ref('elegomotors_setup.tax_cgst_9'),
+                ref('elegomotors_setup.tax_sgst_9'),
+            ])]"/>
+        </record>
+
+        <record id="prod_battery_lithium_60v39ah" model="product.template">
+            <field name="name">Battery Pack — Lithium 60V39Ah</field>
+            <field name="is_storable" eval="True"/>
+            <field name="sale_ok" eval="True"/>
+            <field name="purchase_ok" eval="False"/>
+            <field name="categ_id" ref="product.product_category_all"/>
+            <field name="uom_id" ref="uom.product_uom_unit"/>
+            <field name="uom_po_id" ref="uom.product_uom_unit"/>
+            <field name="list_price">22000.0</field>
+            <field name="taxes_id" eval="[(6, 0, [
+                ref('elegomotors_setup.tax_cgst_9'),
+                ref('elegomotors_setup.tax_sgst_9'),
+            ])]"/>
+        </record>
+
+        <record id="prod_battery_lead_acid_60v32ah" model="product.template">
+            <field name="name">Battery Pack — Lead Acid 60V32Ah</field>
+            <field name="is_storable" eval="True"/>
+            <field name="sale_ok" eval="True"/>
+            <field name="purchase_ok" eval="False"/>
+            <field name="categ_id" ref="product.product_category_all"/>
+            <field name="uom_id" ref="uom.product_uom_unit"/>
+            <field name="uom_po_id" ref="uom.product_uom_unit"/>
+            <field name="list_price">12000.0</field>
+            <field name="taxes_id" eval="[(6, 0, [
+                ref('elegomotors_setup.tax_cgst_9'),
+                ref('elegomotors_setup.tax_sgst_9'),
+            ])]"/>
+        </record>
+
+        <record id="prod_battery_lead_acid_72v32ah" model="product.template">
+            <field name="name">Battery Pack — Lead Acid 72V32Ah</field>
+            <field name="is_storable" eval="True"/>
+            <field name="sale_ok" eval="True"/>
+            <field name="purchase_ok" eval="False"/>
+            <field name="categ_id" ref="product.product_category_all"/>
+            <field name="uom_id" ref="uom.product_uom_unit"/>
+            <field name="uom_po_id" ref="uom.product_uom_unit"/>
+            <field name="list_price">14000.0</field>
+            <field name="taxes_id" eval="[(6, 0, [
+                ref('elegomotors_setup.tax_cgst_9'),
+                ref('elegomotors_setup.tax_sgst_9'),
+            ])]"/>
+        </record>
+
+        <!-- ── Side Guard products ────────────────────────────────────── -->
+
+        <record id="prod_side_guards_black_coating" model="product.template">
+            <field name="name">Side Guards — Black Coating</field>
+            <field name="is_storable" eval="True"/>
+            <field name="sale_ok" eval="True"/>
+            <field name="purchase_ok" eval="False"/>
+            <field name="categ_id" ref="product.product_category_all"/>
+            <field name="uom_id" ref="uom.product_uom_unit"/>
+            <field name="uom_po_id" ref="uom.product_uom_unit"/>
+            <field name="list_price">2500.0</field>
+            <field name="taxes_id" eval="[(6, 0, [
+                ref('elegomotors_setup.tax_cgst_9'),
+                ref('elegomotors_setup.tax_sgst_9'),
+            ])]"/>
+        </record>
+
+        <record id="prod_side_guards_zinc_coating" model="product.template">
+            <field name="name">Side Guards — Zinc Coating</field>
+            <field name="is_storable" eval="True"/>
+            <field name="sale_ok" eval="True"/>
+            <field name="purchase_ok" eval="False"/>
+            <field name="categ_id" ref="product.product_category_all"/>
+            <field name="uom_id" ref="uom.product_uom_unit"/>
+            <field name="uom_po_id" ref="uom.product_uom_unit"/>
+            <field name="list_price">3000.0</field>
+            <field name="taxes_id" eval="[(6, 0, [
+                ref('elegomotors_setup.tax_cgst_9'),
+                ref('elegomotors_setup.tax_sgst_9'),
+            ])]"/>
+        </record>
+
+    </data>
+
+</odoo>

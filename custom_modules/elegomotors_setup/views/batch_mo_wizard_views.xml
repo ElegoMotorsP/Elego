@@ -22,24 +22,23 @@
             <form string="Batch Production Order">
                 <sheet>
                     <div class="alert alert-info mb-3" role="alert">
-                        <strong>Batch MO Creation</strong> — Select a product template, then
-                        add one row per variant you want to produce. For each row, choose
-                        <strong>Color</strong>, <strong>Battery Type</strong>, and
-                        <strong>Side Guards</strong>, set the quantity, and click
-                        <strong>Create Manufacturing Orders</strong>.
-                        One MO will be created per row, all linked by a shared Batch Reference.
+                        <strong>Batch MO Creation</strong> — Select a bike model template,
+                        then add one row per variant you want to produce. Choose the
+                        <strong>Battery Type</strong> (determines the product variant) and
+                        <strong>Color</strong> (production label), set the quantity, and
+                        click <strong>Create Manufacturing Orders</strong>.
+                        One MO per row, all grouped under a shared Batch Reference.
                     </div>
 
                     <group>
                         <field name="product_tmpl_id"
                                options="{'no_create': True, 'no_open': True}"
-                               placeholder="Select product (e.g. EGO-S1)…"/>
+                               placeholder="Select bike model (e.g. Elego 1.1)…"/>
                     </group>
 
-                    <!-- Hidden: domain filter sets for line dropdowns, scoped to the selected template -->
+                    <!-- Hidden: domain filter sets for line dropdowns -->
                     <field name="valid_color_value_ids" invisible="1"/>
                     <field name="valid_battery_value_ids" invisible="1"/>
-                    <field name="valid_side_guards_value_ids" invisible="1"/>
 
                     <field name="line_ids" widget="one2many_list">
                         <list editable="bottom" decoration-muted="not create_mo">
@@ -48,20 +47,13 @@
                                    widget="boolean_toggle"/>
                             <field name="color_value_id"
                                    string="Color"
-                                   placeholder="Select colour…"
+                                   placeholder="Red / Black / Gray / White…"
                                    domain="[('id', 'in', parent.valid_color_value_ids)]"
                                    options="{'no_create': True}"/>
                             <field name="battery_value_id"
                                    string="Battery Type"
-                                   placeholder="48V / 60V…"
-                                   optional="show"
+                                   placeholder="Lithium 60V30Ah…"
                                    domain="[('id', 'in', parent.valid_battery_value_ids)]"
-                                   options="{'no_create': True}"/>
-                            <field name="side_guards_value_id"
-                                   string="Side Guards"
-                                   placeholder="Yes / No…"
-                                   optional="show"
-                                   domain="[('id', 'in', parent.valid_side_guards_value_ids)]"
                                    options="{'no_create': True}"/>
                             <field name="qty" string="Qty"/>
                             <field name="variant_display"
@@ -72,8 +64,8 @@
 
                     <div class="text-muted small mt-2">
                         Rows greyed out with <em>Include</em> unchecked will be skipped.
-                        Battery Type and Side Guards are optional — leave blank if the
-                        product has only a Color attribute.
+                        Battery Type determines the product variant; Color is recorded as
+                        a production label on the MO.
                     </div>
                 </sheet>
                 <footer>

@@ -1,6 +1,6 @@
 {
     'name': 'ElegoMotors Workflow Setup',
-    'version': '18.0.18.0.2',
+    'version': '18.0.19.0.0',
     'category': 'Manufacturing',
     'summary': 'ElegoMotors EV 2-wheeler end-to-end manufacturing workflow configuration',
     'description': """
@@ -51,6 +51,10 @@
         'data/bom_data.xml',
         'data/bom_data_fix.xml',            # deletes routing ops (noupdate=0, runs on upgrade)
         'data/product_variants_data.xml', # EGO-S1 color + side guards attribute setup; Req 2
+        'data/product_models_data.xml',   # Elego 1.1, 1.2, 2.0+ templates + Battery Type variants
+        'data/bom_data_new_models.xml',   # BOMs for the 3 new bike templates
+        'data/gst_tax_data.xml',          # GST 5%/18% taxes + fiscal positions (MH intra/other inter)
+        'data/sale_products_data.xml',    # Battery Pack + Side Guard accessory sale products
         'data/users_data.xml',            # department users (loaded after groups)
         'data/quality_data.xml',         # QC control points: gate entry + FG receipt
         'data/qc_check_sheets_data.xml', # Charger + Battery QC check sheet templates

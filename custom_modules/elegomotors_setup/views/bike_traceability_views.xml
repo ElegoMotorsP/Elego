@@ -4,10 +4,11 @@
         ElegoMotors — Bike Traceability Search Window
 
         Provides a dedicated list + search view on stock.lot, filtered to
-        EGO-S1 bikes only.  The search bar's default field ("Any Serial No.")
-        ORs across all seven serial fields simultaneously so staff can type
-        any known serial — chassis, motor, battery, controller, charger,
-        cluster, or frame — and immediately find the matching bike.
+        all ElegoMotors bike templates (EGO-S1, Elego 1.1, Elego 1.2, Elego 2.0+).
+        The search bar's default field ("Any Serial No.") ORs across all seven
+        serial fields simultaneously so staff can type any known serial —
+        chassis, motor, battery, controller, charger, cluster, or frame —
+        and immediately find the matching bike.
 
         Accessible via: Manufacturing > Operations > Bike Traceability
     -->
@@ -21,6 +22,7 @@
                   decoration-danger="x_blacklisted">
                 <field name="name"                string="Chassis No."         optional="show"/>
                 <field name="product_id"          string="Variant"             optional="show"/>
+                <field name="x_color"             string="Colour"              optional="show"/>
                 <field name="x_motor_serial"      string="Motor Serial"        optional="show"/>
                 <field name="x_battery_serial"    string="Battery Serial"      optional="show"/>
                 <field name="x_controller_serial" string="Controller Serial"   optional="show"/>
@@ -53,6 +55,7 @@
 
                 <!-- Per-field searches for precise lookups -->
                 <field name="name"                string="Chassis No."/>
+                <field name="x_color"             string="Colour"/>
                 <field name="x_motor_serial"      string="Motor Serial"/>
                 <field name="x_battery_serial"    string="Battery Serial"/>
                 <field name="x_controller_serial" string="Controller Serial"/>
@@ -87,7 +90,12 @@
         <field name="name">Bike Traceability</field>
         <field name="res_model">stock.lot</field>
         <field name="view_mode">list,form</field>
-        <field name="domain" eval="[('product_id.product_tmpl_id', '=', ref('elegomotors_setup.tmpl_ego_scooter'))]"/>
+        <field name="domain" eval="[('product_id.product_tmpl_id', 'in', [
+            ref('elegomotors_setup.tmpl_ego_scooter'),
+            ref('elegomotors_setup.tmpl_elego_11'),
+            ref('elegomotors_setup.tmpl_elego_12'),
+            ref('elegomotors_setup.tmpl_elego_20p'),
+        ])]"/>
         <field name="context">{'create': False}</field>
         <field name="view_ids" eval="[(5, 0, 0),
             (0, 0, {'view_mode': 'list', 'view_id': ref('view_bike_traceability_list')})]"/>

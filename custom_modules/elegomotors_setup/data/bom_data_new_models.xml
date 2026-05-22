@@ -1,0 +1,94 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+    <!--
+        ElegoMotors — Bills of Materials for Elego 1.1, 1.2, and 2.0+
+
+        All three models share the same 16 component products defined in bom_data.xml.
+        Each BOM applies to the template (not a specific variant) so all battery-type
+        variants inherit the same component list.
+
+        noupdate="1": preserves any component adjustments made via the Odoo UI
+        (e.g. different quantities for variant-specific chargers).
+    -->
+    <data noupdate="1">
+
+        <!-- ── Elego 1.1 BoM ─────────────────────────────────────────────── -->
+        <record id="bom_elego_11" model="mrp.bom">
+            <field name="product_tmpl_id" ref="elegomotors_setup.tmpl_elego_11"/>
+            <field name="product_qty">1.0</field>
+            <field name="product_uom_id" ref="uom.product_uom_unit"/>
+            <field name="type">normal</field>
+            <field name="produce_delay">7</field>
+        </record>
+
+        <record id="bom_line_11_frame"    model="mrp.bom.line"><field name="bom_id" ref="bom_elego_11"/><field name="product_id" ref="elegomotors_setup.comp_steel_frame"/>       <field name="product_qty">1.0</field><field name="product_uom_id" ref="uom.product_uom_unit"/><field name="sequence">10</field></record>
+        <record id="bom_line_11_motor"    model="mrp.bom.line"><field name="bom_id" ref="bom_elego_11"/><field name="product_id" ref="elegomotors_setup.comp_hub_motor"/>         <field name="product_qty">1.0</field><field name="product_uom_id" ref="uom.product_uom_unit"/><field name="sequence">20</field></record>
+        <record id="bom_line_11_battery"  model="mrp.bom.line"><field name="bom_id" ref="bom_elego_11"/><field name="product_id" ref="elegomotors_setup.comp_battery_pack"/>      <field name="product_qty">1.0</field><field name="product_uom_id" ref="uom.product_uom_unit"/><field name="sequence">30</field></record>
+        <record id="bom_line_11_ctrl"     model="mrp.bom.line"><field name="bom_id" ref="bom_elego_11"/><field name="product_id" ref="elegomotors_setup.comp_controller"/>        <field name="product_qty">1.0</field><field name="product_uom_id" ref="uom.product_uom_unit"/><field name="sequence">40</field></record>
+        <record id="bom_line_11_wiring"   model="mrp.bom.line"><field name="bom_id" ref="bom_elego_11"/><field name="product_id" ref="elegomotors_setup.comp_wiring_harness"/>    <field name="product_qty">1.0</field><field name="product_uom_id" ref="uom.product_uom_unit"/><field name="sequence">50</field></record>
+        <record id="bom_line_11_fwheel"   model="mrp.bom.line"><field name="bom_id" ref="bom_elego_11"/><field name="product_id" ref="elegomotors_setup.comp_front_wheel"/>       <field name="product_qty">1.0</field><field name="product_uom_id" ref="uom.product_uom_unit"/><field name="sequence">60</field></record>
+        <record id="bom_line_11_rwheel"   model="mrp.bom.line"><field name="bom_id" ref="bom_elego_11"/><field name="product_id" ref="elegomotors_setup.comp_rear_wheel"/>        <field name="product_qty">1.0</field><field name="product_uom_id" ref="uom.product_uom_unit"/><field name="sequence">70</field></record>
+        <record id="bom_line_11_fork"     model="mrp.bom.line"><field name="bom_id" ref="bom_elego_11"/><field name="product_id" ref="elegomotors_setup.comp_front_fork"/>        <field name="product_qty">1.0</field><field name="product_uom_id" ref="uom.product_uom_unit"/><field name="sequence">80</field></record>
+        <record id="bom_line_11_brakes"   model="mrp.bom.line"><field name="bom_id" ref="bom_elego_11"/><field name="product_id" ref="elegomotors_setup.comp_brake_kit"/>         <field name="product_qty">1.0</field><field name="product_uom_id" ref="uom.product_uom_unit"/><field name="sequence">90</field></record>
+        <record id="bom_line_11_head"     model="mrp.bom.line"><field name="bom_id" ref="bom_elego_11"/><field name="product_id" ref="elegomotors_setup.comp_headlight"/>         <field name="product_qty">1.0</field><field name="product_uom_id" ref="uom.product_uom_unit"/><field name="sequence">100</field></record>
+        <record id="bom_line_11_tail"     model="mrp.bom.line"><field name="bom_id" ref="bom_elego_11"/><field name="product_id" ref="elegomotors_setup.comp_taillight"/>         <field name="product_qty">1.0</field><field name="product_uom_id" ref="uom.product_uom_unit"/><field name="sequence">110</field></record>
+        <record id="bom_line_11_cluster"  model="mrp.bom.line"><field name="bom_id" ref="bom_elego_11"/><field name="product_id" ref="elegomotors_setup.comp_instrument_cluster"/><field name="product_qty">1.0</field><field name="product_uom_id" ref="uom.product_uom_unit"/><field name="sequence">120</field></record>
+        <record id="bom_line_11_seat"     model="mrp.bom.line"><field name="bom_id" ref="bom_elego_11"/><field name="product_id" ref="elegomotors_setup.comp_seat"/>              <field name="product_qty">1.0</field><field name="product_uom_id" ref="uom.product_uom_unit"/><field name="sequence">130</field></record>
+        <record id="bom_line_11_panels"   model="mrp.bom.line"><field name="bom_id" ref="bom_elego_11"/><field name="product_id" ref="elegomotors_setup.comp_body_panels"/>       <field name="product_qty">1.0</field><field name="product_uom_id" ref="uom.product_uom_unit"/><field name="sequence">140</field></record>
+        <record id="bom_line_11_fastener" model="mrp.bom.line"><field name="bom_id" ref="bom_elego_11"/><field name="product_id" ref="elegomotors_setup.comp_fasteners"/>         <field name="product_qty">1.0</field><field name="product_uom_id" ref="uom.product_uom_unit"/><field name="sequence">150</field></record>
+        <record id="bom_line_11_pack"     model="mrp.bom.line"><field name="bom_id" ref="bom_elego_11"/><field name="product_id" ref="elegomotors_setup.comp_packaging"/>         <field name="product_qty">1.0</field><field name="product_uom_id" ref="uom.product_uom_unit"/><field name="sequence">160</field></record>
+
+        <!-- ── Elego 1.2 BoM ─────────────────────────────────────────────── -->
+        <record id="bom_elego_12" model="mrp.bom">
+            <field name="product_tmpl_id" ref="elegomotors_setup.tmpl_elego_12"/>
+            <field name="product_qty">1.0</field>
+            <field name="product_uom_id" ref="uom.product_uom_unit"/>
+            <field name="type">normal</field>
+            <field name="produce_delay">7</field>
+        </record>
+
+        <record id="bom_line_12_frame"    model="mrp.bom.line"><field name="bom_id" ref="bom_elego_12"/><field name="product_id" ref="elegomotors_setup.comp_steel_frame"/>       <field name="product_qty">1.0</field><field name="product_uom_id" ref="uom.product_uom_unit"/><field name="sequence">10</field></record>
+        <record id="bom_line_12_motor"    model="mrp.bom.line"><field name="bom_id" ref="bom_elego_12"/><field name="product_id" ref="elegomotors_setup.comp_hub_motor"/>         <field name="product_qty">1.0</field><field name="product_uom_id" ref="uom.product_uom_unit"/><field name="sequence">20</field></record>
+        <record id="bom_line_12_battery"  model="mrp.bom.line"><field name="bom_id" ref="bom_elego_12"/><field name="product_id" ref="elegomotors_setup.comp_battery_pack"/>      <field name="product_qty">1.0</field><field name="product_uom_id" ref="uom.product_uom_unit"/><field name="sequence">30</field></record>
+        <record id="bom_line_12_ctrl"     model="mrp.bom.line"><field name="bom_id" ref="bom_elego_12"/><field name="product_id" ref="elegomotors_setup.comp_controller"/>        <field name="product_qty">1.0</field><field name="product_uom_id" ref="uom.product_uom_unit"/><field name="sequence">40</field></record>
+        <record id="bom_line_12_wiring"   model="mrp.bom.line"><field name="bom_id" ref="bom_elego_12"/><field name="product_id" ref="elegomotors_setup.comp_wiring_harness"/>    <field name="product_qty">1.0</field><field name="product_uom_id" ref="uom.product_uom_unit"/><field name="sequence">50</field></record>
+        <record id="bom_line_12_fwheel"   model="mrp.bom.line"><field name="bom_id" ref="bom_elego_12"/><field name="product_id" ref="elegomotors_setup.comp_front_wheel"/>       <field name="product_qty">1.0</field><field name="product_uom_id" ref="uom.product_uom_unit"/><field name="sequence">60</field></record>
+        <record id="bom_line_12_rwheel"   model="mrp.bom.line"><field name="bom_id" ref="bom_elego_12"/><field name="product_id" ref="elegomotors_setup.comp_rear_wheel"/>        <field name="product_qty">1.0</field><field name="product_uom_id" ref="uom.product_uom_unit"/><field name="sequence">70</field></record>
+        <record id="bom_line_12_fork"     model="mrp.bom.line"><field name="bom_id" ref="bom_elego_12"/><field name="product_id" ref="elegomotors_setup.comp_front_fork"/>        <field name="product_qty">1.0</field><field name="product_uom_id" ref="uom.product_uom_unit"/><field name="sequence">80</field></record>
+        <record id="bom_line_12_brakes"   model="mrp.bom.line"><field name="bom_id" ref="bom_elego_12"/><field name="product_id" ref="elegomotors_setup.comp_brake_kit"/>         <field name="product_qty">1.0</field><field name="product_uom_id" ref="uom.product_uom_unit"/><field name="sequence">90</field></record>
+        <record id="bom_line_12_head"     model="mrp.bom.line"><field name="bom_id" ref="bom_elego_12"/><field name="product_id" ref="elegomotors_setup.comp_headlight"/>         <field name="product_qty">1.0</field><field name="product_uom_id" ref="uom.product_uom_unit"/><field name="sequence">100</field></record>
+        <record id="bom_line_12_tail"     model="mrp.bom.line"><field name="bom_id" ref="bom_elego_12"/><field name="product_id" ref="elegomotors_setup.comp_taillight"/>         <field name="product_qty">1.0</field><field name="product_uom_id" ref="uom.product_uom_unit"/><field name="sequence">110</field></record>
+        <record id="bom_line_12_cluster"  model="mrp.bom.line"><field name="bom_id" ref="bom_elego_12"/><field name="product_id" ref="elegomotors_setup.comp_instrument_cluster"/><field name="product_qty">1.0</field><field name="product_uom_id" ref="uom.product_uom_unit"/><field name="sequence">120</field></record>
+        <record id="bom_line_12_seat"     model="mrp.bom.line"><field name="bom_id" ref="bom_elego_12"/><field name="product_id" ref="elegomotors_setup.comp_seat"/>              <field name="product_qty">1.0</field><field name="product_uom_id" ref="uom.product_uom_unit"/><field name="sequence">130</field></record>
+        <record id="bom_line_12_panels"   model="mrp.bom.line"><field name="bom_id" ref="bom_elego_12"/><field name="product_id" ref="elegomotors_setup.comp_body_panels"/>       <field name="product_qty">1.0</field><field name="product_uom_id" ref="uom.product_uom_unit"/><field name="sequence">140</field></record>
+        <record id="bom_line_12_fastener" model="mrp.bom.line"><field name="bom_id" ref="bom_elego_12"/><field name="product_id" ref="elegomotors_setup.comp_fasteners"/>         <field name="product_qty">1.0</field><field name="product_uom_id" ref="uom.product_uom_unit"/><field name="sequence">150</field></record>
+        <record id="bom_line_12_pack"     model="mrp.bom.line"><field name="bom_id" ref="bom_elego_12"/><field name="product_id" ref="elegomotors_setup.comp_packaging"/>         <field name="product_qty">1.0</field><field name="product_uom_id" ref="uom.product_uom_unit"/><field name="sequence">160</field></record>
+
+        <!-- ── Elego 2.0+ BoM ───────────────────────────────────────────── -->
+        <record id="bom_elego_20p" model="mrp.bom">
+            <field name="product_tmpl_id" ref="elegomotors_setup.tmpl_elego_20p"/>
+            <field name="product_qty">1.0</field>
+            <field name="product_uom_id" ref="uom.product_uom_unit"/>
+            <field name="type">normal</field>
+            <field name="produce_delay">7</field>
+        </record>
+
+        <record id="bom_line_20p_frame"    model="mrp.bom.line"><field name="bom_id" ref="bom_elego_20p"/><field name="product_id" ref="elegomotors_setup.comp_steel_frame"/>       <field name="product_qty">1.0</field><field name="product_uom_id" ref="uom.product_uom_unit"/><field name="sequence">10</field></record>
+        <record id="bom_line_20p_motor"    model="mrp.bom.line"><field name="bom_id" ref="bom_elego_20p"/><field name="product_id" ref="elegomotors_setup.comp_hub_motor"/>         <field name="product_qty">1.0</field><field name="product_uom_id" ref="uom.product_uom_unit"/><field name="sequence">20</field></record>
+        <record id="bom_line_20p_battery"  model="mrp.bom.line"><field name="bom_id" ref="bom_elego_20p"/><field name="product_id" ref="elegomotors_setup.comp_battery_pack"/>      <field name="product_qty">1.0</field><field name="product_uom_id" ref="uom.product_uom_unit"/><field name="sequence">30</field></record>
+        <record id="bom_line_20p_ctrl"     model="mrp.bom.line"><field name="bom_id" ref="bom_elego_20p"/><field name="product_id" ref="elegomotors_setup.comp_controller"/>        <field name="product_qty">1.0</field><field name="product_uom_id" ref="uom.product_uom_unit"/><field name="sequence">40</field></record>
+        <record id="bom_line_20p_wiring"   model="mrp.bom.line"><field name="bom_id" ref="bom_elego_20p"/><field name="product_id" ref="elegomotors_setup.comp_wiring_harness"/>    <field name="product_qty">1.0</field><field name="product_uom_id" ref="uom.product_uom_unit"/><field name="sequence">50</field></record>
+        <record id="bom_line_20p_fwheel"   model="mrp.bom.line"><field name="bom_id" ref="bom_elego_20p"/><field name="product_id" ref="elegomotors_setup.comp_front_wheel"/>       <field name="product_qty">1.0</field><field name="product_uom_id" ref="uom.product_uom_unit"/><field name="sequence">60</field></record>
+        <record id="bom_line_20p_rwheel"   model="mrp.bom.line"><field name="bom_id" ref="bom_elego_20p"/><field name="product_id" ref="elegomotors_setup.comp_rear_wheel"/>        <field name="product_qty">1.0</field><field name="product_uom_id" ref="uom.product_uom_unit"/><field name="sequence">70</field></record>
+        <record id="bom_line_20p_fork"     model="mrp.bom.line"><field name="bom_id" ref="bom_elego_20p"/><field name="product_id" ref="elegomotors_setup.comp_front_fork"/>        <field name="product_qty">1.0</field><field name="product_uom_id" ref="uom.product_uom_unit"/><field name="sequence">80</field></record>
+        <record id="bom_line_20p_brakes"   model="mrp.bom.line"><field name="bom_id" ref="bom_elego_20p"/><field name="product_id" ref="elegomotors_setup.comp_brake_kit"/>         <field name="product_qty">1.0</field><field name="product_uom_id" ref="uom.product_uom_unit"/><field name="sequence">90</field></record>
+        <record id="bom_line_20p_head"     model="mrp.bom.line"><field name="bom_id" ref="bom_elego_20p"/><field name="product_id" ref="elegomotors_setup.comp_headlight"/>         <field name="product_qty">1.0</field><field name="product_uom_id" ref="uom.product_uom_unit"/><field name="sequence">100</field></record>
+        <record id="bom_line_20p_tail"     model="mrp.bom.line"><field name="bom_id" ref="bom_elego_20p"/><field name="product_id" ref="elegomotors_setup.comp_taillight"/>         <field name="product_qty">1.0</field><field name="product_uom_id" ref="uom.product_uom_unit"/><field name="sequence">110</field></record>
+        <record id="bom_line_20p_cluster"  model="mrp.bom.line"><field name="bom_id" ref="bom_elego_20p"/><field name="product_id" ref="elegomotors_setup.comp_instrument_cluster"/><field name="product_qty">1.0</field><field name="product_uom_id" ref="uom.product_uom_unit"/><field name="sequence">120</field></record>
+        <record id="bom_line_20p_seat"     model="mrp.bom.line"><field name="bom_id" ref="bom_elego_20p"/><field name="product_id" ref="elegomotors_setup.comp_seat"/>              <field name="product_qty">1.0</field><field name="product_uom_id" ref="uom.product_uom_unit"/><field name="sequence">130</field></record>
+        <record id="bom_line_20p_panels"   model="mrp.bom.line"><field name="bom_id" ref="bom_elego_20p"/><field name="product_id" ref="elegomotors_setup.comp_body_panels"/>       <field name="product_qty">1.0</field><field name="product_uom_id" ref="uom.product_uom_unit"/><field name="sequence">140</field></record>
+        <record id="bom_line_20p_fastener" model="mrp.bom.line"><field name="bom_id" ref="bom_elego_20p"/><field name="product_id" ref="elegomotors_setup.comp_fasteners"/>         <field name="product_qty">1.0</field><field name="product_uom_id" ref="uom.product_uom_unit"/><field name="sequence">150</field></record>
+        <record id="bom_line_20p_pack"     model="mrp.bom.line"><field name="bom_id" ref="bom_elego_20p"/><field name="product_id" ref="elegomotors_setup.comp_packaging"/>         <field name="product_qty">1.0</field><field name="product_uom_id" ref="uom.product_uom_unit"/><field name="sequence">160</field></record>
+
+    </data>
+</odoo>

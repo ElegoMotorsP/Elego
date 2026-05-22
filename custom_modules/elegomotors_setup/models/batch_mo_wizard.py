@@ -29,8 +29,7 @@ class BatchMoWizard(models.TransientModel):
         string='Variants to Produce',
     )
 
-    # Computed attribute value sets — used as domain filters on wizard line fields
-    # so only values actually defined for the selected template appear in dropdowns.
+    # Computed attribute value sets — filtered to values defined on the selected template.
     valid_color_value_ids = fields.Many2many(
         'product.attribute.value',
         compute='_compute_valid_attribute_values',
@@ -41,17 +40,12 @@ class BatchMoWizard(models.TransientModel):
         compute='_compute_valid_attribute_values',
         string='Valid Battery Types',
     )
-    valid_side_guards_value_ids = fields.Many2many(
-        'product.attribute.value',
-        compute='_compute_valid_attribute_values',
-        string='Valid Side Guards',
-    )
 
     @api.depends('product_tmpl_id', 'product_tmpl_id.attribute_line_ids')
     def _compute_valid_attribute_values(self):
         Pav = self.env['product.attribute.value']
         for wizard in self:
-            color_ids = battery_ids = sg_ids = Pav
+            color_ids = battery_ids = Pav
             if wizard.product_tmpl_id:
                 for attr_line in wizard.product_tmpl_id.attribute_line_ids:
                     name = attr_line.attribute_id.name
@@ -59,11 +53,8 @@ class BatchMoWizard(models.TransientModel):
                         color_ids = attr_line.value_ids
                     elif name == 'Battery Type':
                         battery_ids = attr_line.value_ids
-                    elif name == 'Side Guards':
-                        sg_ids = attr_line.value_ids
             wizard.valid_color_value_ids = color_ids
             wizard.valid_battery_value_ids = battery_ids
-            wizard.valid_side_guards_value_ids = sg_ids
 
     @api.onchange('product_tmpl_id')
     def _onchange_product_tmpl_id(self):
@@ -103,12 +94,14 @@ class BatchMoWizard(models.TransientModel):
                 ('product_id', '=', False),
             ], limit=1)
 
+            color_name = line.color_value_id.name.lower() if line.color_value_id else ''
             mo = self.env['mrp.production'].create({
                 'product_id': product.id,
                 'product_qty': line.qty,
                 'product_uom_id': product.uom_id.id,
                 'bom_id': bom.id if bom else False,
                 'x_batch_mo_ref': batch_ref,
+                'x_color': color_name,
             })
             created_mos |= mo
 
@@ -143,11 +136,6 @@ class BatchMoWizardLine(models.TransientModel):
         string='Battery Type',
         domain="[('attribute_id.name', '=', 'Battery Type')]",
     )
-    side_guards_value_id = fields.Many2one(
-        'product.attribute.value',
-        string='Side Guards',
-        domain="[('attribute_id.name', '=', 'Side Guards')]",
-    )
     qty = fields.Float(string='Quantity', default=1.0)
 
     variant_display = fields.Char(
@@ -155,7 +143,7 @@ class BatchMoWizardLine(models.TransientModel):
         compute='_compute_variant_display',
     )
 
-    @api.depends('color_value_id', 'battery_value_id', 'side_guards_value_id')
+    @api.depends('color_value_id', 'battery_value_id')
     def _compute_variant_display(self):
         for line in self:
             parts = []
@@ -163,33 +151,32 @@ class BatchMoWizardLine(models.TransientModel):
                 parts.append(line.color_value_id.name)
             if line.battery_value_id:
                 parts.append(line.battery_value_id.name)
-            if line.side_guards_value_id:
-                parts.append(f'Side Guards: {line.side_guards_value_id.name}')
             line.variant_display = ' | '.join(parts) if parts else '(base product)'
 
     def _resolve_product_variant(self):
-        """Match selected attribute values to an existing product.product variant."""
+        """Match Battery Type attribute to the correct product.product variant.
+        Color is not a product variant attribute — it is stored as x_color on the MO.
+        """
         tmpl = self.wizard_id.product_tmpl_id
         if not tmpl:
             return False
 
-        selected_val_ids = set()
-        for fld in ('color_value_id', 'battery_value_id', 'side_guards_value_id'):
-            val = getattr(self, fld)
-            if val:
-                selected_val_ids.add(val.id)
+        # Only Battery Type drives the variant; Color is a production label only
+        battery_val_id = self.battery_value_id.id if self.battery_value_id else None
 
         for variant in tmpl.product_variant_ids:
-            variant_val_ids = set(
-                variant.product_template_attribute_value_ids.mapped(
-                    'product_attribute_value_id.id'
-                )
+            variant_battery_ids = set(
+                variant.product_template_attribute_value_ids.filtered(
+                    lambda ptav: ptav.attribute_id.name == 'Battery Type'
+                ).mapped('product_attribute_value_id.id')
             )
-            if selected_val_ids == variant_val_ids:
+            if battery_val_id and variant_battery_ids == {battery_val_id}:
+                return variant
+            if not battery_val_id and not variant_battery_ids:
                 return variant
 
-        # No attributes selected and template has a single variant → use it
-        if not selected_val_ids and len(tmpl.product_variant_ids) == 1:
+        # Single variant template with no battery attribute — use it directly
+        if not battery_val_id and len(tmpl.product_variant_ids) == 1:
             return tmpl.product_variant_ids[0]
 
         return False
