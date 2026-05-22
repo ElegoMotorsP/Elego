@@ -251,8 +251,12 @@ class MrpProduction(models.Model):
                         production.product_id.product_tmpl_id in ego_tmpls
                         and not production.lot_producing_id
                     ):
-                        if len(self) == 1 and int(production.product_qty) <= 1:
-                            # Single MO, single unit → existing single-unit wizard
+                        # Use qty_producing if set (≥1), else fall back to product_qty.
+                        # This ensures a multi-qty MO being produced one unit at a time
+                        # opens the single-unit wizard, not the bulk table.
+                        qty_now = int(production.qty_producing) if production.qty_producing >= 1 else int(production.product_qty)
+                        if len(self) == 1 and qty_now <= 1:
+                            # Single MO, single unit → single-unit form wizard
                             wizard = self.env['elegomotors.barcode.capture.wizard'].create({
                                 'production_id': production.id,
                             })
@@ -265,8 +269,8 @@ class MrpProduction(models.Model):
                                 'target': 'new',
                             }
                         else:
-                            # Single MO with qty > 1, OR multiple MOs selected
-                            # → bulk wizard (one row per bike unit across all MOs)
+                            # Multiple units being produced simultaneously, OR multiple MOs
+                            # selected → bulk wizard (one row per bike unit across all MOs)
                             if len(self) == 1:
                                 mos_for_wizard = production
                             else:
@@ -541,13 +545,22 @@ class MrpBarcodeWizard(models.TransientModel):
         })
         production.lot_producing_id = lot
         production.qty_producing    = 1
+
+        # Auto-derive color from product variant if not explicitly set on the MO
+        color = production.x_color or ''
+        if not color:
+            for ptav in production.product_id.product_template_attribute_value_ids:
+                if ptav.attribute_id.name == 'Color':
+                    color = ptav.product_attribute_value_id.name.lower()
+                    break
+
         lot.write({
             'x_chassis_serial':    self.x_chassis_serial,
             'x_motor_serial':      self.x_motor_serial,
             'x_controller_serial': self.x_controller_serial,
             'x_battery_serial':    self.x_battery_serial or '',
             'x_charger_serial':    self.x_charger_serial or '',
-            'x_color':             production.x_color or '',
+            'x_color':             color,
             'x_battery_type':      production.x_battery_type or '',
         })
         production.with_context(skip_barcode_wizard=True).button_mark_done()

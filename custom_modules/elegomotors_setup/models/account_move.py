@@ -53,13 +53,11 @@ class AccountMove(models.Model):
         for move in self:
             if move.move_type not in ('out_invoice', 'out_refund'):
                 continue
-            ego_tmpl = self.env.ref(
-                'elegomotors_setup.tmpl_ego_scooter', raise_if_not_found=False
-            )
-            if not ego_tmpl:
+            bike_tmpls = move._get_bike_templates()
+            if not bike_tmpls:
                 continue
             for line in move.invoice_line_ids:
-                if not line.product_id or line.product_id.product_tmpl_id != ego_tmpl:
+                if not line.product_id or line.product_id.product_tmpl_id not in bike_tmpls:
                     continue
                 lot = move._find_ego_lot_for_line(line)
                 if not lot:
@@ -67,34 +65,50 @@ class AccountMove(models.Model):
                 serial_block = move._format_ego_serial_block(lot)
                 if not serial_block:
                     continue
-                # Strip any existing serial block and re-append fresh
-                base_name = (line.name or '').split('\nChassis No.:')[0].split('\nVariant:')[0].rstrip()
+                # Strip any existing serial block then re-append fresh
+                base_name = (line.name or '')
+                for marker in ('\nSerial No.:', '\nChassis No.:', '\nVariant:'):
+                    base_name = base_name.split(marker)[0]
+                base_name = base_name.rstrip()
                 line.name = base_name + '\n' + serial_block
 
+    def _get_bike_templates(self):
+        """Return recordset of all ElegoMotors bike product templates."""
+        refs = [
+            'elegomotors_setup.tmpl_ego_scooter',
+            'elegomotors_setup.tmpl_elego_11',
+            'elegomotors_setup.tmpl_elego_12',
+            'elegomotors_setup.tmpl_elego_20p',
+        ]
+        result = self.env['product.template']
+        for ref in refs:
+            t = self.env.ref(ref, raise_if_not_found=False)
+            if t:
+                result |= t
+        return result
+
     def _append_ego_serial_to_lines(self):
-        """Append chassis/component serial numbers to EGO-S1 invoice lines.
-        Sequence: Chassis → Motor → Controller → Battery → Charger, then Variant line.
+        """Append serial/chassis/component numbers to ElegoMotors bike invoice lines.
         Idempotent: skips lines that already have the serial block.
         """
-        ego_tmpl = self.env.ref(
-            'elegomotors_setup.tmpl_ego_scooter', raise_if_not_found=False
-        )
-        if not ego_tmpl:
+        bike_tmpls = self._get_bike_templates()
+        if not bike_tmpls:
             return
         for line in self.invoice_line_ids:
-            if not line.product_id or line.product_id.product_tmpl_id != ego_tmpl:
+            if not line.product_id or line.product_id.product_tmpl_id not in bike_tmpls:
                 continue
-            if 'Chassis No.:' in (line.name or ''):
+            name = line.name or ''
+            if 'Serial No.:' in name or 'Chassis No.:' in name:
                 continue  # already injected
             lot = self._find_ego_lot_for_line(line)
             if not lot:
                 continue
             serial_block = self._format_ego_serial_block(lot)
             if serial_block:
-                line.name = (line.name or '') + '\n' + serial_block
+                line.name = name + '\n' + serial_block
 
     def _find_ego_lot_for_line(self, line):
-        """Trace invoice line → EGO-S1 lot via three paths.
+        """Trace invoice line → bike lot via three paths.
 
           1. sale_line_ids → sale order → done outgoing deliveries (standard flow).
           2. invoice_origin → SO name search (edge-case fallback).
@@ -130,15 +144,12 @@ class AccountMove(models.Model):
                     if lots:
                         return lots[0]
 
-        # Path 3: FG store quants — bike is in FG stock but delivery not yet done.
-        # Matches product.product exactly so the correct variant's serial is returned.
-        ego_tmpl = self.env.ref(
-            'elegomotors_setup.tmpl_ego_scooter', raise_if_not_found=False
-        )
+        # Path 3: FG store quants — bike is in stock but delivery not yet done.
+        bike_tmpls = self._get_bike_templates()
         fg_location = self.env.ref(
             'elegomotors_setup.location_ego_fg', raise_if_not_found=False
         )
-        if ego_tmpl and fg_location and product.product_tmpl_id == ego_tmpl:
+        if bike_tmpls and fg_location and product.product_tmpl_id in bike_tmpls:
             quants = self.env['stock.quant'].search(
                 [
                     ('product_id', '=', product.id),
@@ -154,13 +165,16 @@ class AccountMove(models.Model):
         return False
 
     def _format_ego_serial_block(self, lot):
-        """Build the serial annotation block:
-        Line 1 — Chassis No. | Motor No. | Controller No. | Battery No. | Charger No.
-        Line 2 — Variant: Color | Side Guards | Battery Type
+        """Build the serial annotation block appended to the invoice line name.
+
+        Line 1: Serial No. | Chassis No. | Motor No. | Controller No. | Battery No. | Charger No.
+        Line 2: Variant: Color | Battery Type
         """
         parts = []
         if lot.name:
-            parts.append(f'Chassis No.: {lot.name}')
+            parts.append(f'Serial No.: {lot.name}')
+        if lot.x_chassis_serial:
+            parts.append(f'Chassis No.: {lot.x_chassis_serial}')
         if lot.x_motor_serial:
             parts.append(f'Motor No.: {lot.x_motor_serial}')
         if lot.x_controller_serial:
@@ -171,14 +185,16 @@ class AccountMove(models.Model):
             parts.append(f'Charger No.: {lot.x_charger_serial}')
         serial_line = '  |  '.join(parts) if parts else ''
 
-        variant_line = ''
-        if lot.product_id and lot.product_id.product_template_attribute_value_ids:
-            variant_parts = [
-                f'{ptav.attribute_id.name}: {ptav.name}'
-                for ptav in lot.product_id.product_template_attribute_value_ids
-            ]
-            if variant_parts:
-                variant_line = 'Variant: ' + '  |  '.join(variant_parts)
+        variant_parts = []
+        if lot.x_color:
+            variant_parts.append(f'Color: {lot.x_color.capitalize()}')
+        elif lot.product_id:
+            for ptav in lot.product_id.product_template_attribute_value_ids:
+                if ptav.attribute_id.name == 'Color':
+                    variant_parts.append(f'Color: {ptav.name}')
+        if lot.x_battery_type:
+            variant_parts.append(f'Battery: {lot.x_battery_type}')
+        variant_line = ('Variant: ' + '  |  '.join(variant_parts)) if variant_parts else ''
 
         if serial_line and variant_line:
             return serial_line + '\n' + variant_line

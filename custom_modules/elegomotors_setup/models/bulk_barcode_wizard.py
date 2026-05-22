@@ -48,7 +48,8 @@ class ElegomotorsBulkBarcodeWizard(models.TransientModel):
         """
         Line = self.env['elegomotors.bulk.barcode.wizard.line']
         for mo in self.production_ids:
-            total_units = max(1, int(mo.product_qty))
+            # Use qty_producing if set (≥1) — respects partial production cycles.
+            total_units = max(1, int(mo.qty_producing) if mo.qty_producing >= 1 else int(mo.product_qty))
             for unit_idx in range(1, total_units + 1):
                 label = (
                     f"{mo.name} — Unit {unit_idx}" if total_units > 1 else mo.name
@@ -162,13 +163,22 @@ class ElegomotorsBulkBarcodeWizard(models.TransientModel):
                 })
                 split_mo.lot_producing_id = lot
                 split_mo.qty_producing    = 1
+
+                # Auto-derive color from product variant if not set on the MO
+                color = split_mo.x_color or ''
+                if not color:
+                    for ptav in split_mo.product_id.product_template_attribute_value_ids:
+                        if ptav.attribute_id.name == 'Color':
+                            color = ptav.product_attribute_value_id.name.lower()
+                            break
+
                 lot.write({
                     'x_chassis_serial':    line.x_chassis_serial,
                     'x_motor_serial':      line.x_motor_serial,
                     'x_controller_serial': line.x_controller_serial,
                     'x_battery_serial':    line.x_battery_serial or '',
                     'x_charger_serial':    line.x_charger_serial or '',
-                    'x_color':             split_mo.x_color or '',
+                    'x_color':             color,
                     'x_battery_type':      split_mo.x_battery_type or '',
                 })
                 split_mo.with_context(skip_barcode_wizard=True).button_mark_done()

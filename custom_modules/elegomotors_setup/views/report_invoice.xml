@@ -280,14 +280,14 @@
                     <t t-else="">
                         <t t-set="sr" t-value="sr + 1"/>
 
-                        <!-- Split description from vehicle serial block -->
+                        <!-- Split description from vehicle serial block on first newline -->
                         <t t-set="lname" t-value="line.name or ''"/>
-                        <t t-set="parts" t-value="lname.split('Chassis No.:', 1)"/>
+                        <t t-set="parts" t-value="lname.split(chr(10), 1)"/>
                         <t t-set="line_desc" t-value="parts[0].strip()"/>
-                        <t t-set="line_vehicle" t-value="('Chassis No.: ' + parts[1]).strip() if len(parts) > 1 else ''"/>
+                        <t t-set="line_vehicle" t-value="parts[1].strip() if len(parts) > 1 else ''"/>
 
-                        <!-- Also split Variant line for separate display -->
-                        <t t-set="vparts" t-value="line_vehicle.split(chr(10) + 'Variant:', 1) if chr(10) + 'Variant:' in line_vehicle else line_vehicle.split('\nVariant:', 1)"/>
+                        <!-- Split Variant line from the serials block -->
+                        <t t-set="vparts" t-value="line_vehicle.split(chr(10) + 'Variant:', 1)"/>
                         <t t-set="serials_only" t-value="vparts[0].strip()"/>
                         <t t-set="variant_line" t-value="('Variant: ' + vparts[1]).strip() if len(vparts) > 1 else ''"/>
 
