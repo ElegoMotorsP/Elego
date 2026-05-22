@@ -13,16 +13,12 @@
     -->
     <data noupdate="1">
 
-        <!-- Update company name and details, set INR as default currency.
-             currency_id is set here (noupdate="1") so it applies ONCE on fresh install.
-             Odoo blocks currency changes after journal entries exist, so re-applying on
-             every upgrade would fail on live databases. -->
+        <!-- Update company name and details. -->
         <record id="base.main_company" model="res.company">
             <field name="name">ElegoMotors</field>
             <field name="po_double_validation">two_step</field>
             <field name="po_double_validation_amount">0.0</field>
             <field name="po_lock">lock</field>
-            <field name="currency_id" ref="base.INR"/>
             <!-- SO approval (sale_order_approval): enable in Settings when Enterprise sale_order_approval is installed. -->
         </record>
 
@@ -90,6 +86,10 @@
         <record id="base.INR" model="res.currency">
             <field name="active" eval="True"/>
         </record>
+
+        <!-- Attempt to set INR as company currency. Silently no-ops when
+             journal entries already exist (caught in Python try/except). -->
+        <function model="res.company" name="_try_set_inr_currency"/>
 
         <!-- 2-step manufacturing: when Prashant confirms an MO, Odoo auto-creates a
              Picking Slip (Raw Material) linked to the MO via production.picking_ids.
