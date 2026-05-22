@@ -59,15 +59,22 @@ class AccountMove(models.Model):
             for line in move.invoice_line_ids:
                 if not line.product_id or line.product_id.product_tmpl_id not in bike_tmpls:
                     continue
-                lot = move._find_ego_lot_for_line(line)
-                if not lot:
+                qty = max(1, int(line.quantity))
+                lots = move._find_ego_lots_for_line(line, qty=qty)
+                if not lots:
                     continue
-                serial_block = move._format_ego_serial_block(lot)
+                if len(lots) == 1:
+                    serial_block = move._format_ego_serial_block(lots[0])
+                else:
+                    serial_block = '\n'.join(
+                        move._format_ego_serial_block(lot, number=i)
+                        for i, lot in enumerate(lots, 1)
+                    )
                 if not serial_block:
                     continue
                 # Strip any existing serial block then re-append fresh
                 base_name = (line.name or '')
-                for marker in ('\nSerial No.:', '\nChassis No.:', '\nVariant:'):
+                for marker in ('\nChassis No', '\nSerial No.', '\n1 :', '\nVariant:'):
                     base_name = base_name.split(marker)[0]
                 base_name = base_name.rstrip()
                 line.name = base_name + '\n' + serial_block
@@ -98,24 +105,26 @@ class AccountMove(models.Model):
             if not line.product_id or line.product_id.product_tmpl_id not in bike_tmpls:
                 continue
             name = line.name or ''
-            if 'Serial No.:' in name or 'Chassis No.:' in name:
+            if 'Chassis No' in name:
                 continue  # already injected
-            lot = self._find_ego_lot_for_line(line)
-            if not lot:
+            qty = max(1, int(line.quantity))
+            lots = self._find_ego_lots_for_line(line, qty=qty)
+            if not lots:
                 continue
-            serial_block = self._format_ego_serial_block(lot)
-            if serial_block:
-                line.name = name + '\n' + serial_block
+            if len(lots) == 1:
+                block = self._format_ego_serial_block(lots[0])
+            else:
+                block = '\n'.join(
+                    self._format_ego_serial_block(lot, number=i)
+                    for i, lot in enumerate(lots, 1)
+                )
+            if block:
+                line.name = name + '\n' + block
 
-    def _find_ego_lot_for_line(self, line):
-        """Trace invoice line → bike lot via three paths.
-
-          1. sale_line_ids → sale order → done outgoing deliveries (standard flow).
-          2. invoice_origin → SO name search (edge-case fallback).
-          3. FG store quants — for proforma/invoices raised before delivery is done
-             (bike already in FG stock but delivery not yet validated).
-        """
+    def _find_ego_lots_for_line(self, line, qty=1):
+        """Return up to `qty` lots linked to this invoice line (all three lookup paths)."""
         product = line.product_id
+        qty = max(1, int(qty))
 
         def _lots_from_sale(sale):
             done_deliveries = sale.picking_ids.filtered(
@@ -130,19 +139,15 @@ class AccountMove(models.Model):
         if sale_lines:
             lots = _lots_from_sale(sale_lines[0].order_id)
             if lots:
-                return lots[0]
+                return lots[:qty]
 
         # Path 2: invoice origin → SO name
-        origin = self.invoice_origin or ''
-        if origin:
-            for so_name in [s.strip() for s in origin.split(',')]:
-                sale = self.env['sale.order'].search(
-                    [('name', '=', so_name)], limit=1
-                )
-                if sale:
-                    lots = _lots_from_sale(sale)
-                    if lots:
-                        return lots[0]
+        for so_name in [s.strip() for s in (self.invoice_origin or '').split(',') if s.strip()]:
+            sale = self.env['sale.order'].search([('name', '=', so_name)], limit=1)
+            if sale:
+                lots = _lots_from_sale(sale)
+                if lots:
+                    return lots[:qty]
 
         # Path 3: FG store quants — bike is in stock but delivery not yet done.
         bike_tmpls = self._get_bike_templates()
@@ -157,33 +162,39 @@ class AccountMove(models.Model):
                     ('lot_id', '!=', False),
                     ('quantity', '>', 0),
                 ],
-                limit=1,
+                limit=qty,
             )
             if quants:
-                return quants.lot_id
+                return quants.mapped('lot_id')
 
-        return False
+        return self.env['stock.lot']
 
-    def _format_ego_serial_block(self, lot):
+    def _find_ego_lot_for_line(self, line):
+        lots = self._find_ego_lots_for_line(line, qty=1)
+        return lots[0] if lots else False
+
+    def _format_ego_serial_block(self, lot, number=None):
         """Build the serial annotation block appended to the invoice line name.
 
-        Line 1: Serial No. | Chassis No. | Motor No. | Controller No. | Battery No. | Charger No.
-        Line 2: Variant: Color | Battery Type
+        Format: [N : ]Chassis No : X, Motor No : Y, Controller : Z[, Battery No : B][, Charger No : C]
+        Second line: Variant: Color: Red  |  Battery: Lithium 60V30Ah
         """
         parts = []
-        if lot.name:
-            parts.append(f'Serial No.: {lot.name}')
         if lot.x_chassis_serial:
-            parts.append(f'Chassis No.: {lot.x_chassis_serial}')
+            parts.append(f'Chassis No : {lot.x_chassis_serial}')
         if lot.x_motor_serial:
-            parts.append(f'Motor No.: {lot.x_motor_serial}')
+            parts.append(f'Motor No : {lot.x_motor_serial}')
         if lot.x_controller_serial:
-            parts.append(f'Controller No.: {lot.x_controller_serial}')
+            parts.append(f'Controller : {lot.x_controller_serial}')
         if lot.x_battery_serial:
-            parts.append(f'Battery No.: {lot.x_battery_serial}')
+            parts.append(f'Battery No : {lot.x_battery_serial}')
         if lot.x_charger_serial:
-            parts.append(f'Charger No.: {lot.x_charger_serial}')
-        serial_line = '  |  '.join(parts) if parts else ''
+            parts.append(f'Charger No : {lot.x_charger_serial}')
+        if not parts:
+            return ''
+        serial_line = ', '.join(parts)
+        if number is not None:
+            serial_line = f'{number} : {serial_line}'
 
         variant_parts = []
         if lot.x_color:
@@ -194,8 +205,6 @@ class AccountMove(models.Model):
                     variant_parts.append(f'Color: {ptav.name}')
         if lot.x_battery_type:
             variant_parts.append(f'Battery: {lot.x_battery_type}')
-        variant_line = ('Variant: ' + '  |  '.join(variant_parts)) if variant_parts else ''
-
-        if serial_line and variant_line:
-            return serial_line + '\n' + variant_line
-        return serial_line or variant_line
+        if variant_parts:
+            return serial_line + '\nVariant: ' + '  |  '.join(variant_parts)
+        return serial_line

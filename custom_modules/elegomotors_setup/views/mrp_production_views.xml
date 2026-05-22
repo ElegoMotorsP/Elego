@@ -216,7 +216,7 @@
                               invisible="charger_scanned">4. Charger (opt.)</span>
                     </div>
 
-                    <group>
+                    <group col="1">
                         <field name="x_chassis_serial"
                                string="Chassis No."
                                placeholder="Scan chassis / frame plate barcode…"
