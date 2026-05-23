@@ -153,10 +153,22 @@ class ProductTemplate(models.Model):
                     bat_line.unlink()
             # Ensure Color attribute line with Red / Gray / Black / White
             _ensure_color_line(tmpl, color_ids)
+            # Reactivate any Color variants archived during a prior Battery Type → Color
+            # attribute transition. Odoo only auto-reactivates on _create_variant_ids()
+            # when the attribute line actually changes; if the line is already correct the
+            # write is a no-op and archived variants stay hidden.
+            inactive_color = self.env['product.product'].with_context(active_test=False).search([
+                ('product_tmpl_id', '=', tmpl.id),
+                ('active', '=', False),
+            ]).filtered(lambda v: v.product_template_attribute_value_ids.filtered(
+                lambda ptav: ptav.attribute_id == color_attr
+            ))
+            if inactive_color:
+                inactive_color.write({'active': True})
 
     @api.model
     def _ensure_elego_11_color_boms(self):
-        """Create variant-specific BOMs for Elego 1.1 (Red, White, Gray).
+        """Create variant-specific BOMs for Elego 1.1 (Red, White, Gray, Black).
 
         One BOM per color variant: 9 color-specific body panels + 109 common components
         from the authoritative ELEGO_1.1_BOM_All_Variants.pdf (118 parts total).
@@ -239,6 +251,17 @@ class ProductTemplate(models.Model):
                 ('ELEGO 1.1 SIDE EDGE STRIP LH GRAY', 1),
                 ('ELEGO 1.1 SIDE EDGE STRIP RH GRAY', 1),
                 ('ELEGO 1.1 REAR CONNECTION GRAY', 1),
+            ],
+            'Black': [
+                ('ELEGO 1.1 FRONT FENDER BLACK', 1),
+                ('ELEGO 1.1 FRONT PANEL BLACK', 1),
+                ('ELEGO 1.1 FRONT PANEL PART BLACK', 1),
+                ('ELEGO 1.1 HEAD HOOD BLACK', 1),
+                ('ELEGO 1.1 SIDE BODY PANEL LH BLACK', 1),
+                ('ELEGO 1.1 SIDE BODY PANEL RH BLACK', 1),
+                ('ELEGO 1.1 SIDE EDGE STRIP LH BLACK', 1),
+                ('ELEGO 1.1 SIDE EDGE STRIP RH BLACK', 1),
+                ('ELEGO 1.1 REAR CONNECTION BLACK', 1),
             ],
         }
 
@@ -370,7 +393,7 @@ class ProductTemplate(models.Model):
                 _logger.warning('Elego 1.1 BOM: color attribute value "%s" not found — skipping.', color_name)
                 continue
 
-            variant = tmpl.product_variant_ids.filtered(
+            variant = tmpl.with_context(active_test=False).product_variant_ids.filtered(
                 lambda v, cv=color_val: cv in v.product_template_attribute_value_ids.mapped(
                     'product_attribute_value_id'
                 )
@@ -378,6 +401,8 @@ class ProductTemplate(models.Model):
             if not variant:
                 _logger.warning('Elego 1.1 BOM: no variant found for color "%s" — skipping.', color_name)
                 continue
+            if not variant.active:
+                variant.write({'active': True})
 
             existing = Bom.search([
                 ('product_tmpl_id', '=', tmpl.id),

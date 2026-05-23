@@ -21,7 +21,7 @@ class BatchMoWizard(models.TransientModel):
         'product.template',
         string='Product Template',
         required=True,
-        domain=[('type', 'in', ('consu', 'product'))],
+        domain=[('sale_ok', '=', True), ('type', 'in', ('consu', 'product'))],
     )
     line_ids = fields.One2many(
         'elegomotors.batch.mo.wizard.line',
