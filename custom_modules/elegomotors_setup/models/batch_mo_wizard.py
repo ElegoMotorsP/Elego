@@ -77,11 +77,16 @@ class BatchMoWizard(models.TransientModel):
                     f'Please verify that the product attributes are fully configured in Odoo.'
                 )
 
+            # Prefer variant-specific BOM; fall back to template BOM.
+            # OR-with-limit-1 returns whichever has the lower DB ID (usually the
+            # older template BOM), so use two explicit searches instead.
             bom = self.env['mrp.bom'].search([
                 ('type', '=', 'normal'),
                 ('product_tmpl_id', '=', self.product_tmpl_id.id),
-                '|',
                 ('product_id', '=', product.id),
+            ], limit=1) or self.env['mrp.bom'].search([
+                ('type', '=', 'normal'),
+                ('product_tmpl_id', '=', self.product_tmpl_id.id),
                 ('product_id', '=', False),
             ], limit=1)
 

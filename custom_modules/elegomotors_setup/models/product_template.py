@@ -1,6 +1,9 @@
 # -*- coding: utf-8 -*-
+import logging
 from odoo import api, fields, models
 from odoo.exceptions import AccessError
+
+_logger = logging.getLogger(__name__)
 
 
 class ProductTemplate(models.Model):
@@ -150,6 +153,266 @@ class ProductTemplate(models.Model):
                     bat_line.unlink()
             # Ensure Color attribute line with Red / Gray / Black / White
             _ensure_color_line(tmpl, color_ids)
+
+    @api.model
+    def _ensure_elego_11_color_boms(self):
+        """Create variant-specific BOMs for Elego 1.1 (Red, White, Gray).
+
+        One BOM per color variant: 9 color-specific body panels + 109 common components
+        from the authoritative ELEGO_1.1_BOM_All_Variants.pdf (118 parts total).
+
+        Runs on every upgrade (noupdate="0"). Deletes and recreates all variant BOMs
+        so component list changes in code are always reflected.
+
+        Also removes any template-level BOM (product_id=False) for Elego 1.1 — having
+        both a template BOM and variant BOMs causes Odoo's MO auto-select to pick
+        whichever has the lower database ID (usually the older template BOM with
+        16 generic placeholder components), instead of the correct color-specific one.
+        """
+        tmpl = self.env.ref('elegomotors_setup.tmpl_elego_11', raise_if_not_found=False)
+        color_attr = self.env.ref('elegomotors_setup.attr_ego_color', raise_if_not_found=False)
+        if not tmpl or not color_attr:
+            _logger.warning('Elego 1.1 BOM: tmpl_elego_11 or attr_ego_color not found — skipping.')
+            return
+
+        Bom = self.env['mrp.bom']
+        BomLine = self.env['mrp.bom.line']
+        uom_unit = self.env.ref('uom.product_uom_unit')
+
+        # Remove template-level BOMs (product_id=False). The variant BOMs below are
+        # the sole authoritative source; coexistence causes non-deterministic MO BOM selection.
+        template_boms = Bom.search([('product_tmpl_id', '=', tmpl.id), ('product_id', '=', False)])
+        if template_boms:
+            _logger.info(
+                'Elego 1.1 BOM: removing %d template-level BOM(s) — variant BOMs are authoritative.',
+                len(template_boms),
+            )
+            template_boms.sudo().unlink()
+
+        def _get_or_create_component(name):
+            match = self.env['product.template'].sudo().with_context(active_test=False).search(
+                [('name', '=', name)], limit=1
+            )
+            if match:
+                if not match.active:
+                    match.sudo().write({'active': True})
+                return match.product_variant_ids[:1]
+            new_tmpl = self.env['product.template'].sudo().create({
+                'name': name,
+                'type': 'consu',
+                'purchase_ok': True,
+                'sale_ok': False,
+            })
+            _logger.info('Elego 1.1 BOM: created component "%s"', name)
+            return new_tmpl.product_variant_ids[:1]
+
+        color_panels = {
+            'Red': [
+                ('ELEGO 1.1 FRONT FENDER RED', 1),
+                ('ELEGO 1.1 FRONT PANEL RED', 1),
+                ('ELEGO 1.1 FRONT PANEL PART BLACK', 1),
+                ('ELEGO 1.1 HEAD HOOD RED', 1),
+                ('ELEGO 1.1 SIDE BODY PANEL LH RED', 1),
+                ('ELEGO 1.1 SIDE BODY PANEL RH RED', 1),
+                ('ELEGO 1.1 SIDE EDGE STRIP LH RED', 1),
+                ('ELEGO 1.1 SIDE EDGE STRIP RH RED', 1),
+                ('ELEGO 1.1 REAR CONNECTION RED', 1),
+            ],
+            'White': [
+                ('ELEGO 1.1 FRONT FENDER WHITE', 1),
+                ('ELEGO 1.1 FRONT PANEL WHITE', 1),
+                ('ELEGO 1.1 FRONT PANEL PART BLACK', 1),
+                ('ELEGO 1.1 HEAD HOOD WHITE', 1),
+                ('ELEGO 1.1 SIDE BODY PANEL LH WHITE', 1),
+                ('ELEGO 1.1 SIDE BODY PANEL RH WHITE', 1),
+                ('ELEGO 1.1 SIDE EDGE STRIP LH WHITE', 1),
+                ('ELEGO 1.1 SIDE EDGE STRIP RH WHITE', 1),
+                ('ELEGO 1.1 REAR CONNECTION WHITE', 1),
+            ],
+            'Gray': [
+                ('ELEGO 1.1 FRONT FENDER GRAY', 1),
+                ('ELEGO 1.1 FRONT PANEL GRAY', 1),
+                ('ELEGO 1.1 FRONT PANEL PART BLACK', 1),
+                ('ELEGO 1.1 HEAD HOOD GRAY', 1),
+                ('ELEGO 1.1 SIDE BODY PANEL LH GRAY', 1),
+                ('ELEGO 1.1 SIDE BODY PANEL RH GRAY', 1),
+                ('ELEGO 1.1 SIDE EDGE STRIP LH GRAY', 1),
+                ('ELEGO 1.1 SIDE EDGE STRIP RH GRAY', 1),
+                ('ELEGO 1.1 REAR CONNECTION GRAY', 1),
+            ],
+        }
+
+        common_components = [
+            # Common plastic / body
+            ('ELEGO 1.1 BAG HOOK', 1),
+            ('ELEGO 1.1 CHASSIS FENDER', 1),
+            ('ELEGO 1.1 CONTROLLER CAP BIG', 1),
+            ('ELEGO 1.1 CONTROLLER CAP SMALL', 1),
+            ('ELEGO 1.1 CONTROLLER FENDER', 1),
+            ('ELEGO 1.1 FOOT BOARD', 1),
+            ('ELEGO 1.1 FOOT PLATE COVER', 1),
+            ('ELEGO 1.1 FOOTMAT', 1),
+            ('ELEGO 1.1 FRONT INNER FENDER', 1),
+            ('ELEGO 1.1 FRONT PANEL NET', 1),
+            ('ELEGO 1.1 GRIP DISTANCE PIECE', 1),
+            ('ELEGO 1.1 INSTRUMENT CLUSTER COVER', 1),
+            ('ELEGO 1.1 REAR FENDER', 1),
+            ('ELEGO 1.1 REAR INNER FENDER', 1),
+            ('ELEGO 1.1 ROUND REFLECTOR', 2),
+            ('ELEGO 1.1 SEAT', 1),
+            ('ELEGO 1.1 SEAT BARREL', 1),
+            ('ELEGO 1.1 SEAT BARREL FRONT PANEL', 1),
+            ('ELEGO 1.1 SQUARE REFLECTOR', 1),
+            ('ELEGO 1.1 SWING ARM COVER LH', 1),
+            ('ELEGO 1.1 SWING ARM COVER RH', 1),
+            ('ELEGO 1.1 TOOL BOX', 1),
+            ('ELEGO 1.1 TOOL BOX CABINATE COVER', 1),
+            ('ELEGO 1.1 VIN COVER', 1),
+            # Metal / frame
+            ('ELEGO 1.1 MIRROR SET', 1),
+            ('ELEGO 1.1 BATTERT CLAMP', 1),
+            ('ELEGO 1.1 CHASSIS FRAME', 1),
+            ('ELEGO 1.1 FRONT BRAKE CABLE HOLDER CLAMP', 1),
+            ('ELEGO 1.1 FRONT GUARD BRAKET', 1),
+            ('ELEGO 1.1 FRONT RIM', 1),
+            ('ELEGO 1.1 HANDAL BAR', 1),
+            ('ELEGO 1.1 MIDDLE STAND', 1),
+            ('ELEGO 1.1 MIDDLE STAND RUBBER', 1),
+            ('ELEGO 1.1 SEAT LATCH', 1),
+            ('ELEGO 1.1 SEAT LATCH CABLE', 1),
+            ('ELEGO 1.1 SIDE STAND', 1),
+            ('ELEGO 1.1 SWING ARM', 1),
+            # Brake / safety
+            ('ELEGO 1.1 BRAKE LEVER WITH SENSOR', 1),
+            ('ELEGO 1.1 FRONT DISC BRAKE PUMP', 1),
+            ('ELEGO 1.1 FRONT DISC PLATE', 1),
+            ('ELEGO 1.1 FRONT SIDE GUARD', 1),
+            ('ELEGO 1.1 GRAB HANDLE', 1),
+            ('ELEGO 1.1 GREEN CARD', 1),
+            ('ELEGO 1.1 NUMBER PLATE', 1),
+            ('ELEGO 1.1 REAR BRAKE CABLE', 1),
+            ('ELEGO 1.1 REAR BRAKE DRUM PLATE', 1),
+            ('ELEGO 1.1 SIDE GUARD BAR LH', 1),
+            ('ELEGO 1.1 SIDE GUARD BAR RH', 1),
+            # Electrical
+            ('ELEGO 1.1 ANTI THEFT KIT', 1),
+            ('ELEGO 1.1 BATTERY CONNECTION BIG WIRE', 1),
+            ('ELEGO 1.1 BATTERY CONNECTION SMALL WIRE', 1),
+            ('ELEGO 1.1 CONTROLLER', 1),
+            ('ELEGO 1.1 DC CONVERTER', 1),
+            ('ELEGO 1.1 DISPLY METER', 1),
+            ('ELEGO 1.1 FLASHER', 1),
+            ('ELEGO 1.1 FRONT INDICATOR (LH)', 1),
+            ('ELEGO 1.1 FRONT INDICATOR (RH)', 1),
+            ('ELEGO 1.1 HEAD LIGHT SWITCH', 1),
+            ('ELEGO 1.1 HEADLAMP ASSY', 1),
+            ('ELEGO 1.1 HEADLAMP BULB', 1),
+            ('ELEGO 1.1 HORN SWITCH LH', 1),
+            ('ELEGO 1.1 HORN SWITCH RH', 1),
+            ('ELEGO 1.1 IGNITION LOCK', 1),
+            ('ELEGO 1.1 INDICATOR SWITCH', 1),
+            ('ELEGO 1.1 MAIN WIRE HARNESS', 1),
+            ('ELEGO 1.1 MCB', 1),
+            ('ELEGO 1.1 MOTOR', 1),
+            ('ELEGO 1.1 NUMBER PLATE LIGHT', 1),
+            ('ELEGO 1.1 REVERSE GEAR ASSY', 1),
+            ('ELEGO 1.1 TAIL LIGHT ASSY', 1),
+            ('ELEGO 1.1 THROTTLE + GRIP', 1),
+            ('ELEGO 1.1 UPPER DIPPER SWITCH', 1),
+            ('ELEGO 1.1 USB WIRE ASSY', 1),
+            # Suspension / wheel
+            ('ELEGO 1.1 CONE SET 7 PARTS', 1),
+            ('ELEGO 1.1 FRONT FORK ASSY', 1),
+            ('ELEGO 1.1 REAR SUSPENSION', 1),
+            ('ELEGO 1.1 FRONT SUSPENSION LH', 1),
+            ('ELEGO 1.1 FRONT SUSPENSION RH', 1),
+            # Fasteners and hardware (names from authoritative BOM PDF)
+            ('ROUND HEAD STAR BUTTON SCREW M3X25 HEAD OD 5mm', 1),
+            ('ROUND HEAD STAR BUTTON SCREW M4X16 HEAD OD 8mm', 2),
+            ('ROUND HEAD STAR BUTTON SCREW M6X12 HEAD OD 12mm', 2),
+            ('HEX FLANGE BOLT M6X12', 3),
+            ('HEX FLANGE BOLT M6X16', 3),
+            ('HEX FLANGE BOLT M6X30', 3),
+            ('HEX FLANGE BOLT M8X16', 4),
+            ('HEX FLANGE BOLT M8X20', 1),
+            ('HEX FLANGE BOLT M10X23 HALF THREAD HS-10.9 HEAD 10mm DRILLED M6', 1),
+            ('HEX FLANGE BOLT M10X28 HALF THREAD HEAD 17mm', 2),
+            ('HEX FLANGE BOLT M10X30', 2),
+            ('HEX FLANGE BOLT M10X40', 4),
+            ('HEX FLANGE BOLT M10X45', 1),
+            ('HEX FLANGE BOLT M12X220 HALF THREAD', 1),
+            ('HEX FLANGE BOLT M12X225 HALF THREAD', 1),
+            ('HANDLE BAR BUSH', 1),
+            ('FRONT AXELE BUSH 1 MS', 1),
+            ('FRONT AXELE BUSH 2 MS', 47),
+            ('SELF THREADING SCREW ST4X12mm', 30),
+            ('SELF THREADING SCREW ST5X16mm', 2),
+            ('PLAIN WASHER M6', 4),
+            ('PLAIN WASHER', 25),
+            ('SPRING CLIPS', 2),
+            ('HEX FLANGE NUT M3', 2),
+            ('HEX FLANGE NUT M4', 10),
+            ('HEX FLANGE NUT M6', 2),
+            ('HEX FLANGE NUT M8', 6),
+            ('HEX FLANGE NUT M10', 2),
+            ('HEX FLANGE NUT M12', 1),
+            # Springs
+            ('ELEGO 1.1 MAIN STAND SPRING', 1),
+            ('ELEGO 1.1 SIDE STAND SPRING', 1),
+        ]
+
+        for color_name, panel_lines in color_panels.items():
+            color_val = self.env['product.attribute.value'].search([
+                ('attribute_id', '=', color_attr.id),
+                ('name', '=', color_name),
+            ], limit=1)
+            if not color_val:
+                _logger.warning('Elego 1.1 BOM: color attribute value "%s" not found — skipping.', color_name)
+                continue
+
+            variant = tmpl.product_variant_ids.filtered(
+                lambda v, cv=color_val: cv in v.product_template_attribute_value_ids.mapped(
+                    'product_attribute_value_id'
+                )
+            )[:1]
+            if not variant:
+                _logger.warning('Elego 1.1 BOM: no variant found for color "%s" — skipping.', color_name)
+                continue
+
+            existing = Bom.search([
+                ('product_tmpl_id', '=', tmpl.id),
+                ('product_id', '=', variant.id),
+            ], limit=1)
+            if existing:
+                existing.sudo().unlink()
+
+            bom = Bom.sudo().create({
+                'product_tmpl_id': tmpl.id,
+                'product_id': variant.id,
+                'product_qty': 1.0,
+                'product_uom_id': uom_unit.id,
+                'type': 'normal',
+            })
+
+            seq = 10
+            lines_added = 0
+            for name, qty in panel_lines + common_components:
+                comp = _get_or_create_component(name)
+                if comp:
+                    BomLine.sudo().create({
+                        'bom_id': bom.id,
+                        'product_id': comp.id,
+                        'product_qty': float(qty),
+                        'product_uom_id': uom_unit.id,
+                        'sequence': seq,
+                    })
+                    seq += 10
+                    lines_added += 1
+
+            _logger.info(
+                'Elego 1.1 BOM (%s): created with %d component lines.',
+                color_name, lines_added,
+            )
 
     @api.model_create_multi
     def create(self, vals_list):
