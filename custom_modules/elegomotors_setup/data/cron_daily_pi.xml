@@ -20,7 +20,6 @@
             <field name="code">model.generate_daily_pis()</field>
             <field name="interval_number">1</field>
             <field name="interval_type">days</field>
-            <field name="numbercall">-1</field>
             <field name="active" eval="True"/>
             <!-- Next run: tomorrow at 02:30 UTC (= 08:00 IST).
                  Uses Python datetime — evaluated at install/upgrade time. -->
