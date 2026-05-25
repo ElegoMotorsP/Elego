@@ -90,6 +90,14 @@ class StockMove(models.Model):
             else:
                 move.x_component_serial = False
 
+    # Section header moves for consolidated PI display
+    x_is_section_header = fields.Boolean(
+        string='Is Section Header',
+        default=False,
+        help='True for display-only section separator rows in consolidated PI pickings.',
+    )
+    x_section_label = fields.Char(string='Section Label')
+
     # Issue 10: auto-fill x_qty_received from PO demand quantity on creation
     @api.model_create_multi
     def create(self, vals_list):

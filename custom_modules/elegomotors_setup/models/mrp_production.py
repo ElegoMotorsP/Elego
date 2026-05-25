@@ -55,6 +55,22 @@ class MrpProduction(models.Model):
         help='Shared reference for all MOs created together via the Batch Production Order wizard.',
     )
 
+    # Consolidated Daily PI fields
+    x_pi_urgent = fields.Boolean(
+        string='Urgent PI',
+        default=False,
+        copy=False,
+        help='When True: a dedicated Issue to Production picking is created immediately on confirm, '
+             'bypassing the daily consolidation batch. Amit receives an urgent chatter notification.',
+    )
+    x_consolidated_picking_id = fields.Many2one(
+        'stock.picking',
+        string='Daily Issue Picking',
+        copy=False,
+        readonly=True,
+        help='The consolidated daily PI that covers this MO\'s components.',
+    )
+
     # --- Issue 8: gate "Produce" actions until Amit validates Issue to Production ---
     x_issue_picking_done = fields.Boolean(
         string='Issue to Production Done',
@@ -63,19 +79,38 @@ class MrpProduction(models.Model):
         help='True once all Issue-to-Production pickings are validated by Amit.',
     )
 
-    # --- Req 3: propagate MO creator as Contact on Issue-to-Production picking ---
+    # --- Req 3 + Consolidated PI: manage Issue-to-Production picking on confirm ---
     def action_confirm(self):
         result = super().action_confirm()
         issue_type = self.env.ref(
             'elegomotors_setup.picking_type_production_issue', raise_if_not_found=False
         )
-        if issue_type:
-            for prod in self:
-                if prod.user_id and prod.user_id.partner_id:
-                    issue_pickings = prod.picking_ids.filtered(
-                        lambda p: p.picking_type_id == issue_type
-                    )
-                    issue_pickings.write({'partner_id': prod.user_id.partner_id.id})
+        if not issue_type:
+            return result
+        bike_templates = self._get_ego_templates()
+        for prod in self:
+            # Propagate MO creator's contact to any auto-created issue picking (Req 3)
+            if prod.user_id and prod.user_id.partner_id:
+                auto_pickings = prod.picking_ids.filtered(
+                    lambda p: p.picking_type_id == issue_type
+                )
+                auto_pickings.write({'partner_id': prod.user_id.partner_id.id})
+
+            # Only apply consolidated PI logic to EGO bike models
+            if prod.product_id.product_tmpl_id not in bike_templates:
+                continue
+
+            # Cancel the Odoo-auto-created individual PI — we manage our own PI flow
+            auto_pickings = prod.picking_ids.filtered(
+                lambda p: p.picking_type_id == issue_type and p.state not in ('done', 'cancel')
+            )
+            auto_pickings.with_context(skip_immediate=True, skip_backorder=True).action_cancel()
+
+            if prod.x_pi_urgent:
+                # Urgent path: create a dedicated PI immediately and notify Amit
+                self.env['elegomotors.consolidated.pi.generator']._create_urgent_pi(prod)
+            # Non-urgent: x_consolidated_picking_id stays empty until daily cron / manual button
+
         return result
 
     @api.depends('lot_producing_id')
@@ -91,16 +126,19 @@ class MrpProduction(models.Model):
             if not issue_type:
                 prod.x_issue_picking_done = True
                 continue
+            # Primary check: consolidated (or urgent) picking assigned to this MO
+            if prod.x_consolidated_picking_id:
+                prod.x_issue_picking_done = prod.x_consolidated_picking_id.state == 'done'
+                continue
+            # Fallback: legacy individual pickings (pre-migration MOs, EGO-S1, backorders)
             issue_pickings = prod.picking_ids.filtered(
                 lambda p: p.picking_type_id == issue_type and p.state != 'cancel'
             )
             if not issue_pickings:
-                # No PI picking linked to this MO — this is a backorder MO.
-                # The parent MO's PI picking already issued all components to
-                # Production WIP; no new PI picking is created for the backorder.
+                # No PI picking linked to this MO — backorder MO whose parent already issued
+                # all components to Production WIP.
                 prod.x_issue_picking_done = True
             else:
-                # PI picking exists — must be fully validated before production
                 prod.x_issue_picking_done = all(p.state == 'done' for p in issue_pickings)
 
     @api.depends('state', 'qc_state', 'qty_producing')
@@ -315,6 +353,7 @@ class MrpProduction(models.Model):
             'elegomotors_setup.tmpl_elego_11',
             'elegomotors_setup.tmpl_elego_12',
             'elegomotors_setup.tmpl_elego_20p',
+            'elegomotors_setup.tmpl_elego_30',
         ]
         result = self.env['product.template']
         for ref in refs:
@@ -460,6 +499,7 @@ class MrpBarcodeWizard(models.TransientModel):
             ('elegomotors_setup.tmpl_elego_11',    'elegomotors_setup.seq_elego_11_serial'),
             ('elegomotors_setup.tmpl_elego_12',    'elegomotors_setup.seq_elego_12_serial'),
             ('elegomotors_setup.tmpl_elego_20p',   'elegomotors_setup.seq_elego_20p_serial'),
+            ('elegomotors_setup.tmpl_elego_30',    'elegomotors_setup.seq_elego_30_serial'),
         ]
         tmpl = production.product_id.product_tmpl_id
         for tmpl_ref, seq_ref in seq_map:

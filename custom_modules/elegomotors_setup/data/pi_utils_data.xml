@@ -1,0 +1,28 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+    <!--
+        PI Section Header product — used as a zero-qty placeholder move in
+        consolidated Issue-to-Production pickings to render section separators
+        (e.g. "Red (2 units)", "Common Components (5 units)").
+
+        noupdate="1": if accidentally deleted by a user it won't be re-created
+        on the next upgrade and will cause an error; set noupdate="0" if you
+        want it guaranteed on every upgrade.
+    -->
+    <data noupdate="1">
+
+        <record id="product_pi_section_header" model="product.product">
+            <field name="name">PI Section Header</field>
+            <field name="type">consu</field>
+            <field name="sale_ok" eval="False"/>
+            <field name="purchase_ok" eval="False"/>
+            <field name="active" eval="True"/>
+            <field name="categ_id" ref="product.product_category_all"/>
+            <field name="uom_id" ref="uom.product_uom_unit"/>
+            <field name="uom_po_id" ref="uom.product_uom_unit"/>
+            <field name="standard_price">0.0</field>
+            <field name="list_price">0.0</field>
+        </record>
+
+    </data>
+</odoo>

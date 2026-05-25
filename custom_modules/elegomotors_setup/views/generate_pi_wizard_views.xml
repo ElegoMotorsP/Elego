@@ -1,0 +1,66 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+    <!--
+        ElegoMotors — Generate Daily Consolidated Issue-to-Production Pickings
+
+        Opens from: Manufacturing > Operations > Generate Daily PI
+
+        Collects all confirmed, non-urgent bike MOs that have no PI yet,
+        groups them by bike model, and creates one aggregated PI per model.
+    -->
+
+    <record id="view_generate_pi_wizard_form" model="ir.ui.view">
+        <field name="name">elegomotors.generate.pi.wizard.form</field>
+        <field name="model">elegomotors.generate.pi.wizard</field>
+        <field name="arch" type="xml">
+            <form string="Generate Daily Issue to Production">
+                <sheet>
+                    <div class="alert alert-info mb-3" role="alert" invisible="state == 'done'">
+                        <strong>Generate Consolidated Daily PIs</strong> — Click the button below
+                        to consolidate all pending confirmed MOs into one aggregated
+                        Issue-to-Production picking per bike model (Elego 1.1, 1.2, 2.0+, 3.0).
+                        Urgent MOs are excluded and already have their own separate PIs.
+                    </div>
+                    <div class="alert alert-success mb-3" role="alert" invisible="state != 'done'">
+                        <strong>Done.</strong>
+                        <field name="result_message" readonly="1" nolabel="1"/>
+                    </div>
+                    <group invisible="state != 'done' or not picking_ids">
+                        <field name="picking_count" string="Pickings Created" readonly="1"/>
+                        <field name="picking_ids" widget="many2many_tags" readonly="1"
+                               string="New Pickings"/>
+                    </group>
+                </sheet>
+                <footer>
+                    <button name="action_generate"
+                            string="Generate Daily PIs"
+                            type="object"
+                            class="btn-primary"
+                            invisible="state == 'done'"/>
+                    <button name="action_open_pickings"
+                            string="Open Pickings"
+                            type="object"
+                            class="btn-success"
+                            invisible="state != 'done' or not picking_ids"
+                            close="true"/>
+                    <button string="Close" class="btn-secondary" special="cancel"/>
+                </footer>
+            </form>
+        </field>
+    </record>
+
+    <record id="action_generate_pi_wizard" model="ir.actions.act_window">
+        <field name="name">Generate Daily Issue to Production</field>
+        <field name="res_model">elegomotors.generate.pi.wizard</field>
+        <field name="view_mode">form</field>
+        <field name="target">new</field>
+    </record>
+
+    <menuitem
+        id="menu_generate_daily_pi"
+        name="Generate Daily PI"
+        parent="mrp.menu_mrp_production_action"
+        action="action_generate_pi_wizard"
+        sequence="6"/>
+
+</odoo>

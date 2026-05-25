@@ -1,0 +1,48 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+    <!--
+        Elego 3.0 product template.
+
+        Prices are placeholders — update via Odoo UI once confirmed by client.
+        BOM components must be entered via Manufacturing > Bills of Materials
+        after module upgrade (client to provide the component list).
+
+        noupdate="1": preserves any price/description edits made in the UI.
+    -->
+    <data noupdate="1">
+
+        <record id="tmpl_elego_30" model="product.template">
+            <field name="name">Elego 3.0</field>
+            <field name="is_storable" eval="True"/>
+            <field name="sale_ok" eval="True"/>
+            <field name="purchase_ok" eval="False"/>
+            <field name="categ_id" ref="product.product_category_all"/>
+            <field name="uom_id" ref="uom.product_uom_unit"/>
+            <field name="uom_po_id" ref="uom.product_uom_unit"/>
+            <field name="list_price">80000.0</field>
+            <field name="standard_price">56000.0</field>
+            <field name="route_ids" eval="[(4, ref('mrp.route_warehouse0_manufacture'))]"/>
+        </record>
+
+        <!-- Sequence: Elego 3.0 Serial Numbers — EL30-YYMM-NNNN, resets monthly. -->
+        <record id="seq_elego_30_serial" model="ir.sequence">
+            <field name="name">Elego 3.0 Serial Number</field>
+            <field name="code">elego.30.serial</field>
+            <field name="prefix">EL30-%(y)s%(month)s-</field>
+            <field name="padding">4</field>
+            <field name="number_next">1</field>
+            <field name="number_increment">1</field>
+            <field name="use_date_range" eval="True"/>
+            <field name="company_id" ref="base.main_company"/>
+        </record>
+
+    </data>
+
+    <!-- Color attribute setup runs on every upgrade (noupdate="0").
+         Adds Red/Gray/Black/White variants to Elego 3.0 via the same
+         _ensure_new_model_attributes() function used for other models. -->
+    <data noupdate="0">
+        <function model="product.template" name="_ensure_new_model_attributes"/>
+    </data>
+
+</odoo>

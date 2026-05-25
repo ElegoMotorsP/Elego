@@ -140,6 +140,7 @@ class ProductTemplate(models.Model):
             'elegomotors_setup.tmpl_elego_11',
             'elegomotors_setup.tmpl_elego_12',
             'elegomotors_setup.tmpl_elego_20p',
+            'elegomotors_setup.tmpl_elego_30',
         ]:
             tmpl = self.env.ref(tmpl_ref, raise_if_not_found=False)
             if not tmpl:

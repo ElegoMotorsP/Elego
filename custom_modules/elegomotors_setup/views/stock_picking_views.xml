@@ -188,4 +188,35 @@
         </field>
     </record>
 
+    <!-- ================================================================
+         Consolidated Daily PI: show linked MOs + section header decoration
+         ================================================================ -->
+    <record id="stock_picking_form_consolidated_pi" model="ir.ui.view">
+        <field name="name">stock.picking.form.consolidated.pi.fields</field>
+        <field name="model">stock.picking</field>
+        <field name="inherit_id" ref="stock.view_picking_form"/>
+        <field name="arch" type="xml">
+
+            <!-- Show linked MOs on the consolidated PI form header -->
+            <xpath expr="//field[@name='origin']" position="after">
+                <field name="x_consolidated_mo_ids"
+                       widget="many2many_tags"
+                       readonly="1"
+                       string="Source MOs"
+                       invisible="not x_consolidated_mo_ids"/>
+            </xpath>
+
+            <!-- Bold / highlighted decoration for section header rows in the move list -->
+            <xpath expr="//field[@name='move_ids_without_package']//list" position="attributes">
+                <attribute name="decoration-info">x_is_section_header</attribute>
+                <attribute name="decoration-bf">x_is_section_header</attribute>
+            </xpath>
+            <xpath expr="//field[@name='move_ids_without_package']//list//field[@name='product_id']" position="before">
+                <field name="x_is_section_header" column_invisible="1"/>
+                <field name="x_section_label" column_invisible="1"/>
+            </xpath>
+
+        </field>
+    </record>
+
 </odoo>

@@ -177,6 +177,25 @@
         </field>
     </record>
 
+    <!-- Consolidated Daily PI fields: Urgent PI toggle + link to consolidated picking -->
+    <record id="mrp_production_form_consolidated_pi" model="ir.ui.view">
+        <field name="name">mrp.production.form.consolidated.pi</field>
+        <field name="model">mrp.production</field>
+        <field name="inherit_id" ref="mrp.mrp_production_form_view"/>
+        <field name="arch" type="xml">
+            <xpath expr="//field[@name='x_battery_type']" position="after">
+                <field name="x_pi_urgent"
+                       string="Urgent PI"
+                       widget="boolean_toggle"
+                       readonly="state not in ('draft', 'confirmed')"/>
+                <field name="x_consolidated_picking_id"
+                       string="Daily Issue Picking"
+                       readonly="1"
+                       invisible="not x_consolidated_picking_id"/>
+            </xpath>
+        </field>
+    </record>
+
     <!-- Barcode Capture Wizard — opened by action_generate_serial() for ElegoMotors bike MOs -->
     <record id="view_mrp_barcode_wizard_form" model="ir.ui.view">
         <field name="name">elegomotors.barcode.capture.wizard.form</field>

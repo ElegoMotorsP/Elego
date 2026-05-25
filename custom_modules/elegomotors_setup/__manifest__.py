@@ -1,6 +1,6 @@
 {
     'name': 'ElegoMotors Workflow Setup',
-    'version': '18.0.19.0.0',
+    'version': '18.0.20.0.0',
     'category': 'Manufacturing',
     'summary': 'ElegoMotors EV 2-wheeler end-to-end manufacturing workflow configuration',
     'description': """
@@ -54,12 +54,15 @@
         'data/product_models_data.xml',   # Elego 1.1, 1.2, 2.0+ templates + Battery Type variants
         'data/bom_data_new_models.xml',   # BOMs for the 3 new bike templates
         'data/bom_data_elego_11_by_color.xml', # Color-specific BOMs for Elego 1.1 (Red/White/Gray)
+        'data/pi_utils_data.xml',          # PI Section Header placeholder product
+        'data/product_elego_30_data.xml',  # Elego 3.0 product template + serial sequence
         'data/gst_tax_data.xml',          # GST 5%/18% taxes + fiscal positions (MH intra/other inter)
         'data/sale_products_data.xml',    # Battery Pack + Side Guard accessory sale products
         'data/users_data.xml',            # department users (loaded after groups)
         'data/quality_data.xml',         # QC control points: gate entry + FG receipt
         'data/qc_check_sheets_data.xml', # Charger + Battery QC check sheet templates
         'data/notification_rules.xml',   # automated workflow notifications
+        'data/cron_daily_pi.xml',        # Daily consolidated PI generation cron job
         # View overrides (loaded last so base views exist)
         'views/account_move_views.xml',
         'views/mrp_production_views.xml',   # Post-production QC buttons on MO form; Issue 7+8
@@ -72,6 +75,7 @@
         'views/batch_mo_wizard_views.xml',          # Batch MO creation wizard + menu entry; Req 2
         'views/bulk_barcode_wizard_views.xml',      # Bulk barcode scan wizard for multi-unit MO
         'views/bike_traceability_views.xml',        # Bike Traceability search window + menu
+        'views/generate_pi_wizard_views.xml',       # Generate Daily PI wizard + menu entry
         'views/report_invoice.xml',                 # ElegoMotors custom TAX INVOICE QWeb report
     ],
     'assets': {

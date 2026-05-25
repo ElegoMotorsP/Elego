@@ -1,0 +1,31 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+    <!--
+        Daily cron job: generate consolidated Issue-to-Production pickings.
+
+        noupdate="1" so Manohar can adjust the schedule in Technical > Scheduled
+        Actions without the next upgrade resetting it.
+
+        IMPORTANT — Timezone note:
+        Odoo cron nextcall is stored in UTC. The server runs in UTC.
+        For a run at 08:00 IST (UTC+5:30), set the time to 02:30 UTC.
+        Adjust the nextcall date below to the next desired run date.
+    -->
+    <data noupdate="1">
+
+        <record id="ir_cron_generate_daily_pi" model="ir.cron">
+            <field name="name">EGO: Generate Daily Consolidated Issue to Production</field>
+            <field name="model_id" ref="model_elegomotors_consolidated_pi_generator"/>
+            <field name="state">code</field>
+            <field name="code">model.generate_daily_pis()</field>
+            <field name="interval_number">1</field>
+            <field name="interval_type">days</field>
+            <field name="numbercall">-1</field>
+            <field name="active" eval="True"/>
+            <!-- Next run: tomorrow at 02:30 UTC (= 08:00 IST).
+                 Uses Python datetime — evaluated at install/upgrade time. -->
+            <field name="nextcall" eval="(DateTime.now().replace(hour=2, minute=30, second=0, microsecond=0) + timedelta(days=1)).strftime('%Y-%m-%d %H:%M:%S')"/>
+        </record>
+
+    </data>
+</odoo>

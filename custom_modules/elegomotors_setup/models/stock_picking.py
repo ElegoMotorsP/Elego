@@ -51,6 +51,23 @@ class StockPicking(models.Model):
         store=False,
     )
 
+    # Consolidated Daily PI fields
+    x_consolidated_mo_ids = fields.Many2many(
+        'mrp.production',
+        'stock_picking_consolidated_mo_rel',
+        'picking_id',
+        'production_id',
+        string='Source Manufacturing Orders',
+        copy=False,
+        help='MOs whose components are aggregated into this consolidated daily PI.',
+    )
+    x_pi_model_key = fields.Char(
+        string='PI Model Key',
+        copy=False,
+        index=True,
+        help='Product template external ID key used for grouping and idempotency.',
+    )
+
     @api.depends('picking_type_id')
     def _compute_is_gate_entry(self):
         gate_ref = self.env.ref(
