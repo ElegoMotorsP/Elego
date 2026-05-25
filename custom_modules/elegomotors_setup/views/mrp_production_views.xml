@@ -177,12 +177,24 @@
         </field>
     </record>
 
-    <!-- Consolidated Daily PI fields: Urgent PI toggle + link to consolidated picking -->
+    <!-- Consolidated Daily PI fields: Urgent PI toggle + link to consolidated picking + urgent button -->
     <record id="mrp_production_form_consolidated_pi" model="ir.ui.view">
         <field name="name">mrp.production.form.consolidated.pi</field>
         <field name="model">mrp.production</field>
         <field name="inherit_id" ref="mrp.mrp_production_form_view"/>
         <field name="arch" type="xml">
+
+            <!-- Urgent PI button in header — visible when confirmed, no PI assigned yet, not already urgent -->
+            <xpath expr="//header/button[@name='button_mark_done']" position="before">
+                <button name="action_request_urgent_pi"
+                        string="Request Urgent PI"
+                        type="object"
+                        class="btn-warning"
+                        invisible="x_pi_urgent or x_consolidated_picking_id or state not in ('confirmed', 'progress')"
+                        title="Create an immediate Issue to Production picking for this MO, skipping the daily batch."/>
+            </xpath>
+
+            <!-- Urgent PI toggle + consolidated picking link in form body -->
             <xpath expr="//field[@name='x_battery_type']" position="after">
                 <field name="x_pi_urgent"
                        string="Urgent PI"
@@ -193,6 +205,7 @@
                        readonly="1"
                        invisible="not x_consolidated_picking_id"/>
             </xpath>
+
         </field>
     </record>
 

@@ -113,6 +113,37 @@ class MrpProduction(models.Model):
 
         return result
 
+    def action_request_urgent_pi(self):
+        """Request an immediate PI for this MO, bypassing the daily batch.
+
+        Can be called on a confirmed MO that has not yet been assigned a PI
+        (i.e. it was confirmed without the Urgent PI flag and is still waiting
+        for the next daily cron run). Sets x_pi_urgent=True and creates the
+        PI immediately.
+        """
+        self.ensure_one()
+        if self.x_consolidated_picking_id:
+            raise UserError(
+                f'This MO already has an Issue to Production picking assigned: '
+                f'{self.x_consolidated_picking_id.name}.'
+            )
+        if self.state not in ('confirmed', 'progress'):
+            raise UserError(
+                'Urgent PI can only be requested for MOs in Confirmed or In Progress state.'
+            )
+        self.x_pi_urgent = True
+        self.env['elegomotors.consolidated.pi.generator']._create_urgent_pi(self)
+        return {
+            'type': 'ir.actions.client',
+            'tag': 'display_notification',
+            'params': {
+                'title': 'Urgent PI Requested',
+                'message': f'An urgent Issue to Production picking has been created for {self.name}. Amit has been notified.',
+                'type': 'success',
+                'sticky': False,
+            },
+        }
+
     @api.depends('lot_producing_id')
     def _compute_finished_serial(self):
         for prod in self:
