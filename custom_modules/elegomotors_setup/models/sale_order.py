@@ -115,6 +115,23 @@ class SaleOrder(models.Model):
             self.pending_approval = False
             super(SaleOrder, self).action_confirm()
 
+    def action_create_invoice(self):
+        """Block invoice creation from salespeople.
+        Only users with account.group_account_invoice (Amit, Rajshri, Manohar)
+        may trigger the Create Invoice flow from a Sales Order.
+        Using a Python override because the button name differs between
+        Odoo 18 Community and Enterprise, making a view-level XPath unreliable.
+        """
+        if (
+            not self.env.su
+            and not self.env.user.has_group('account.group_account_invoice')
+        ):
+            raise AccessError(
+                'Only accounting users (Amit / Rajshri / Manohar) can create '
+                'invoices from Sales Orders.'
+            )
+        return super().action_create_invoice()
+
     def action_reject(self):
         self.ensure_one()
         if not (

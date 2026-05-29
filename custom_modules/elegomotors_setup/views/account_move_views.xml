@@ -56,6 +56,7 @@
         <field name="arch" type="xml">
             <xpath expr="//page[@name='invoice_tab']" position="before">
                 <div class="alert alert-light border mb-0 py-2"
+                     role="status"
                      invisible="move_type not in ('out_invoice', 'out_refund') or not x_so_ref">
                     <div class="row">
                         <div class="col-auto me-4">
