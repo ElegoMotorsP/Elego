@@ -6,13 +6,13 @@
         Opens from: Manufacturing > Operations > Batch Production Order
 
         Flow:
-          1. Select Product Template (e.g. EGO-S1).
-          2. One row per Color is auto-loaded from the template's Color attribute.
-          3. Set Battery Type / Side Guards per row if attributes are configured.
-          4. Uncheck "Include" for any variants you don't want to produce.
-          5. Set quantities.
-          6. Click "Create Manufacturing Orders" → one MO per included row,
-             all grouped under a shared Batch Reference (x_batch_mo_ref).
+          1. Click "Add a line" for each variant to produce.
+          2. Select Product Model, Color, Battery Type, and Qty per row.
+          3. Uncheck "Include" for any rows you want to skip.
+          4. Click "Create & Issue Manufacturing Orders":
+               - one MO per included row, all confirmed immediately
+               - one consolidated Issue-to-Production picking for the entire batch
+               - all MOs share a common Batch Reference
     -->
 
     <record id="view_batch_mo_wizard_form" model="ir.ui.view">
@@ -22,32 +22,31 @@
             <form string="Batch Production Order">
                 <sheet>
                     <div class="alert alert-info mb-3" role="alert">
-                        <strong>Batch MO Creation</strong> — Select a bike model template,
-                        then add one row per variant you want to produce. Choose the
-                        <strong>Color</strong> (determines the product variant) and
-                        optionally the <strong>Battery Type</strong> (production label),
-                        set the quantity, and click <strong>Create Manufacturing Orders</strong>.
-                        One MO per row, all grouped under a shared Batch Reference.
+                        <strong>Batch MO Creation</strong> — Add one row per variant you want
+                        to produce. Select the <strong>Model</strong>, <strong>Color</strong>
+                        (determines the product variant), <strong>Battery Type</strong>
+                        (production label), and quantity. You can mix multiple models and
+                        colours in one batch. Click
+                        <strong>Create &amp; Issue Manufacturing Orders</strong> to confirm all
+                        MOs and generate a <strong>single consolidated Issue-to-Production
+                        picking</strong> for the entire batch.
                     </div>
-
-                    <group>
-                        <field name="product_tmpl_id"
-                               options="{'no_create': True, 'no_open': True}"
-                               placeholder="Select bike model (e.g. Elego 1.1)…"/>
-                    </group>
-
-                    <!-- Hidden: domain filter set for Color dropdown -->
-                    <field name="valid_color_value_ids" invisible="1"/>
 
                     <field name="line_ids" widget="one2many_list">
                         <list editable="bottom" decoration-muted="not create_mo">
                             <field name="sequence" widget="handle"/>
                             <field name="create_mo" string="Include"
                                    widget="boolean_toggle"/>
+                            <field name="product_tmpl_id"
+                                   string="Model"
+                                   placeholder="Select bike model…"
+                                   options="{'no_create': True, 'no_open': True}"/>
+                            <!-- hidden but required for the colour domain below -->
+                            <field name="valid_color_value_ids" column_invisible="1"/>
                             <field name="color_value_id"
                                    string="Color"
                                    placeholder="Red / Black / Gray / White…"
-                                   domain="[('id', 'in', parent.valid_color_value_ids)]"
+                                   domain="[('id', 'in', valid_color_value_ids)]"
                                    options="{'no_create': True}"/>
                             <field name="battery_type"
                                    string="Battery Type"
@@ -61,13 +60,13 @@
 
                     <div class="text-muted small mt-2">
                         Rows greyed out with <em>Include</em> unchecked will be skipped.
-                        Color determines the product variant; Battery Type is recorded as
-                        a production label on the MO.
+                        All included rows share a single Batch Reference and a single
+                        Issue-to-Production picking is generated immediately on confirm.
                     </div>
                 </sheet>
                 <footer>
                     <button name="action_confirm"
-                            string="Create Manufacturing Orders"
+                            string="Create &amp; Issue Manufacturing Orders"
                             type="object"
                             class="btn-primary"/>
                     <button string="Cancel" special="cancel" class="btn-secondary"/>

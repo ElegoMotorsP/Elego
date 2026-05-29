@@ -4,57 +4,25 @@ from odoo.exceptions import UserError
 
 
 class BatchMoWizard(models.TransientModel):
-    """Batch MO Creation Wizard — creates one mrp.production per selected variant row.
+    """Batch MO Creation Wizard — creates one mrp.production per variant row,
+    across multiple models and colours, then immediately generates a single
+    consolidated Issue-to-Production picking for the entire batch.
 
     Flow:
-      1. User selects a Product Template (e.g. EGO-S1).
-      2. Wizard auto-loads one line per Color value defined on the template.
-      3. User configures Battery Type / Side Guards per line, sets quantities,
-         and unchecks any variants they don't need.
-      4. Confirm → one MO per included line, all stamped with a shared x_batch_mo_ref.
+      1. Add one row per variant you want to produce (use "Add a line").
+      2. Select Product Model, Color, Battery Type and Qty for each row.
+      3. Click Create & Issue → one MO per row (all auto-confirmed), then one
+         consolidated PI for the whole batch under a shared Batch Reference.
     """
 
     _name = 'elegomotors.batch.mo.wizard'
     _description = 'Batch MO Creation Wizard'
 
-    product_tmpl_id = fields.Many2one(
-        'product.template',
-        string='Product Template',
-        required=True,
-        domain=[('sale_ok', '=', True), ('type', 'in', ('consu', 'product'))],
-    )
     line_ids = fields.One2many(
         'elegomotors.batch.mo.wizard.line',
         'wizard_id',
         string='Variants to Produce',
     )
-
-    # Color values available on the selected template (drives variant selection)
-    valid_color_value_ids = fields.Many2many(
-        'product.attribute.value',
-        compute='_compute_valid_attribute_values',
-        string='Valid Colors',
-    )
-
-    @api.depends('product_tmpl_id', 'product_tmpl_id.attribute_line_ids')
-    def _compute_valid_attribute_values(self):
-        Pav = self.env['product.attribute.value']
-        for wizard in self:
-            color_ids = Pav
-            if wizard.product_tmpl_id:
-                for attr_line in wizard.product_tmpl_id.attribute_line_ids:
-                    if attr_line.attribute_id.name == 'Color':
-                        color_ids = attr_line.value_ids
-            wizard.valid_color_value_ids = color_ids
-
-    @api.onchange('product_tmpl_id')
-    def _onchange_product_tmpl_id(self):
-        self.line_ids = [(5,)]
-        if not self.product_tmpl_id:
-            return
-        # Start with one blank row — user picks Color + Battery Type + Side Guards per row
-        # and uses "Add a line" to add more combinations
-        self.line_ids = [(0, 0, {'qty': 1, 'create_mo': True})]
 
     def action_confirm(self):
         self.ensure_one()
@@ -63,6 +31,9 @@ class BatchMoWizard(models.TransientModel):
             raise UserError(
                 'Please include at least one variant row with a quantity greater than 0.'
             )
+        for line in active_lines:
+            if not line.product_tmpl_id:
+                raise UserError('Each included row must have a Product Model selected.')
 
         from datetime import datetime
         batch_ref = 'BATCH-' + datetime.now().strftime('%Y%m%d-%H%M%S')
@@ -73,20 +44,19 @@ class BatchMoWizard(models.TransientModel):
             if not product:
                 label = line.variant_display or (line.color_value_id.name if line.color_value_id else '(base)')
                 raise UserError(
-                    f'Could not find a matching product variant for: {label}\n'
+                    f'Could not find a matching product variant for: '
+                    f'{line.product_tmpl_id.name} / {label}\n'
                     f'Please verify that the product attributes are fully configured in Odoo.'
                 )
 
-            # Prefer variant-specific BOM; fall back to template BOM.
-            # OR-with-limit-1 returns whichever has the lower DB ID (usually the
-            # older template BOM), so use two explicit searches instead.
+            tmpl = line.product_tmpl_id
             bom = self.env['mrp.bom'].search([
                 ('type', '=', 'normal'),
-                ('product_tmpl_id', '=', self.product_tmpl_id.id),
+                ('product_tmpl_id', '=', tmpl.id),
                 ('product_id', '=', product.id),
             ], limit=1) or self.env['mrp.bom'].search([
                 ('type', '=', 'normal'),
-                ('product_tmpl_id', '=', self.product_tmpl_id.id),
+                ('product_tmpl_id', '=', tmpl.id),
                 ('product_id', '=', False),
             ], limit=1)
 
@@ -102,13 +72,30 @@ class BatchMoWizard(models.TransientModel):
             })
             created_mos |= mo
 
+        # Confirm all MOs (this cancels the Odoo-auto-created individual pickings for bike models)
+        created_mos.action_confirm()
+
+        # Create one consolidated PI for the entire batch across all models
+        picking = self.env['elegomotors.consolidated.pi.generator']._create_batch_pi(
+            mos=created_mos,
+            batch_ref=batch_ref,
+        )
+
+        if picking:
+            return {
+                'type': 'ir.actions.act_window',
+                'name': f'Issue to Production — {batch_ref}',
+                'res_model': 'stock.picking',
+                'res_id': picking.id,
+                'view_mode': 'form',
+                'target': 'current',
+            }
         return {
             'type': 'ir.actions.act_window',
             'name': f'Manufacturing Orders — {batch_ref}',
             'res_model': 'mrp.production',
             'view_mode': 'list,form',
             'domain': [('x_batch_mo_ref', '=', batch_ref)],
-            'context': {'search_default_x_batch_mo_ref': batch_ref},
         }
 
 
@@ -122,6 +109,19 @@ class BatchMoWizardLine(models.TransientModel):
     )
     sequence = fields.Integer(default=10)
     create_mo = fields.Boolean(string='Include', default=True)
+
+    product_tmpl_id = fields.Many2one(
+        'product.template',
+        string='Model',
+        domain=[('sale_ok', '=', True), ('type', 'in', ('consu', 'product'))],
+    )
+
+    # Colors available for this line's selected template (drives color dropdown domain)
+    valid_color_value_ids = fields.Many2many(
+        'product.attribute.value',
+        compute='_compute_valid_color_value_ids',
+        string='Valid Colors',
+    )
 
     color_value_id = fields.Many2one(
         'product.attribute.value',
@@ -142,21 +142,32 @@ class BatchMoWizardLine(models.TransientModel):
         compute='_compute_variant_display',
     )
 
-    @api.depends('color_value_id', 'battery_type')
+    @api.depends('product_tmpl_id', 'product_tmpl_id.attribute_line_ids')
+    def _compute_valid_color_value_ids(self):
+        Pav = self.env['product.attribute.value']
+        for line in self:
+            color_ids = Pav
+            if line.product_tmpl_id:
+                for attr_line in line.product_tmpl_id.attribute_line_ids:
+                    if attr_line.attribute_id.name == 'Color':
+                        color_ids = attr_line.value_ids
+            line.valid_color_value_ids = color_ids
+
+    @api.depends('product_tmpl_id', 'color_value_id', 'battery_type')
     def _compute_variant_display(self):
         for line in self:
             parts = []
+            if line.product_tmpl_id:
+                parts.append(line.product_tmpl_id.name)
             if line.color_value_id:
                 parts.append(line.color_value_id.name)
             if line.battery_type:
                 parts.append(line.battery_type)
-            line.variant_display = ' | '.join(parts) if parts else '(base product)'
+            line.variant_display = ' | '.join(parts) if parts else '(no model selected)'
 
     def _resolve_product_variant(self):
-        """Match Color attribute to the correct product.product variant.
-        Battery Type is a free-text label stored as x_battery_type on the MO — not a variant.
-        """
-        tmpl = self.wizard_id.product_tmpl_id
+        """Match Color attribute to the correct product.product variant on this line's template."""
+        tmpl = self.product_tmpl_id
         if not tmpl:
             return False
 
@@ -173,7 +184,7 @@ class BatchMoWizardLine(models.TransientModel):
             if not color_val_id and not variant_color_ids:
                 return variant
 
-        # Single variant template with no Color attribute — use it directly
+        # Single-variant template with no Color attribute — use it directly
         if not color_val_id and len(tmpl.product_variant_ids) == 1:
             return tmpl.product_variant_ids[0]
 

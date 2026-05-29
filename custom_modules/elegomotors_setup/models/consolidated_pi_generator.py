@@ -315,6 +315,161 @@ class ConsolidatedPiGenerator(models.AbstractModel):
             model_label=config['label'],
         )
 
+    # ------------------------------------------------------------------
+    # Batch PI (called from BatchMoWizard after confirming all MOs)
+    # ------------------------------------------------------------------
+
+    @api.model
+    def _create_batch_pi(self, mos, batch_ref):
+        """Create one consolidated PI for all MOs in a batch, across all models/colours.
+
+        Builds section headers per model (and per colour for Elego 1.1), aggregates
+        component quantities from BOMs, and links every MO to the single picking so
+        the daily cron skips them.
+        """
+        issue_type = self.env.ref(
+            'elegomotors_setup.picking_type_production_issue', raise_if_not_found=False
+        )
+        if not issue_type:
+            return False
+
+        # Build config lookup by template id
+        config_by_tmpl = {}
+        for config in self._get_bike_model_configs():
+            tmpl = self.env.ref(config['tmpl_ref'], raise_if_not_found=False)
+            if tmpl:
+                config_by_tmpl[tmpl.id] = config
+
+        section_header_product = self.env.ref(
+            'elegomotors_setup.product_pi_section_header', raise_if_not_found=False
+        )
+        if not section_header_product:
+            raise UserError(
+                'PI Section Header product not found. '
+                'Please upgrade the elegomotors_setup module.'
+            )
+
+        def _section(label):
+            return {
+                'name': label,
+                'product_id': section_header_product.id,
+                'product_uom': section_header_product.uom_id.id,
+                'product_uom_qty': 0.0,
+                'location_id': issue_type.default_location_src_id.id,
+                'location_dest_id': issue_type.default_location_dest_id.id,
+                'x_is_section_header': True,
+                'x_section_label': label,
+            }
+
+        def _move(product, qty):
+            return {
+                'name': product.name,
+                'product_id': product.id,
+                'product_uom': product.uom_id.id,
+                'product_uom_qty': qty,
+                'location_id': issue_type.default_location_src_id.id,
+                'location_dest_id': issue_type.default_location_dest_id.id,
+            }
+
+        # Group MOs by template, preserving the order they were created
+        template_order = []
+        template_mos = {}
+        for mo in mos:
+            tmpl_id = mo.product_id.product_tmpl_id.id
+            if tmpl_id not in template_mos:
+                template_order.append(mo.product_id.product_tmpl_id)
+                template_mos[tmpl_id] = self.env['mrp.production']
+            template_mos[tmpl_id] |= mo
+
+        move_vals_list = []
+        all_mo_count = len(mos)
+
+        for tmpl in template_order:
+            tmpl_mos = template_mos[tmpl.id]
+            config = config_by_tmpl.get(tmpl.id)
+            uses_color_boms = config['uses_color_boms'] if config else False
+            model_label = config['label'] if config else tmpl.name
+            mo_count = len(tmpl_mos)
+
+            if uses_color_boms:
+                classified = self._classify_components_elego_11(tmpl_mos, tmpl)
+                color_groups = classified.get('color_groups', {})
+                common = classified.get('common', [])
+
+                for color, lines in color_groups.items():
+                    if not lines:
+                        continue
+                    color_mo_count = sum(
+                        1 for mo in tmpl_mos
+                        if (mo.x_color or '').capitalize() == color
+                    )
+                    move_vals_list.append(_section(
+                        f'{model_label} — {color} '
+                        f'({color_mo_count} unit{"s" if color_mo_count != 1 else ""})'
+                    ))
+                    for product, qty in lines:
+                        move_vals_list.append(_move(product, qty))
+
+                if common:
+                    move_vals_list.append(_section(
+                        f'{model_label} — Common '
+                        f'({mo_count} unit{"s" if mo_count != 1 else ""})'
+                    ))
+                    for product, qty in common:
+                        move_vals_list.append(_move(product, qty))
+            else:
+                classified = self._classify_components_template_bom(tmpl_mos, tmpl)
+                common = classified.get('common', [])
+                if common:
+                    move_vals_list.append(_section(
+                        f'{model_label} — {mo_count} unit{"s" if mo_count != 1 else ""}'
+                    ))
+                    for product, qty in common:
+                        move_vals_list.append(_move(product, qty))
+
+        if not move_vals_list:
+            _logger.warning(
+                'EGO: No component moves for batch %s — no BOM data found. '
+                'Skipping PI creation.',
+                batch_ref,
+            )
+            return False
+
+        picking = self.env['stock.picking'].create({
+            'picking_type_id': issue_type.id,
+            'location_id': issue_type.default_location_src_id.id,
+            'location_dest_id': issue_type.default_location_dest_id.id,
+            'origin': f'Batch PI — {batch_ref}',
+            'x_pi_model_key': batch_ref,
+            'x_consolidated_mo_ids': [(6, 0, mos.ids)],
+            'move_ids': [(0, 0, v) for v in move_vals_list],
+        })
+        picking.action_confirm()
+
+        # Link every MO to this picking so the daily cron skips them
+        mos.write({'x_consolidated_picking_id': picking.id})
+
+        amit = self.env.ref('elegomotors_setup.user_ego_amit', raise_if_not_found=False)
+        partner_ids = [amit.partner_id.id] if amit and amit.partner_id else []
+        model_names = ', '.join(t.name for t in template_order)
+        picking.message_post(
+            body=Markup(
+                f"Batch Issue to Production — <b>{batch_ref}</b><br/>"
+                f"<b>{all_mo_count}</b> MO{'s' if all_mo_count != 1 else ''} across: "
+                f"<b>{model_names}</b>.<br/>"
+                f"Please validate to issue materials to the production floor."
+            ),
+            partner_ids=partner_ids,
+            message_type='comment',
+            subtype_xmlid='mail.mt_comment',
+        )
+
+        _logger.info(
+            'EGO: Created batch PI %s for %d MOs (%s) — batch ref %s.',
+            picking.name, all_mo_count, model_names, batch_ref,
+        )
+        return picking
+
     @api.model
     def _create_picking_from_classified(
         self, mos, issue_type, classified, uses_color_boms,
