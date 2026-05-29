@@ -13,66 +13,45 @@ class InvoiceBikeScanWizardLine(models.TransientModel):
         required=True,
         ondelete='cascade',
     )
-    invoice_line_id = fields.Many2one('account.move.line', required=True)
-    product_id = fields.Many2one(
-        'product.product',
-        related='invoice_line_id.product_id',
-        store=False,
-        readonly=True,
-    )
-    unit_index = fields.Integer(default=1)
+    invoice_line_id = fields.Many2one('account.move.line', required=True, readonly=True)
+    unit_index = fields.Integer(default=1, readonly=True)
     scanned_serial = fields.Char(string='Scan Serial No.')
-    lot_id = fields.Many2one(
-        'stock.lot',
-        string='Resolved Lot',
-        compute='_compute_lot_id',
-        store=False,
-    )
-    status = fields.Char(compute='_compute_lot_id', store=False)
+    status = fields.Char(readonly=True)
 
-    @api.depends('scanned_serial', 'product_id')
-    def _compute_lot_id(self):
+    @api.onchange('scanned_serial')
+    def _onchange_scanned_serial(self):
+        serial = (self.scanned_serial or '').strip()
+        if not serial:
+            self.status = ''
+            return
+        product_tmpl = self.invoice_line_id.product_id.product_tmpl_id
+        lot = self.env['stock.lot'].search(
+            [('name', '=', serial),
+             ('product_id.product_tmpl_id', '=', product_tmpl.id)],
+            limit=1,
+        )
+        if not lot:
+            lot = self.env['stock.lot'].search([('name', '=', serial)], limit=1)
+        if not lot:
+            self.status = 'Not found'
+            return
+        if lot.x_blacklisted:
+            self.status = 'Blacklisted'
+            return
         fg_location = self.env.ref(
             'elegomotors_setup.location_ego_fg', raise_if_not_found=False
         )
-        for line in self:
-            serial = (line.scanned_serial or '').strip()
-            if not serial:
-                line.lot_id = False
-                line.status = ''
-                continue
-            lot = self.env['stock.lot'].search(
-                [('name', '=', serial),
-                 ('product_id.product_tmpl_id', '=',
-                  line.product_id.product_tmpl_id.id)],
+        if fg_location:
+            quant = self.env['stock.quant'].search(
+                [('lot_id', '=', lot.id),
+                 ('location_id', 'child_of', fg_location.id),
+                 ('quantity', '>', 0)],
                 limit=1,
             )
-            if not lot:
-                # Try without product filter — serial may be globally unique
-                lot = self.env['stock.lot'].search(
-                    [('name', '=', serial)], limit=1
-                )
-            if not lot:
-                line.lot_id = False
-                line.status = 'Not found'
-                continue
-            if lot.x_blacklisted:
-                line.lot_id = lot
-                line.status = 'Blacklisted'
-                continue
-            if fg_location:
-                quant = self.env['stock.quant'].search(
-                    [('lot_id', '=', lot.id),
-                     ('location_id', 'child_of', fg_location.id),
-                     ('quantity', '>', 0)],
-                    limit=1,
-                )
-                if not quant:
-                    line.lot_id = lot
-                    line.status = 'Not in FG'
-                    continue
-            line.lot_id = lot
-            line.status = 'OK'
+            if not quant:
+                self.status = 'Not in FG'
+                return
+        self.status = 'OK'
 
 
 class InvoiceBikeScanWizard(models.TransientModel):
@@ -129,7 +108,8 @@ class InvoiceBikeScanWizard(models.TransientModel):
 
         for line in self.line_ids:
             serial = (line.scanned_serial or '').strip()
-            label = f'Unit #{line.unit_index} ({line.product_id.display_name})'
+            product = line.invoice_line_id.product_id
+            label = f'Unit #{line.unit_index} ({product.display_name})'
 
             if not serial:
                 errors.append(f'{label}: Serial number not scanned.')
@@ -137,14 +117,11 @@ class InvoiceBikeScanWizard(models.TransientModel):
 
             lot = self.env['stock.lot'].search(
                 [('name', '=', serial),
-                 ('product_id.product_tmpl_id', '=',
-                  line.product_id.product_tmpl_id.id)],
+                 ('product_id.product_tmpl_id', '=', product.product_tmpl_id.id)],
                 limit=1,
             )
             if not lot:
-                lot = self.env['stock.lot'].search(
-                    [('name', '=', serial)], limit=1
-                )
+                lot = self.env['stock.lot'].search([('name', '=', serial)], limit=1)
 
             if not lot:
                 errors.append(f'{label}: Serial "{serial}" not found in the system.')
