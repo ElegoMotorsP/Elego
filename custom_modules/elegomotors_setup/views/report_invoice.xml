@@ -280,7 +280,7 @@
                         <t t-set="sr" t-value="sr + 1"/>
 
                         <!-- Use only the first line of line.name as description (strips serial block) -->
-                        <t t-set="line_desc" t-value="(line.name or '').split(chr(10), 1)[0].strip()"/>
+                        <t t-set="line_desc" t-value="(line.name or '').split('\n', 1)[0].strip()"/>
 
                         <!-- GST % total on line -->
                         <t t-set="gst_pct" t-value="int(round(sum(tax.amount for tax in line.tax_ids)))"/>
@@ -309,7 +309,7 @@
                 <!-- Amount in words -->
                 <td style="width:56%; vertical-align:top; border:1px solid #000; padding:6px;">
                     <strong>Gross Value : </strong>
-                    <t t-set="amt_text" t-value="o.currency_id.amount_to_text(o.amount_total) if hasattr(o.currency_id, 'amount_to_text') else ''"/>
+                    <t t-set="amt_text" t-value="o.currency_id.amount_to_text(o.amount_total)"/>
                     <t t-esc="amt_text"/>
                 </td>
                 <!-- Tax breakdown -->
