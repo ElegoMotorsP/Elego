@@ -115,7 +115,7 @@
                         </tr>
                         <tr>
                             <td style="padding:1px 0;"><strong>State Code</strong></td>
-                            <td style="padding:1px 0;">: <t t-esc="o.company_id.state_id.l10n_in_tin or ''"/></td>
+                            <td style="padding:1px 0;">: <t t-esc="(o.company_id.state_id._fields.get('l10n_in_tin') and o.company_id.state_id.l10n_in_tin) or ''"/></td>
                         </tr>
                     </table>
                 </td>
@@ -124,7 +124,7 @@
                     <table style="width:100%; border-collapse:collapse;">
                         <tr>
                             <td style="width:55%; padding:1px 0;"><strong>Transportation Mode</strong></td>
-                            <td style="padding:1px 0;">: <t t-esc="o.l10n_in_shipping_via or 'By Road'"/></td>
+                            <td style="padding:1px 0;">: <t t-esc="(o._fields.get('l10n_in_shipping_via') and o.l10n_in_shipping_via) or 'By Road'"/></td>
                         </tr>
                         <tr>
                             <td style="padding:1px 0;"><strong>Transportation Name</strong></td>
@@ -140,7 +140,7 @@
                         </tr>
                         <tr>
                             <td style="padding:1px 0;"><strong>Vehicle Number</strong></td>
-                            <td style="padding:1px 0;">: <t t-esc="o.l10n_in_vehicle_no or ''"/></td>
+                            <td style="padding:1px 0;">: <t t-esc="(o._fields.get('l10n_in_vehicle_no') and o.l10n_in_vehicle_no) or ''"/></td>
                         </tr>
                         <tr>
                             <td style="padding:1px 0;"><strong>Date of Supply</strong></td>
@@ -156,7 +156,7 @@
                         <tr>
                             <td style="padding:1px 0;"><strong>Place of Supply</strong></td>
                             <td style="padding:1px 0;">:
-                                <t t-if="o.l10n_in_state_id">
+                                <t t-if="o._fields.get('l10n_in_state_id') and o.l10n_in_state_id">
                                     <t t-esc="o.l10n_in_state_id.name"/>
                                 </t>
                                 <t t-else="">
@@ -166,7 +166,7 @@
                         </tr>
                         <tr>
                             <td style="padding:1px 0;"><strong>E-Way No. &amp; Date</strong></td>
-                            <td style="padding:1px 0;">: <t t-esc="o.l10n_in_eway_bill_number or ''"/></td>
+                            <td style="padding:1px 0;">: <t t-esc="(o._fields.get('l10n_in_eway_bill_number') and o.l10n_in_eway_bill_number) or ''"/></td>
                         </tr>
                     </table>
                 </td>
@@ -205,7 +205,7 @@
                         <tr><td style="padding:1px 0;"><strong>State</strong></td>
                             <td style="padding:1px 0;">: <t t-esc="bp.state_id.name or ''"/></td></tr>
                         <tr><td style="padding:1px 0;"><strong>State Code</strong></td>
-                            <td style="padding:1px 0;">: <t t-esc="bp.state_id.l10n_in_tin or ''"/></td></tr>
+                            <td style="padding:1px 0;">: <t t-esc="(bp.state_id._fields.get('l10n_in_tin') and bp.state_id.l10n_in_tin) or ''"/></td></tr>
                     </table>
                 </td>
                 <!-- Shipping address -->
@@ -229,7 +229,7 @@
                         <tr><td style="padding:1px 0;"><strong>State</strong></td>
                             <td style="padding:1px 0;">: <t t-esc="sp.state_id.name or ''"/></td></tr>
                         <tr><td style="padding:1px 0;"><strong>State Code</strong></td>
-                            <td style="padding:1px 0;">: <t t-esc="sp.state_id.l10n_in_tin or ''"/></td></tr>
+                            <td style="padding:1px 0;">: <t t-esc="(sp.state_id._fields.get('l10n_in_tin') and sp.state_id.l10n_in_tin) or ''"/></td></tr>
                         <tr t-if="sp != bp and sp.child_ids">
                             <td style="padding:1px 0;"><strong>Contact Person</strong></td>
                             <td style="padding:1px 0;">: <t t-esc="sp.child_ids[0].name or ''"/></td>
@@ -286,7 +286,7 @@
                         <t t-set="gst_pct" t-value="int(round(sum(tax.amount for tax in line.tax_ids)))"/>
 
                         <!-- HSN code -->
-                        <t t-set="hsn" t-value="line.l10n_in_hsn_code or line.product_id.l10n_in_hsn_code or ''"/>
+                        <t t-set="hsn" t-value="(line._fields.get('l10n_in_hsn_code') and line.l10n_in_hsn_code) or (line.product_id._fields.get('l10n_in_hsn_code') and line.product_id.l10n_in_hsn_code) or ''"/>
 
                         <tr style="vertical-align:top;">
                             <td style="border:1px solid #000; padding:3px; text-align:center;"><t t-esc="sr"/></td>
