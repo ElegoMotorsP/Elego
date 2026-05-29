@@ -7,13 +7,13 @@
         <field name="name">elegomotors.invoice.bike.scan.wizard.line.tree</field>
         <field name="model">elegomotors.invoice.bike.scan.wizard.line</field>
         <field name="arch" type="xml">
-            <tree editable="bottom" string="Bike Units">
+            <list editable="bottom" string="Bike Units">
                 <field name="invoice_line_id" string="Product / Line" readonly="1"/>
                 <field name="unit_index" string="Unit #" readonly="1"/>
                 <field name="scanned_serial" string="Scan Serial No."
                        placeholder="Scan or type serial…"/>
                 <field name="status" string="Status" readonly="1"/>
-            </tree>
+            </list>
         </field>
     </record>
 
