@@ -30,8 +30,8 @@
         <field name="model">account.move</field>
         <field name="inherit_id" ref="account.view_out_invoice_tree"/>
         <field name="arch" type="xml">
-            <!-- Inject after Customer (partner_id) — visible for all invoice users -->
-            <field name="partner_id" position="after">
+            <!-- Inject before Invoice Date — safe anchor that exists in all Odoo 18 invoice list builds -->
+            <xpath expr="//field[@name='invoice_date']" position="before">
                 <field name="x_so_ref"
                        string="Sales Order"
                        optional="show"/>
@@ -41,7 +41,7 @@
                 <field name="x_serial_nos"
                        string="Serial No(s)"
                        optional="show"/>
-            </field>
+            </xpath>
         </field>
     </record>
 
