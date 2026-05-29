@@ -15,3 +15,4 @@ from . import stock_lot
 from . import stock_picking_qc_wizard
 from . import consolidated_pi_generator
 from . import generate_pi_wizard
+from . import invoice_bike_scan_wizard

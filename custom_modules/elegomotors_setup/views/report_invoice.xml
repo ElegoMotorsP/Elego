@@ -244,13 +244,12 @@
             <thead>
                 <tr style="background:#f0f0f0; text-align:center; vertical-align:middle; font-weight:bold;">
                     <th style="border:1px solid #000; padding:3px; width:4%;">Sr.<br/>No.</th>
-                    <th style="border:1px solid #000; padding:3px; width:24%;">Description Of Goods</th>
-                    <th style="border:1px solid #000; padding:3px; width:22%;">Vehicle Details</th>
+                    <th style="border:1px solid #000; padding:3px; width:38%;">Description Of Goods</th>
                     <th style="border:1px solid #000; padding:3px; width:6%;">GST<br/>(%)</th>
-                    <th style="border:1px solid #000; padding:3px; width:8%;">HSN<br/>Code</th>
+                    <th style="border:1px solid #000; padding:3px; width:10%;">HSN<br/>Code</th>
                     <th style="border:1px solid #000; padding:3px; width:6%;">Qty</th>
-                    <th style="border:1px solid #000; padding:3px; width:10%;">Rate</th>
-                    <th style="border:1px solid #000; padding:3px; width:6%;">Disc<br/>(%)</th>
+                    <th style="border:1px solid #000; padding:3px; width:14%;">Rate</th>
+                    <th style="border:1px solid #000; padding:3px; width:8%;">Disc<br/>(%)</th>
                     <th style="border:1px solid #000; padding:3px; width:14%; text-align:right;">Total Amount<br/>(Rs.)</th>
                 </tr>
             </thead>
@@ -261,7 +260,7 @@
                     <!-- Section header -->
                     <t t-if="line.display_type == 'line_section'">
                         <tr>
-                            <td colspan="9" style="border:1px solid #000; padding:3px 6px; font-weight:bold; background:#fafafa;">
+                            <td colspan="8" style="border:1px solid #000; padding:3px 6px; font-weight:bold; background:#fafafa;">
                                 <t t-esc="line.name"/>
                             </td>
                         </tr>
@@ -270,7 +269,7 @@
                     <!-- Note line -->
                     <t t-elif="line.display_type == 'line_note'">
                         <tr>
-                            <td colspan="9" style="border:1px solid #000; padding:3px 6px; font-style:italic;">
+                            <td colspan="8" style="border:1px solid #000; padding:3px 6px; font-style:italic;">
                                 <t t-esc="line.name"/>
                             </td>
                         </tr>
@@ -280,16 +279,8 @@
                     <t t-else="">
                         <t t-set="sr" t-value="sr + 1"/>
 
-                        <!-- Split description from vehicle serial block on first newline -->
-                        <t t-set="lname" t-value="line.name or ''"/>
-                        <t t-set="parts" t-value="lname.split(chr(10), 1)"/>
-                        <t t-set="line_desc" t-value="parts[0].strip()"/>
-                        <t t-set="line_vehicle" t-value="parts[1].strip() if len(parts) > 1 else ''"/>
-
-                        <!-- Split Variant line from the serials block -->
-                        <t t-set="vparts" t-value="line_vehicle.split(chr(10) + 'Variant:', 1)"/>
-                        <t t-set="serials_only" t-value="vparts[0].strip()"/>
-                        <t t-set="variant_line" t-value="('Variant: ' + vparts[1]).strip() if len(vparts) > 1 else ''"/>
+                        <!-- Use only the first line of line.name as description (strips serial block) -->
+                        <t t-set="line_desc" t-value="(line.name or '').split(chr(10), 1)[0].strip()"/>
 
                         <!-- GST % total on line -->
                         <t t-set="gst_pct" t-value="int(round(sum(tax.amount for tax in line.tax_ids)))"/>
@@ -300,12 +291,6 @@
                         <tr style="vertical-align:top;">
                             <td style="border:1px solid #000; padding:3px; text-align:center;"><t t-esc="sr"/></td>
                             <td style="border:1px solid #000; padding:3px;"><t t-esc="line_desc"/></td>
-                            <td style="border:1px solid #000; padding:3px; font-size:7.5pt; white-space:pre-line;">
-                                <t t-esc="serials_only"/>
-                                <t t-if="variant_line">
-                                    <br/><em><t t-esc="variant_line"/></em>
-                                </t>
-                            </td>
                             <td style="border:1px solid #000; padding:3px; text-align:center;"><t t-esc="gst_pct"/></td>
                             <td style="border:1px solid #000; padding:3px; text-align:center;"><t t-esc="hsn"/></td>
                             <td style="border:1px solid #000; padding:3px; text-align:center;"><t t-esc="'%.2f' % line.quantity"/></td>
@@ -406,6 +391,93 @@
             <t t-esc="co_addr.city or ''"/>
             <t t-if="co_addr.zip"> - <t t-esc="co_addr.zip"/></t>
         </div>
+
+        <!-- ── Page 2: Vehicle Serial Details — only when lots are assigned via scan wizard ── -->
+        <t t-if="o.x_assigned_lot_ids">
+            <div style="page-break-before: always; padding-top: 8mm; font-family:Arial,sans-serif; font-size:9pt; color:#111;">
+
+                <!-- Compact page 2 header -->
+                <table style="width:100%; border-collapse:collapse; margin-bottom:4px;">
+                    <tr>
+                        <td style="width:70%; vertical-align:middle;">
+                            <div style="font-size:12pt; font-weight:bold;">
+                                <t t-esc="o.company_id.name"/>
+                            </div>
+                            <div style="font-size:8pt; color:#555;">
+                                <t t-esc="co_addr.street or ''"/>
+                                <t t-if="co_addr.city">, <t t-esc="co_addr.city"/></t>
+                            </div>
+                        </td>
+                        <td style="width:30%; text-align:right; vertical-align:middle; font-size:8.5pt;">
+                            <strong>Invoice No.:</strong> <t t-esc="o.name"/><br/>
+                            <strong>Date:</strong>
+                            <t t-esc="o.invoice_date.strftime('%d-%b-%Y') if o.invoice_date else ''"/>
+                        </td>
+                    </tr>
+                </table>
+
+                <div style="background-color:#2c2c2c; color:#ffffff; text-align:center;
+                            font-size:12pt; font-weight:bold; padding:4px 0; margin-bottom:6px;">
+                    VEHICLE SERIAL DETAILS
+                </div>
+
+                <table style="width:100%; border:1px solid #000; border-collapse:collapse; font-size:8pt;">
+                    <thead>
+                        <tr style="background:#f0f0f0; text-align:center; vertical-align:middle; font-weight:bold;">
+                            <th style="border:1px solid #000; padding:3px; width:4%;">Sr.<br/>No.</th>
+                            <th style="border:1px solid #000; padding:3px; width:16%;">Bike Model</th>
+                            <th style="border:1px solid #000; padding:3px; width:14%;">Chassis No.</th>
+                            <th style="border:1px solid #000; padding:3px; width:13%;">Motor No.</th>
+                            <th style="border:1px solid #000; padding:3px; width:13%;">Controller No.</th>
+                            <th style="border:1px solid #000; padding:3px; width:13%;">Battery No.</th>
+                            <th style="border:1px solid #000; padding:3px; width:12%;">Charger No.</th>
+                            <th style="border:1px solid #000; padding:3px; width:8%;">Color</th>
+                            <th style="border:1px solid #000; padding:3px; width:7%;">Battery<br/>Type</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        <t t-foreach="o.x_assigned_lot_ids" t-as="lot">
+                            <tr style="vertical-align:top;">
+                                <td style="border:1px solid #000; padding:3px; text-align:center;">
+                                    <t t-esc="lot_index + 1"/>
+                                </td>
+                                <td style="border:1px solid #000; padding:3px;">
+                                    <t t-esc="lot.product_id.display_name or ''"/>
+                                </td>
+                                <td style="border:1px solid #000; padding:3px; font-size:7.5pt;">
+                                    <t t-esc="lot.x_chassis_serial or '-'"/>
+                                </td>
+                                <td style="border:1px solid #000; padding:3px; font-size:7.5pt;">
+                                    <t t-esc="lot.x_motor_serial or '-'"/>
+                                </td>
+                                <td style="border:1px solid #000; padding:3px; font-size:7.5pt;">
+                                    <t t-esc="lot.x_controller_serial or '-'"/>
+                                </td>
+                                <td style="border:1px solid #000; padding:3px; font-size:7.5pt;">
+                                    <t t-esc="lot.x_battery_serial or '-'"/>
+                                </td>
+                                <td style="border:1px solid #000; padding:3px; font-size:7.5pt;">
+                                    <t t-esc="lot.x_charger_serial or '-'"/>
+                                </td>
+                                <td style="border:1px solid #000; padding:3px; text-align:center; font-size:7.5pt;">
+                                    <t t-esc="(lot.x_color or '').capitalize() or '-'"/>
+                                </td>
+                                <td style="border:1px solid #000; padding:3px; font-size:7.5pt;">
+                                    <t t-esc="lot.x_battery_type or '-'"/>
+                                </td>
+                            </tr>
+                        </t>
+                    </tbody>
+                </table>
+
+                <!-- Page 2 registered address footer -->
+                <div style="font-size:7.5pt; text-align:center; margin-top:6px; color:#555;">
+                    Reg.Office Address:- <t t-esc="co_addr.street or ''"/>,
+                    <t t-esc="co_addr.city or ''"/>
+                    <t t-if="co_addr.zip"> - <t t-esc="co_addr.zip"/></t>
+                </div>
+            </div>
+        </t>
 
     </template>
 

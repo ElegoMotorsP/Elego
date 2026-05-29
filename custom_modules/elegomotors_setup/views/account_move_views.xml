@@ -107,6 +107,11 @@
                  serials weren't injected at create/confirm time (e.g. invoice created
                  before delivery was validated). Only visible on customer invoices. -->
             <xpath expr="//header" position="inside">
+                <button name="action_open_bike_scan_wizard"
+                        string="Assign Bike Serials"
+                        type="object"
+                        invisible="move_type not in ('out_invoice', 'out_refund')"
+                        class="btn-primary"/>
                 <button name="action_refresh_ego_serials"
                         string="Refresh Serial Numbers"
                         type="object"

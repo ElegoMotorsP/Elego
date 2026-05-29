@@ -10,3 +10,5 @@ access_bulk_barcode_wizard_all,bulk.barcode.wizard.all,model_elegomotors_bulk_ba
 access_bulk_barcode_wizard_line_all,bulk.barcode.wizard.line.all,model_elegomotors_bulk_barcode_wizard_line,base.group_user,1,1,1,1
 access_consolidated_pi_generator_all,consolidated.pi.generator.all,model_elegomotors_consolidated_pi_generator,base.group_user,1,0,0,0
 access_generate_pi_wizard_all,generate.pi.wizard.all,model_elegomotors_generate_pi_wizard,base.group_user,1,1,1,1
+access_invoice_bike_scan_wizard_all,invoice.bike.scan.wizard.all,model_elegomotors_invoice_bike_scan_wizard,base.group_user,1,1,1,1
+access_invoice_bike_scan_wizard_line_all,invoice.bike.scan.wizard.line.all,model_elegomotors_invoice_bike_scan_wizard_line,base.group_user,1,1,1,1

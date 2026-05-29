@@ -14,6 +14,14 @@ class AccountMove(models.Model):
     x_lr_number = fields.Char(string='LR Number')
     x_lr_date = fields.Date(string='LR Date')
 
+    x_assigned_lot_ids = fields.Many2many(
+        'stock.lot',
+        'account_move_bike_lot_rel',
+        'move_id',
+        'lot_id',
+        string='Assigned Bike Serials',
+    )
+
     # Traceability columns shown in the invoice list and form
     x_so_ref = fields.Char(
         string='Sales Order',
@@ -139,6 +147,52 @@ class AccountMove(models.Model):
                 base_name = base_name.rstrip()
                 line.name = base_name + '\n' + serial_block
 
+    def action_open_bike_scan_wizard(self):
+        self.ensure_one()
+        return {
+            'type': 'ir.actions.act_window',
+            'name': 'Assign Bike Serials',
+            'res_model': 'elegomotors.invoice.bike.scan.wizard',
+            'view_mode': 'form',
+            'target': 'new',
+            'context': {'default_invoice_id': self.id},
+        }
+
+    def _refresh_serial_blocks_from_lots(self):
+        """Re-inject serial blocks using x_assigned_lot_ids (called after wizard assigns lots)."""
+        bike_tmpls = self._get_bike_templates()
+        if not bike_tmpls:
+            return
+        for move in self:
+            assigned = move.x_assigned_lot_ids
+            if not assigned:
+                continue
+            lot_index = 0
+            for line in move.invoice_line_ids:
+                if not line.product_id or line.product_id.product_tmpl_id not in bike_tmpls:
+                    continue
+                qty = max(1, int(line.quantity))
+                line_lots = assigned.filtered(
+                    lambda l: l.product_id.product_tmpl_id == line.product_id.product_tmpl_id
+                )[lot_index:lot_index + qty]
+                lot_index += qty
+                if not line_lots:
+                    continue
+                if len(line_lots) == 1:
+                    block = move._format_ego_serial_block(line_lots[0])
+                else:
+                    block = '\n'.join(
+                        move._format_ego_serial_block(lot, number=i)
+                        for i, lot in enumerate(line_lots, 1)
+                    )
+                if not block:
+                    continue
+                base_name = (line.name or '')
+                for marker in ('\nChassis No', '\nSerial No.', '\n1 :', '\nVariant:'):
+                    base_name = base_name.split(marker)[0]
+                base_name = base_name.rstrip()
+                line.name = base_name + '\n' + block
+
     def _get_bike_templates(self):
         """Return recordset of all ElegoMotors bike product templates."""
         refs = [
@@ -146,6 +200,7 @@ class AccountMove(models.Model):
             'elegomotors_setup.tmpl_elego_11',
             'elegomotors_setup.tmpl_elego_12',
             'elegomotors_setup.tmpl_elego_20p',
+            'elegomotors_setup.tmpl_elego_30',
         ]
         result = self.env['product.template']
         for ref in refs:
@@ -182,7 +237,7 @@ class AccountMove(models.Model):
                 line.name = name + '\n' + block
 
     def _find_ego_lots_for_line(self, line, qty=1):
-        """Return up to `qty` lots linked to this invoice line (all three lookup paths)."""
+        """Return up to `qty` lots linked to this invoice line."""
         product = line.product_id
         qty = max(1, int(qty))
 
@@ -193,6 +248,14 @@ class AccountMove(models.Model):
             return done_deliveries.mapped('move_line_ids').filtered(
                 lambda ml: ml.product_id == product and ml.lot_id
             ).mapped('lot_id')
+
+        # Path 0: manually scanned and assigned via wizard
+        if self.x_assigned_lot_ids:
+            assigned = self.x_assigned_lot_ids.filtered(
+                lambda l: l.product_id.product_tmpl_id == product.product_tmpl_id
+            )
+            if assigned:
+                return assigned[:qty]
 
         # Path 1: sale_line_ids (standard)
         sale_lines = getattr(line, 'sale_line_ids', False)
@@ -208,24 +271,6 @@ class AccountMove(models.Model):
                 lots = _lots_from_sale(sale)
                 if lots:
                     return lots[:qty]
-
-        # Path 3: FG store quants — bike is in stock but delivery not yet done.
-        bike_tmpls = self._get_bike_templates()
-        fg_location = self.env.ref(
-            'elegomotors_setup.location_ego_fg', raise_if_not_found=False
-        )
-        if bike_tmpls and fg_location and product.product_tmpl_id in bike_tmpls:
-            quants = self.env['stock.quant'].search(
-                [
-                    ('product_id', '=', product.id),
-                    ('location_id', 'child_of', fg_location.id),
-                    ('lot_id', '!=', False),
-                    ('quantity', '>', 0),
-                ],
-                limit=qty,
-            )
-            if quants:
-                return quants.mapped('lot_id')
 
         return self.env['stock.lot']
 
