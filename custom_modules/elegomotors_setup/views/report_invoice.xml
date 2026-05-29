@@ -492,14 +492,5 @@
         <field name="binding_type">report</field>
     </record>
 
-    <!-- ── Override Odoo's default invoice reports to use our template ── -->
-    <record id="account.report_invoice_with_payments" model="ir.actions.report">
-        <field name="report_name">elegomotors_setup.report_elegomotors_invoice</field>
-        <field name="print_report_name">'Tax Invoice - ' + (object.name or '')</field>
-    </record>
-    <record id="account.report_invoice" model="ir.actions.report">
-        <field name="report_name">elegomotors_setup.report_elegomotors_invoice</field>
-        <field name="print_report_name">'Tax Invoice - ' + (object.name or '')</field>
-    </record>
 
 </odoo>
