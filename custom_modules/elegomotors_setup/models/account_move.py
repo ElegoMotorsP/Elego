@@ -159,39 +159,21 @@ class AccountMove(models.Model):
         }
 
     def _refresh_serial_blocks_from_lots(self):
-        """Re-inject serial blocks using x_assigned_lot_ids (called after wizard assigns lots)."""
+        """Strip any serial block from line.name for bike lines — serial details live on
+        Page 2 of the custom report via x_assigned_lot_ids, not in the description."""
         bike_tmpls = self._get_bike_templates()
         if not bike_tmpls:
             return
         for move in self:
-            assigned = move.x_assigned_lot_ids
-            if not assigned:
-                continue
-            lot_index = 0
             for line in move.invoice_line_ids:
                 if not line.product_id or line.product_id.product_tmpl_id not in bike_tmpls:
-                    continue
-                qty = max(1, int(line.quantity))
-                line_lots = assigned.filtered(
-                    lambda l: l.product_id.product_tmpl_id == line.product_id.product_tmpl_id
-                )[lot_index:lot_index + qty]
-                lot_index += qty
-                if not line_lots:
-                    continue
-                if len(line_lots) == 1:
-                    block = move._format_ego_serial_block(line_lots[0])
-                else:
-                    block = '\n'.join(
-                        move._format_ego_serial_block(lot, number=i)
-                        for i, lot in enumerate(line_lots, 1)
-                    )
-                if not block:
                     continue
                 base_name = (line.name or '')
                 for marker in ('\nChassis No', '\nSerial No.', '\n1 :', '\nVariant:'):
                     base_name = base_name.split(marker)[0]
                 base_name = base_name.rstrip()
-                line.name = base_name + '\n' + block
+                if base_name != (line.name or '').rstrip():
+                    line.name = base_name
 
     def _get_bike_templates(self):
         """Return recordset of all ElegoMotors bike product templates."""
@@ -211,8 +193,12 @@ class AccountMove(models.Model):
 
     def _append_ego_serial_to_lines(self):
         """Append serial/chassis/component numbers to ElegoMotors bike invoice lines.
+        Skips if lots are already assigned via the scan wizard (x_assigned_lot_ids set) —
+        in that case serial details are shown on Page 2 of the report, not in line.name.
         Idempotent: skips lines that already have the serial block.
         """
+        if self.x_assigned_lot_ids:
+            return
         bike_tmpls = self._get_bike_templates()
         if not bike_tmpls:
             return

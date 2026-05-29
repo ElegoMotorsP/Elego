@@ -115,7 +115,7 @@
                         </tr>
                         <tr>
                             <td style="padding:1px 0;"><strong>State Code</strong></td>
-                            <td style="padding:1px 0;">: <t t-esc="getattr(o.company_id.state_id, 'l10n_in_tin', '') or ''"/></td>
+                            <td style="padding:1px 0;">: <t t-esc="o.company_id.state_id.l10n_in_tin or ''"/></td>
                         </tr>
                     </table>
                 </td>
@@ -124,7 +124,7 @@
                     <table style="width:100%; border-collapse:collapse;">
                         <tr>
                             <td style="width:55%; padding:1px 0;"><strong>Transportation Mode</strong></td>
-                            <td style="padding:1px 0;">: <t t-esc="getattr(o, 'l10n_in_shipping_via', '') or 'By Road'"/></td>
+                            <td style="padding:1px 0;">: <t t-esc="o.l10n_in_shipping_via or 'By Road'"/></td>
                         </tr>
                         <tr>
                             <td style="padding:1px 0;"><strong>Transportation Name</strong></td>
@@ -140,7 +140,7 @@
                         </tr>
                         <tr>
                             <td style="padding:1px 0;"><strong>Vehicle Number</strong></td>
-                            <td style="padding:1px 0;">: <t t-esc="getattr(o, 'l10n_in_vehicle_no', '') or ''"/></td>
+                            <td style="padding:1px 0;">: <t t-esc="o.l10n_in_vehicle_no or ''"/></td>
                         </tr>
                         <tr>
                             <td style="padding:1px 0;"><strong>Date of Supply</strong></td>
@@ -166,7 +166,7 @@
                         </tr>
                         <tr>
                             <td style="padding:1px 0;"><strong>E-Way No. &amp; Date</strong></td>
-                            <td style="padding:1px 0;">: <t t-esc="getattr(o, 'l10n_in_eway_bill_number', '') or ''"/></td>
+                            <td style="padding:1px 0;">: <t t-esc="o.l10n_in_eway_bill_number or ''"/></td>
                         </tr>
                     </table>
                 </td>
@@ -205,7 +205,7 @@
                         <tr><td style="padding:1px 0;"><strong>State</strong></td>
                             <td style="padding:1px 0;">: <t t-esc="bp.state_id.name or ''"/></td></tr>
                         <tr><td style="padding:1px 0;"><strong>State Code</strong></td>
-                            <td style="padding:1px 0;">: <t t-esc="getattr(bp.state_id, 'l10n_in_tin', '') or ''"/></td></tr>
+                            <td style="padding:1px 0;">: <t t-esc="bp.state_id.l10n_in_tin or ''"/></td></tr>
                     </table>
                 </td>
                 <!-- Shipping address -->
@@ -229,7 +229,7 @@
                         <tr><td style="padding:1px 0;"><strong>State</strong></td>
                             <td style="padding:1px 0;">: <t t-esc="sp.state_id.name or ''"/></td></tr>
                         <tr><td style="padding:1px 0;"><strong>State Code</strong></td>
-                            <td style="padding:1px 0;">: <t t-esc="getattr(sp.state_id, 'l10n_in_tin', '') or ''"/></td></tr>
+                            <td style="padding:1px 0;">: <t t-esc="sp.state_id.l10n_in_tin or ''"/></td></tr>
                         <tr t-if="sp != bp and sp.child_ids">
                             <td style="padding:1px 0;"><strong>Contact Person</strong></td>
                             <td style="padding:1px 0;">: <t t-esc="sp.child_ids[0].name or ''"/></td>
@@ -286,7 +286,7 @@
                         <t t-set="gst_pct" t-value="int(round(sum(tax.amount for tax in line.tax_ids)))"/>
 
                         <!-- HSN code -->
-                        <t t-set="hsn" t-value="getattr(line, 'l10n_in_hsn_code', '') or getattr(line.product_id, 'l10n_in_hsn_code', '') or ''"/>
+                        <t t-set="hsn" t-value="line.l10n_in_hsn_code or line.product_id.l10n_in_hsn_code or ''"/>
 
                         <tr style="vertical-align:top;">
                             <td style="border:1px solid #000; padding:3px; text-align:center;"><t t-esc="sr"/></td>
@@ -481,7 +481,7 @@
 
     </template>
 
-    <!-- ── Report action — appears in Print menu on customer invoices ── -->
+    <!-- ── Report action — ElegoMotors Tax Invoice in Print menu ── -->
     <record id="action_elegomotors_tax_invoice" model="ir.actions.report">
         <field name="name">ElegoMotors Tax Invoice</field>
         <field name="model">account.move</field>
@@ -490,6 +490,16 @@
         <field name="print_report_name">'Tax Invoice - ' + (object.name or '')</field>
         <field name="binding_model_id" ref="account.model_account_move"/>
         <field name="binding_type">report</field>
+    </record>
+
+    <!-- ── Override Odoo's default invoice reports to use our template ── -->
+    <record id="account.report_invoice_with_payments" model="ir.actions.report">
+        <field name="report_name">elegomotors_setup.report_elegomotors_invoice</field>
+        <field name="print_report_name">'Tax Invoice - ' + (object.name or '')</field>
+    </record>
+    <record id="account.report_invoice" model="ir.actions.report">
+        <field name="report_name">elegomotors_setup.report_elegomotors_invoice</field>
+        <field name="print_report_name">'Tax Invoice - ' + (object.name or '')</field>
     </record>
 
 </odoo>
