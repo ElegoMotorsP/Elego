@@ -1,6 +1,22 @@
 <?xml version="1.0" encoding="utf-8"?>
 <odoo>
 
+    <!-- Separate tree view for the line model so Odoo validates fields
+         against elegomotors.invoice.bike.scan.wizard.line directly. -->
+    <record id="view_invoice_bike_scan_wizard_line_tree" model="ir.ui.view">
+        <field name="name">elegomotors.invoice.bike.scan.wizard.line.tree</field>
+        <field name="model">elegomotors.invoice.bike.scan.wizard.line</field>
+        <field name="arch" type="xml">
+            <tree editable="bottom" string="Bike Units">
+                <field name="invoice_line_id" string="Product / Line" readonly="1"/>
+                <field name="unit_index" string="Unit #" readonly="1"/>
+                <field name="scanned_serial" string="Scan Serial No."
+                       placeholder="Scan or type serial…"/>
+                <field name="status" string="Status" readonly="1"/>
+            </tree>
+        </field>
+    </record>
+
     <record id="view_invoice_bike_scan_wizard_form" model="ir.ui.view">
         <field name="name">elegomotors.invoice.bike.scan.wizard.form</field>
         <field name="model">elegomotors.invoice.bike.scan.wizard</field>
@@ -10,15 +26,7 @@
                     <group>
                         <field name="invoice_id" readonly="1"/>
                     </group>
-                    <field name="line_ids">
-                        <tree editable="bottom" string="Bike Units">
-                            <field name="invoice_line_id" string="Product / Line" readonly="1"/>
-                            <field name="unit_index" string="Unit #" readonly="1"/>
-                            <field name="scanned_serial" string="Scan Serial No."
-                                   placeholder="Scan or type serial…"/>
-                            <field name="status" string="Status" readonly="1"/>
-                        </tree>
-                    </field>
+                    <field name="line_ids"/>
                 </sheet>
                 <footer>
                     <button name="action_confirm" string="Assign" type="object"
