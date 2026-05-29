@@ -51,6 +51,14 @@ class StockPicking(models.Model):
         store=False,
     )
 
+    # Serial numbers picked on outgoing deliveries — traceability for SO → invoice flow
+    x_picked_serial_nos = fields.Char(
+        string='Serial No(s)',
+        compute='_compute_picked_serial_nos',
+        store=False,
+        help='Serial/lot numbers of bike units picked in this outgoing delivery.',
+    )
+
     # Consolidated Daily PI fields
     x_consolidated_mo_ids = fields.Many2many(
         'mrp.production',
@@ -75,6 +83,22 @@ class StockPicking(models.Model):
         )
         for picking in self:
             picking.x_is_gate_entry = bool(gate_ref and picking.picking_type_id == gate_ref)
+
+    @api.depends('move_line_ids', 'move_line_ids.lot_id', 'state', 'picking_type_code')
+    def _compute_picked_serial_nos(self):
+        for picking in self:
+            if picking.picking_type_code == 'outgoing':
+                lots = picking.move_line_ids.filtered(
+                    lambda ml: ml.lot_id and ml.qty_done > 0
+                ).mapped('lot_id.name')
+                # Also include reserved (not yet done) lots so it's visible before validate
+                if not lots:
+                    lots = picking.move_line_ids.filtered(
+                        lambda ml: ml.lot_id
+                    ).mapped('lot_id.name')
+                picking.x_picked_serial_nos = ', '.join(lots) if lots else ''
+            else:
+                picking.x_picked_serial_nos = ''
 
     @api.depends('x_pending_replacement_qty')
     def _compute_has_pending_replacement(self):

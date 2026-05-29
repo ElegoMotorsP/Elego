@@ -23,6 +23,48 @@
     -->
 
     <!-- ================================================================
+         Outgoing Delivery — Serial No(s) column in picking list view
+         Shows which bike serials are assigned/picked, visible during
+         SO delivery validation so staff can trace the scooter picked.
+         ================================================================ -->
+    <record id="stock_picking_list_serial_nos" model="ir.ui.view">
+        <field name="name">stock.picking.list.serial.nos</field>
+        <field name="model">stock.picking</field>
+        <field name="inherit_id" ref="stock.vpicktree"/>
+        <field name="arch" type="xml">
+            <field name="state" position="before">
+                <field name="x_picked_serial_nos"
+                       string="Serial No(s)"
+                       optional="show"
+                       column_invisible="picking_type_code != 'outgoing'"/>
+            </field>
+        </field>
+    </record>
+
+    <!-- ================================================================
+         Outgoing Delivery form — Serial No(s) banner in the header area
+         so the picked bike serial is immediately visible when validating.
+         ================================================================ -->
+    <record id="stock_picking_form_delivery_serial_banner" model="ir.ui.view">
+        <field name="name">stock.picking.form.delivery.serial.banner</field>
+        <field name="model">stock.picking</field>
+        <field name="inherit_id" ref="stock.view_picking_form"/>
+        <field name="arch" type="xml">
+            <xpath expr="//sheet" position="before">
+                <div class="alert alert-info mb-0 py-2"
+                     invisible="picking_type_code != 'outgoing' or not x_picked_serial_nos">
+                    <strong>Bike Serial No(s) Picked:</strong>
+                    <field name="x_picked_serial_nos" readonly="1" nolabel="1" class="ms-2 fw-bold"/>
+                </div>
+            </xpath>
+            <!-- Hidden field needed for invisible condition above -->
+            <xpath expr="//field[@name='origin']" position="after">
+                <field name="x_picked_serial_nos" invisible="1"/>
+            </xpath>
+        </field>
+    </record>
+
+    <!-- ================================================================
          1. Vendor Invoice fields on receipt header (existing from d93d856)
          ================================================================ -->
     <record id="stock_picking_form_vendor_invoice" model="ir.ui.view">

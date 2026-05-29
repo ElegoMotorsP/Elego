@@ -14,6 +14,66 @@ class AccountMove(models.Model):
     x_lr_number = fields.Char(string='LR Number')
     x_lr_date = fields.Date(string='LR Date')
 
+    # Traceability columns shown in the invoice list and form
+    x_so_ref = fields.Char(
+        string='Sales Order',
+        compute='_compute_so_delivery_info',
+        store=False,
+    )
+    x_delivery_ref = fields.Char(
+        string='Delivery Ref',
+        compute='_compute_so_delivery_info',
+        store=False,
+    )
+    x_serial_nos = fields.Char(
+        string='Serial No(s)',
+        compute='_compute_so_delivery_info',
+        store=False,
+    )
+
+    @api.depends(
+        'move_type',
+        'invoice_origin',
+        'invoice_line_ids',
+        'invoice_line_ids.sale_line_ids',
+    )
+    def _compute_so_delivery_info(self):
+        for move in self:
+            if move.move_type not in ('out_invoice', 'out_refund'):
+                move.x_so_ref = ''
+                move.x_delivery_ref = ''
+                move.x_serial_nos = ''
+                continue
+
+            # Collect linked SOs via invoice line → sale order link
+            so_set = self.env['sale.order']
+            for line in move.invoice_line_ids:
+                for sol in getattr(line, 'sale_line_ids', []):
+                    if sol.order_id:
+                        so_set |= sol.order_id
+
+            # Fallback: parse invoice_origin for SO name(s)
+            if not so_set and move.invoice_origin:
+                for name in [s.strip() for s in move.invoice_origin.split(',') if s.strip()]:
+                    so = self.env['sale.order'].search([('name', '=', name)], limit=1)
+                    if so:
+                        so_set |= so
+
+            delivery_set = self.env['stock.picking']
+            serial_set = set()
+            for so in so_set:
+                done_deliveries = so.picking_ids.filtered(
+                    lambda p: p.picking_type_code == 'outgoing' and p.state == 'done'
+                )
+                delivery_set |= done_deliveries
+                for ml in done_deliveries.mapped('move_line_ids'):
+                    if ml.lot_id:
+                        serial_set.add(ml.lot_id.name)
+
+            move.x_so_ref = ', '.join(sorted(so_set.mapped('name'))) if so_set else ''
+            move.x_delivery_ref = ', '.join(sorted(delivery_set.mapped('name'))) if delivery_set else ''
+            move.x_serial_nos = ', '.join(sorted(serial_set)) if serial_set else ''
+
     @api.depends_context('uid')
     def _compute_store_billing_readonly(self):
         is_store_billing = self.env.user.has_group(
