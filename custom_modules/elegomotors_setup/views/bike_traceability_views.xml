@@ -21,14 +21,14 @@
             <list string="Bike Traceability" create="false"
                   decoration-danger="x_blacklisted">
                 <field name="name"                string="Serial No."          optional="show"/>
-                <field name="x_chassis_serial"    string="Chassis No."         optional="show"/>
                 <field name="product_id"          string="Variant"             optional="show"/>
                 <field name="x_color"             string="Colour"              optional="show"/>
+                <field name="x_chassis_serial"    string="Chassis No."         optional="show"/>
+                <field name="x_motor_serial"      string="Motor No."           optional="show"/>
+                <field name="x_controller_serial" string="Controller No."      optional="show"/>
+                <field name="x_battery_serial"    string="Battery No."         optional="show"/>
+                <field name="x_charger_serial"    string="Charger No."         optional="show"/>
                 <field name="x_battery_type"      string="Battery Type"        optional="show"/>
-                <field name="x_motor_serial"      string="Motor Serial"        optional="show"/>
-                <field name="x_battery_serial"    string="Battery Serial"      optional="show"/>
-                <field name="x_controller_serial" string="Controller Serial"   optional="show"/>
-                <field name="x_charger_serial"    string="Charger Serial"      optional="show"/>
                 <field name="x_cluster_serial"    string="Cluster Serial"      optional="hide"/>
                 <field name="x_frame_serial"      string="Frame Serial"        optional="hide"/>
                 <field name="x_blacklisted"       string="Blacklisted"         optional="show"
