@@ -4,8 +4,8 @@
     <!-- ════════════════════════════════════════════════════════════════════
          ElegoMotors Custom TAX INVOICE / PROFORMA INVOICE Report
          Matches the printed invoice format used by Elego Motors Pvt Ltd.
-         Columns: Sr.No. | Description | Vehicle Details | GST% | HSN | Qty | Rate | Disc% | Total
-         Vehicle Details column: parsed from line.name (Chassis/Motor/Controller/Battery/Charger serials + Variant)
+         Page 1: Sr.No. | Description | GST% | HSN | Qty | Rate | Disc% | Total (no serial numbers)
+         Page 2: Vehicle Serial Details table (chassis/motor/controller/battery/charger) from x_assigned_lot_ids
     ════════════════════════════════════════════════════════════════════ -->
 
     <!-- ── Outer wrapper: iterates over selected account.move records ── -->
@@ -145,7 +145,7 @@
                         <tr>
                             <td style="padding:1px 0;"><strong>Date of Supply</strong></td>
                             <td style="padding:1px 0;">:
-                                <t t-if="o.delivery_date">
+                                <t t-if="o._fields.get('delivery_date') and o.delivery_date">
                                     <t t-esc="o.delivery_date.strftime('%d-%b-%Y')"/>
                                 </t>
                                 <t t-elif="o.invoice_date">
@@ -321,19 +321,31 @@
                                 <t t-esc="'%.2f' % o.amount_untaxed"/>
                             </td>
                         </tr>
-                        <t t-foreach="o.amount_by_group" t-as="tg">
+                        <!-- Tax group rows — Odoo 18 uses tax_totals dict instead of amount_by_group -->
+                        <t t-if="o._fields.get('tax_totals') and o.tax_totals">
+                            <t t-foreach="o.tax_totals.get('groups_by_subtotal', {}).values()" t-as="tg_list">
+                                <t t-foreach="tg_list" t-as="tg">
+                                    <tr>
+                                        <td style="border:1px solid #000; padding:3px 8px; border-bottom:0;">
+                                            <t t-esc="tg.get('tax_group_name', '')"/>
+                                        </td>
+                                        <td style="border:1px solid #000; padding:3px 8px; border-bottom:0; text-align:right;">
+                                            <t t-esc="'%.2f' % (tg.get('tax_group_amount') or 0.0)"/>
+                                        </td>
+                                    </tr>
+                                </t>
+                            </t>
+                        </t>
+                        <t t-elif="o.amount_tax">
                             <tr>
-                                <td style="border:1px solid #000; padding:3px 8px; border-bottom:0;">
-                                    <t t-esc="tg[0]"/>
-                                </td>
+                                <td style="border:1px solid #000; padding:3px 8px; border-bottom:0;">Tax</td>
                                 <td style="border:1px solid #000; padding:3px 8px; border-bottom:0; text-align:right;">
-                                    <t t-esc="'%.2f' % tg[1]"/>
+                                    <t t-esc="'%.2f' % o.amount_tax"/>
                                 </td>
                             </tr>
                         </t>
                         <!-- Round Off -->
-                        <t t-set="computed_total" t-value="o.amount_untaxed + sum(tg[1] for tg in o.amount_by_group)"/>
-                        <t t-set="round_off" t-value="o.amount_total - computed_total"/>
+                        <t t-set="round_off" t-value="o.amount_total - o.amount_untaxed - o.amount_tax"/>
                         <t t-if="abs(round_off) > 0.005">
                             <tr>
                                 <td style="border:1px solid #000; padding:3px 8px; border-bottom:0;">Round Off</td>
