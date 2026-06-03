@@ -1,0 +1,23 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+    <!--
+        ElegoMotors — Elego 1.2 Color-Specific Bills of Materials
+
+        Creates one variant-specific BOM per color (Red, White, Gray, Black):
+          - 9 color-specific body panels
+          - 108 common components
+          = 117 parts total per variant (source: 1.2 BOM XLSX files per color)
+
+        Also removes the generic template-level BOM (bom_elego_12) so Odoo's
+        MO auto-select always picks the correct color-specific BOM.
+
+        noupdate="0" — runs on every module upgrade so component list changes
+        in code are always reflected in the database.
+
+        Must load AFTER bom_data_new_models.xml (tmpl_elego_12 must exist) and
+        AFTER product_models_data.xml (_ensure_new_model_attributes creates variants).
+    -->
+    <data noupdate="0">
+        <function model="product.template" name="_ensure_elego_12_color_boms"/>
+    </data>
+</odoo>

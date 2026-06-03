@@ -1,0 +1,63 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+
+    <!-- ── Wizard form view ────────────────────────────────────────────── -->
+    <record id="view_purchase_bom_wizard_form" model="ir.ui.view">
+        <field name="name">elegomotors.purchase.bom.wizard.form</field>
+        <field name="model">elegomotors.purchase.bom.wizard</field>
+        <field name="arch" type="xml">
+            <form string="Load BOM Components">
+                <group col="4">
+                    <field name="purchase_order_id" invisible="1"/>
+                    <field name="model_selection" required="1"/>
+                    <field name="color_selection" required="1"/>
+                    <field name="bike_qty" string="No. of Bikes"/>
+                </group>
+
+                <field name="line_ids" widget="one2many_list" nolabel="1">
+                    <tree editable="bottom" decoration-muted="not selected">
+                        <field name="selected"/>
+                        <field name="product_id" string="Component"/>
+                        <field name="product_qty" string="Qty"/>
+                        <field name="product_uom_id" string="UoM"/>
+                    </tree>
+                </field>
+
+                <footer>
+                    <button name="action_load_components"
+                            string="Add to Purchase Order"
+                            type="object"
+                            class="btn-primary"
+                            attrs="{'invisible': [('line_ids', '=', [])]}"/>
+                    <button string="Cancel" class="btn-secondary" special="cancel"/>
+                </footer>
+            </form>
+        </field>
+    </record>
+
+    <!-- ── Window action ──────────────────────────────────────────────── -->
+    <record id="action_purchase_bom_wizard" model="ir.actions.act_window">
+        <field name="name">Load BOM Components</field>
+        <field name="res_model">elegomotors.purchase.bom.wizard</field>
+        <field name="view_mode">form</field>
+        <field name="target">new</field>
+    </record>
+
+    <!-- ── Button on Purchase Order form ─────────────────────────────── -->
+    <record id="purchase_order_form_bom_wizard_button" model="ir.ui.view">
+        <field name="name">purchase.order.form.bom.wizard.button</field>
+        <field name="model">purchase.order</field>
+        <field name="inherit_id" ref="purchase.purchase_order_form"/>
+        <field name="arch" type="xml">
+            <xpath expr="//header/button[1]" position="before">
+                <button name="%(action_purchase_bom_wizard)d"
+                        string="Load BOM Components"
+                        type="action"
+                        class="btn-secondary"
+                        invisible="state not in ('draft', 'sent', 'to approve')"
+                        context="{'default_purchase_order_id': active_id}"/>
+            </xpath>
+        </field>
+    </record>
+
+</odoo>

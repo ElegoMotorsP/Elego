@@ -49,13 +49,13 @@ class ConsolidatedPiGenerator(models.AbstractModel):
                 'tmpl_ref': 'elegomotors_setup.tmpl_elego_12',
                 'model_key': 'elego_12',
                 'label': 'Elego 1.2',
-                'uses_color_boms': False,
+                'uses_color_boms': True,
             },
             {
                 'tmpl_ref': 'elegomotors_setup.tmpl_elego_20p',
                 'model_key': 'elego_20p',
                 'label': 'Elego 2.0+',
-                'uses_color_boms': False,
+                'uses_color_boms': True,
             },
             {
                 'tmpl_ref': 'elegomotors_setup.tmpl_elego_30',
