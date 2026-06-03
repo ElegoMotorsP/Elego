@@ -209,12 +209,12 @@ class ProductTemplate(models.Model):
             if match:
                 if not match.active:
                     match.sudo().write({'active': True})
-                if match.detailed_type != 'product':
-                    match.sudo().write({'detailed_type': 'product'})
+                if not match.is_storable:
+                    match.sudo().write({'is_storable': True})
                 return match.product_variant_ids[:1]
             new_tmpl = self.env['product.template'].sudo().create({
                 'name': name,
-                'detailed_type': 'product',
+                'is_storable': True,
                 'purchase_ok': True,
                 'sale_ok': False,
             })
@@ -477,12 +477,12 @@ class ProductTemplate(models.Model):
             if match:
                 if not match.active:
                     match.sudo().write({'active': True})
-                if match.detailed_type != 'product':
-                    match.sudo().write({'detailed_type': 'product'})
+                if not match.is_storable:
+                    match.sudo().write({'is_storable': True})
                 return match.product_variant_ids[:1]
             new_tmpl = self.env['product.template'].sudo().create({
                 'name': name,
-                'detailed_type': 'product',
+                'is_storable': True,
                 'purchase_ok': True,
                 'sale_ok': False,
             })
@@ -744,12 +744,12 @@ class ProductTemplate(models.Model):
             if match:
                 if not match.active:
                     match.sudo().write({'active': True})
-                if match.detailed_type != 'product':
-                    match.sudo().write({'detailed_type': 'product'})
+                if not match.is_storable:
+                    match.sudo().write({'is_storable': True})
                 return match.product_variant_ids[:1]
             new_tmpl = self.env['product.template'].sudo().create({
                 'name': name,
-                'detailed_type': 'product',
+                'is_storable': True,
                 'purchase_ok': True,
                 'sale_ok': False,
             })
