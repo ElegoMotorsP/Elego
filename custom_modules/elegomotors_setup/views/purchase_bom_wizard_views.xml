@@ -14,13 +14,13 @@
                     <field name="bike_qty" string="No. of Bikes"/>
                 </group>
 
-                <field name="line_ids" widget="one2many_list" nolabel="1">
-                    <tree editable="bottom" decoration-muted="not selected">
+                <field name="line_ids" nolabel="1">
+                    <list editable="bottom" decoration-muted="not selected">
                         <field name="selected"/>
-                        <field name="product_id" string="Component"/>
+                        <field name="product_id" string="Component" readonly="1"/>
                         <field name="product_qty" string="Qty"/>
-                        <field name="product_uom_id" string="UoM"/>
-                    </tree>
+                        <field name="product_uom_id" string="UoM" readonly="1"/>
+                    </list>
                 </field>
 
                 <footer>
@@ -28,7 +28,7 @@
                             string="Add to Purchase Order"
                             type="object"
                             class="btn-primary"
-                            attrs="{'invisible': [('line_ids', '=', [])]}"/>
+                            invisible="not line_ids"/>
                     <button string="Cancel" class="btn-secondary" special="cancel"/>
                 </footer>
             </form>
@@ -49,7 +49,7 @@
         <field name="model">purchase.order</field>
         <field name="inherit_id" ref="purchase.purchase_order_form"/>
         <field name="arch" type="xml">
-            <xpath expr="//header/button[1]" position="before">
+            <xpath expr="//header/button[@name='button_confirm']" position="before">
                 <button name="%(action_purchase_bom_wizard)d"
                         string="Load BOM Components"
                         type="action"
