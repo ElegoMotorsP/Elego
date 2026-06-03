@@ -55,7 +55,7 @@
                         type="action"
                         class="btn-secondary"
                         invisible="state not in ('draft', 'sent', 'to approve')"
-                        context="{'default_purchase_order_id': active_id}"/>
+                        context="{'default_purchase_order_id': id}"/>
             </xpath>
         </field>
     </record>
