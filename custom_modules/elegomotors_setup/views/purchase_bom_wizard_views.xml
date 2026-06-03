@@ -17,9 +17,9 @@
                 <field name="line_ids" nolabel="1">
                     <list editable="bottom" decoration-muted="not selected">
                         <field name="selected"/>
-                        <field name="product_id" string="Component" readonly="1"/>
+                        <field name="product_id" string="Component" readonly="1" force_save="1"/>
                         <field name="product_qty" string="Qty"/>
-                        <field name="product_uom_id" string="UoM" readonly="1"/>
+                        <field name="product_uom_id" string="UoM" readonly="1" force_save="1"/>
                     </list>
                 </field>
 
