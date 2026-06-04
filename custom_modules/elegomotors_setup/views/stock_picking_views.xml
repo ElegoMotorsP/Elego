@@ -35,8 +35,7 @@
             <field name="state" position="before">
                 <field name="x_picked_serial_nos"
                        string="Serial No(s)"
-                       optional="show"
-                       column_invisible="picking_type_code != 'outgoing'"/>
+                       optional="hide"/>
             </field>
         </field>
     </record>
