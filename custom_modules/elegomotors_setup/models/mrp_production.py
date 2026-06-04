@@ -310,6 +310,23 @@ class MrpProduction(models.Model):
                     f'{production.name}.\nPending transfer(s): {names}'
                 )
 
+        # Guard 2b: for EGO bikes, Issue to Production picking must be validated
+        # before production can be finalised. The same guard exists in
+        # action_generate_serial(), but button_mark_done() is also reachable
+        # directly via the "Mark as Done" button (bypassing action_generate_serial).
+        if not self.env.su:
+            ego_tmpls_check = self._get_ego_templates()
+            if ego_tmpls_check:
+                for production in self:
+                    if (
+                        production.product_id.product_tmpl_id in ego_tmpls_check
+                        and not production.x_issue_picking_done
+                    ):
+                        raise UserError(
+                            f'{production.name}: Materials must be issued to Production by Amit '
+                            f'(Store) before production can be finalised.'
+                        )
+
         # Guard 3: ElegoMotors bike templates require component serials scanned before
         # marking done. Intercepts any path that skips the barcode wizard.
         if not self.env.su:
