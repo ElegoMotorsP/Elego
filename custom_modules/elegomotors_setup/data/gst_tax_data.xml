@@ -36,6 +36,7 @@
             <field name="amount_type">percent</field>
             <field name="amount">2.5</field>
             <field name="company_id" ref="base.main_company"/>
+            <field name="country_id" ref="base.in"/>
             <field name="tax_group_id" ref="tax_group_gst_5"/>
             <field name="description">CGST 2.5%</field>
         </record>
@@ -46,6 +47,7 @@
             <field name="amount_type">percent</field>
             <field name="amount">2.5</field>
             <field name="company_id" ref="base.main_company"/>
+            <field name="country_id" ref="base.in"/>
             <field name="tax_group_id" ref="tax_group_gst_5"/>
             <field name="description">SGST 2.5%</field>
         </record>
@@ -56,6 +58,7 @@
             <field name="amount_type">percent</field>
             <field name="amount">5.0</field>
             <field name="company_id" ref="base.main_company"/>
+            <field name="country_id" ref="base.in"/>
             <field name="tax_group_id" ref="tax_group_gst_5"/>
             <field name="description">IGST 5%</field>
         </record>
@@ -68,6 +71,7 @@
             <field name="amount_type">percent</field>
             <field name="amount">9.0</field>
             <field name="company_id" ref="base.main_company"/>
+            <field name="country_id" ref="base.in"/>
             <field name="tax_group_id" ref="tax_group_gst_18"/>
             <field name="description">CGST 9%</field>
         </record>
@@ -78,6 +82,7 @@
             <field name="amount_type">percent</field>
             <field name="amount">9.0</field>
             <field name="company_id" ref="base.main_company"/>
+            <field name="country_id" ref="base.in"/>
             <field name="tax_group_id" ref="tax_group_gst_18"/>
             <field name="description">SGST 9%</field>
         </record>
@@ -88,6 +93,7 @@
             <field name="amount_type">percent</field>
             <field name="amount">18.0</field>
             <field name="company_id" ref="base.main_company"/>
+            <field name="country_id" ref="base.in"/>
             <field name="tax_group_id" ref="tax_group_gst_18"/>
             <field name="description">IGST 18%</field>
         </record>
