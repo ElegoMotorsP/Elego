@@ -169,7 +169,9 @@ class SaleOrder(models.Model):
             subtype_xmlid='mail.mt_comment',
         )
         if self.state not in ('draft', 'cancel'):
-            self.action_cancel()
+            # See action_request_changes() below for why _action_cancel() is
+            # used instead of action_cancel().
+            self._action_cancel()
         if self.state == 'cancel':
             self.action_draft()
 
@@ -201,6 +203,14 @@ class SaleOrder(models.Model):
             message_type='comment',
             subtype_xmlid='mail.mt_comment',
         )
-        self.action_cancel()
-        if self.state == 'cancel':
-            self.action_draft()
+        # action_cancel() can return a confirmation-wizard action (instead of
+        # writing state='cancel' synchronously) when the order has linked
+        # deliveries/invoices — calling it here would silently no-op since
+        # there's no user to click through that wizard. _action_cancel() is
+        # the internal hook action_cancel() itself calls once past that
+        # check, so this still runs the same cascade (e.g. cancelling linked
+        # deliveries) — it just skips the "are you sure" prompt, which is
+        # fine here since the "Request Changes" button already confirms with
+        # the user.
+        self._action_cancel()
+        self.action_draft()
