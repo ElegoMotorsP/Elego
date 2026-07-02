@@ -19,6 +19,37 @@ class SaleOrder(models.Model):
     rejection_reason = fields.Text(
         string="Rejection Reason", copy=False, readonly=True
     )
+    sale_order_number = fields.Char(
+        string="Sales Order Number", copy=False, readonly=True
+    )
+
+    def write(self, vals):
+        result = super().write(vals)
+        # Assign the Sales Order Number the first time an order is confirmed.
+        # Hooked on write() rather than action_confirm()/_try_confirm_if_approved()
+        # because every path that flips state to 'sale' ultimately persists
+        # through write() — this is the one hook guaranteed to catch it.
+        if vals.get('state') == 'sale':
+            for order in self:
+                if not order.sale_order_number:
+                    order.sale_order_number = (
+                        self.env['ir.sequence'].sudo().next_by_code('sale.order.confirmed') or '/'
+                    )
+        return result
+
+    @api.model
+    def _backfill_sale_order_numbers(self):
+        """One-time (idempotent) fix for orders confirmed before this field
+        existed. Called from company_config_data.xml on every upgrade.
+        """
+        orders = self.search([
+            ('state', '=', 'sale'),
+            ('sale_order_number', '=', False),
+        ], order='create_date asc')
+        for order in orders:
+            order.sale_order_number = (
+                self.env['ir.sequence'].sudo().next_by_code('sale.order.confirmed') or '/'
+            )
 
     @api.model_create_multi
     def create(self, vals_list):

@@ -33,6 +33,7 @@
                 <field name="approval_accounts" invisible="1"/>
                 <field name="approval_manohar" invisible="1"/>
                 <field name="rejection_reason" invisible="1"/>
+                <field name="sale_order_number" invisible="not sale_order_number" readonly="1"/>
             </field>
 
             <!-- Approval action buttons in the form header -->

@@ -29,10 +29,28 @@
             <field name="manufacture_to_resupply" eval="True"/>
         </record>
 
-        <!-- Sequence: Sales Quotation — ElegoMotors prefix -->
+        <!-- Sequence: Quotation Number — ElegoMotors prefix. Assigned at
+             creation (Odoo's base sale.order create() logic, code "sale.order").
+             Prefix is force-updated to EGO-QUO- in the noupdate="0" block
+             below so it's distinct from the Sales Order Number above. -->
         <record id="seq_elegomotors_sale" model="ir.sequence">
             <field name="name">ElegoMotors Sales Order</field>
             <field name="code">sale.order</field>
+            <field name="prefix">EGO-SO-</field>
+            <field name="padding">5</field>
+            <field name="number_next">1</field>
+            <field name="number_increment">1</field>
+            <field name="company_id" ref="base.main_company"/>
+        </record>
+
+        <!-- Sequence: Confirmed Sales Order Number — assigned once a Quotation
+             is first confirmed into a Sales Order (see sale_order.py write()).
+             Kept as a distinct code so it's never picked up by Odoo's base
+             sale.order creation logic, which uses code "sale.order" (the
+             Quotation Number, seq_elegomotors_sale below). -->
+        <record id="seq_elegomotors_sale_confirmed" model="ir.sequence">
+            <field name="name">ElegoMotors Sales Order (Confirmed)</field>
+            <field name="code">sale.order.confirmed</field>
             <field name="prefix">EGO-SO-</field>
             <field name="padding">5</field>
             <field name="number_next">1</field>
@@ -124,6 +142,21 @@
         <!-- Attempt to set INR as company currency. Silently no-ops when
              journal entries already exist (caught in Python try/except). -->
         <function model="res.company" name="_try_set_inr_currency"/>
+
+        <!-- Re-prefix the Quotation Number sequence to EGO-QUO- so it's
+             visually distinct from the Sales Order Number (EGO-SO-,
+             seq_elegomotors_sale_confirmed). noupdate="0" forces this onto
+             already-deployed instances; it only affects new records —
+             existing Quotation Numbers already issued keep their old value. -->
+        <record id="seq_elegomotors_sale" model="ir.sequence">
+            <field name="prefix">EGO-QUO-</field>
+        </record>
+
+        <!-- Backfill: any order already confirmed before this feature
+             existed (state='sale' with no Sales Order Number yet) gets one
+             assigned. Idempotent — only touches orders still missing a
+             number, so safe to re-run on every upgrade. -->
+        <function model="sale.order" name="_backfill_sale_order_numbers"/>
 
         <!-- 2-step manufacturing: when Prashant confirms an MO, Odoo auto-creates a
              Picking Slip (Raw Material) linked to the MO via production.picking_ids.
