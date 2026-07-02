@@ -16,6 +16,9 @@ class SaleOrder(models.Model):
     approval_manohar = fields.Boolean(
         string="MD Approved", default=False, copy=False
     )
+    rejection_reason = fields.Text(
+        string="Rejection Reason", copy=False, readonly=True
+    )
 
     @api.model_create_multi
     def create(self, vals_list):
@@ -51,6 +54,9 @@ class SaleOrder(models.Model):
             # No approval yet — hold in draft and notify
             if not (order.approval_accounts or order.approval_manohar):
                 order.pending_approval = True
+                # Clear any stale rejection banner now that the order is being
+                # resubmitted for approval.
+                order.rejection_reason = False
                 # Mention approvers in chatter so they receive an inbox notification
                 rajshri = self.env.ref(
                     'elegomotors_setup.user_ego_rajshri', raise_if_not_found=False
@@ -132,7 +138,11 @@ class SaleOrder(models.Model):
             )
         return super().action_create_invoice()
 
-    def action_reject(self):
+    def _do_reject(self, reason):
+        """Reject a pending Sales Order with a mandatory reason.
+        Called from sale.order.reject.wizard's confirm button — the wizard
+        already enforces `reason` as required, this re-checks server-side.
+        """
         self.ensure_one()
         if not (
             self.env.su
@@ -142,17 +152,55 @@ class SaleOrder(models.Model):
             raise AccessError('Only the designated approvers can reject a Sales Order.')
         if not self.pending_approval:
             raise AccessError('This Sales Order is not pending approval.')
+        if not reason or not reason.strip():
+            raise AccessError('A rejection reason is required.')
         self.write({
             'pending_approval': False,
             'approval_accounts': False,
             'approval_manohar': False,
+            'rejection_reason': reason,
         })
         self.message_post(
-            body=f"Sales Order rejected by {self.env.user.name} — returned to draft.",
+            body=Markup(
+                f"Sales Order rejected by {self.env.user.name} — returned to draft.<br/>"
+                f"<strong>Reason:</strong> {reason}"
+            ),
             message_type='comment',
             subtype_xmlid='mail.mt_comment',
         )
         if self.state not in ('draft', 'cancel'):
             self.action_cancel()
+        if self.state == 'cancel':
+            self.action_draft()
+
+    def action_request_changes(self):
+        """Let the creator (or an approver/admin) reopen a confirmed Sales
+        Order for editing. Resets it to draft and re-arms the approval gate
+        so any change must be re-approved before the order can be confirmed
+        again — mirrors the original confirm/approve flow.
+        """
+        self.ensure_one()
+        if self.state != 'sale':
+            raise AccessError('Only confirmed Sales Orders can have changes requested.')
+        if not (
+            self.env.su
+            or self.env.uid == self.create_uid.id
+            or self.env.user.has_group('elegomotors_setup.group_sale_approver')
+            or self.env.user.has_group('base.group_erp_manager')
+        ):
+            raise AccessError('Only the Sales Order creator or an approver can request changes.')
+        self.write({
+            'pending_approval': False,
+            'approval_accounts': False,
+            'approval_manohar': False,
+            'rejection_reason': False,
+        })
+        self.message_post(
+            body=f"Changes requested by {self.env.user.name} — order reset to Draft for editing. "
+                 "It will need approval again before it can be re-confirmed.",
+            message_type='comment',
+            subtype_xmlid='mail.mt_comment',
+        )
+        self.action_cancel()
         if self.state == 'cancel':
             self.action_draft()
