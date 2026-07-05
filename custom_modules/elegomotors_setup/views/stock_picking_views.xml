@@ -142,9 +142,19 @@
                 </div>
             </xpath>
 
-            <!-- Issue 13: make Demand Qty (quantity) readonly for incoming receipts -->
+            <!-- Issue 13: make the received/done Quantity field readonly for incoming
+                 receipts — the QC-specific columns below (Received / QC Passed /
+                 QC Failed / Final Quantities) are the intended capture fields instead. -->
             <xpath expr="//field[@name='move_ids_without_package']//list//field[@name='quantity']" position="attributes">
                 <attribute name="readonly">parent.picking_type_code == 'incoming'</attribute>
+            </xpath>
+
+            <!-- PO Demand Quantity: force the ordered/demand quantity (from the
+                 source Purchase Order) to always display on the Operations tab
+                 during the inward process, so staff can compare demand vs received
+                 at a glance instead of needing to open the column selector. -->
+            <xpath expr="//field[@name='move_ids_without_package']//list//field[@name='product_uom_qty']" position="attributes">
+                <attribute name="optional">show</attribute>
             </xpath>
 
             <!-- Show lot/serial column on incoming receipts only during QC phase —

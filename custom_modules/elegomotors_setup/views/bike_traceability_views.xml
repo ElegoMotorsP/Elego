@@ -10,7 +10,13 @@
         chassis, motor, battery, controller, charger, cluster, or frame —
         and immediately find the matching bike.
 
-        Accessible via: Manufacturing > Operations > Bike Traceability
+        Accessible via: Inventory > Bike Traceability — placed under the
+        Inventory app root (stock.menu_stock_root, gated on
+        stock.group_stock_manager/stock.group_stock_user) rather than
+        Manufacturing, since Amit (Store), Rajshri (Accounts), and Tushar
+        (Sales) all hold a stock group but not mrp.group_mrp_user, and
+        need this report — every ElegoMotors user with Inventory access
+        can now reach it, matching "all authorized users."
     -->
 
     <!-- ── List view ──────────────────────────────────────────────────── -->
@@ -115,12 +121,15 @@
         </field>
     </record>
 
-    <!-- ── Menu: Manufacturing > Operations > Bike Traceability ───────── -->
+    <!-- ── Menu: Inventory > Bike Traceability ─────────────────────────
+         Parented on the Inventory app root so it's reachable by every
+         user with stock.group_stock_manager/stock.group_stock_user —
+         not just Manufacturing users — matching "all authorized users". -->
     <menuitem
         id="menu_bike_traceability"
         name="Bike Traceability"
-        parent="mrp.menu_mrp_production_action"
+        parent="stock.menu_stock_root"
         action="action_bike_traceability"
-        sequence="10"/>
+        sequence="60"/>
 
 </odoo>
