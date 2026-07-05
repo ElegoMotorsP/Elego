@@ -17,6 +17,15 @@
         (Sales) all hold a stock group but not mrp.group_mrp_user, and
         need this report — every ElegoMotors user with Inventory access
         can now reach it, matching "all authorized users."
+
+        "Produced On" = the lot's create_date. Every bike serial is created
+        at the exact moment Pratik/Prashant confirms the barcode capture
+        wizard (mrp_production.py / bulk_barcode_wizard.py), i.e. the moment
+        the physical unit finishes assembly — so create_date is a reliable
+        production-date stamp without needing a new field or MO lookup.
+        Default sort is by this date ascending, so the list reads as a
+        production sequence (matches serial numbers, which also increment
+        over time) — click the column header to reverse or re-sort.
     -->
 
     <!-- ── List view ──────────────────────────────────────────────────── -->
@@ -25,8 +34,10 @@
         <field name="model">stock.lot</field>
         <field name="arch" type="xml">
             <list string="Bike Traceability" create="false"
+                  default_order="create_date asc, name asc"
                   decoration-danger="x_blacklisted">
                 <field name="name"                string="Serial No."          optional="show"/>
+                <field name="create_date"         string="Produced On"         optional="show"/>
                 <field name="product_id"          string="Variant"             optional="show"/>
                 <field name="x_color"             string="Colour"              optional="show"/>
                 <field name="x_chassis_serial"    string="Chassis No."         optional="show"/>
@@ -64,6 +75,7 @@
 
                 <!-- Per-field searches for precise lookups -->
                 <field name="name"                string="Serial No."/>
+                <field name="create_date"         string="Produced On"/>
                 <field name="x_chassis_serial"    string="Chassis No."/>
                 <field name="x_color"             string="Colour"/>
                 <field name="x_motor_serial"      string="Motor Serial"/>
@@ -89,6 +101,9 @@
                     <filter name="group_by_blacklisted"
                             string="Blacklisted Status"
                             context="{'group_by': 'x_blacklisted'}"/>
+                    <filter name="group_by_production_date"
+                            string="Production Date"
+                            context="{'group_by': 'create_date'}"/>
                 </group>
 
             </search>
