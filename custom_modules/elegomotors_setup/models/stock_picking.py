@@ -218,11 +218,22 @@ class StockPicking(models.Model):
 
     def action_gate_entry_approve_qc(self):
         """Pratik approves QC: sets qty_done per serial based on pass/fail results,
-        blacklists failed serials immediately, then marks the picking ready."""
+        blacklists failed serials immediately, routes the approved goods on to
+        Store, then marks the picking ready."""
         self.ensure_one()
         MoveL = self.env['stock.move.line']
+        store_loc = self.env.ref('elegomotors_setup.location_ego_store', raise_if_not_found=False)
 
         for move in self.move_ids:
+            # QC-required moves arrive at EGO/QC Inward (Gate Entry -> in_qc routing).
+            # Once approved they must land in EGO/Store — "Issue to Production"
+            # sources components from Store only, so leaving them at QC Inward
+            # would make them invisible to MO material reservation even though
+            # the product's aggregate on-hand quantity looks correct.
+            if store_loc:
+                move.location_dest_id = store_loc.id
+                move.move_line_ids.location_dest_id = store_loc.id
+
             qc_results = self.x_qc_check_result_ids.filtered(lambda r: r.move_id == move)
             lots_in_results = qc_results.mapped('lot_id').filtered(bool)
 
@@ -260,8 +271,13 @@ class StockPicking(models.Model):
 
                 move.x_qty_qc_passed = passed_qty
             else:
-                # Non-serial/lot tracked, or no lots entered: use aggregate x_qty_qc_passed
-                qty = move.x_qty_qc_passed or move.product_uom_qty
+                # Non-serial/lot tracked, or no lots entered: use aggregate x_qty_qc_passed.
+                # Default to the full received quantity (all passed) unless Pratik
+                # has explicitly entered a lower "QC Passed" value on this row while
+                # inspecting — that lower value is what makes the remainder count
+                # as QC Failed once approved.
+                qty = move.x_qty_qc_passed or move.x_qty_received or move.product_uom_qty
+                move.x_qty_qc_passed = qty
                 for ml in move.move_line_ids:
                     ml.qty_done = qty
                 if not move.move_line_ids:
@@ -382,9 +398,11 @@ class StockPicking(models.Model):
                         store_loc = self.env.ref('elegomotors_setup.location_ego_store')
                         for move in picking.move_ids:
                             move.location_dest_id = store_loc.id
+                            qty = move.x_qty_received or move.product_uom_qty
+                            move.x_qty_qc_passed = qty
                             for ml in move.move_line_ids:
                                 ml.location_dest_id = store_loc.id
-                                ml.qty_done = move.x_qty_received or move.product_uom_qty
+                                ml.qty_done = qty
                         picking.x_gate_entry_state = 'ready'
 
                 elif picking.x_gate_entry_state != 'ready':

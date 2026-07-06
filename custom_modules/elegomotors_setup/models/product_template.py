@@ -979,6 +979,39 @@ class ProductTemplate(models.Model):
                 color_name, lines_added,
             )
 
+    @api.model
+    def _ensure_qc_required_on_bike_components(self):
+        """Flag every BOM component of the EGO/Elego bike variants as QC-required,
+        so their PO receipts route through QC Inward (Pending QC -> In QC ->
+        Approve QC) instead of bypassing straight to Store. Driven by each bike's
+        active BOM lines rather than hardcoded component names, so color-specific
+        components (created dynamically, without XML IDs) are covered automatically
+        and any component added to a BOM later is picked up on the next upgrade.
+        """
+        refs = [
+            'elegomotors_setup.tmpl_ego_scooter',
+            'elegomotors_setup.tmpl_elego_11',
+            'elegomotors_setup.tmpl_elego_12',
+            'elegomotors_setup.tmpl_elego_20p',
+            'elegomotors_setup.tmpl_elego_30',
+        ]
+        bike_tmpls = self.env['product.template']
+        for ref in refs:
+            tmpl = self.env.ref(ref, raise_if_not_found=False)
+            if tmpl:
+                bike_tmpls |= tmpl
+        if not bike_tmpls:
+            return
+        boms = self.env['mrp.bom'].search([('product_tmpl_id', 'in', bike_tmpls.ids)])
+        components = boms.bom_line_ids.product_id.product_tmpl_id
+        components = components.filtered(lambda t: not t.x_qc_required)
+        if components:
+            components.write({'x_qc_required': True})
+            _logger.info(
+                'QC Required: flagged %d bike BOM component(s) for QC Inward.',
+                len(components),
+            )
+
     @api.model_create_multi
     def create(self, vals_list):
         # group_store_billing holders (Amit) can view products but not create

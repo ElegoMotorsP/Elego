@@ -14,3 +14,4 @@ access_invoice_bike_scan_wizard_all,invoice.bike.scan.wizard.all,model_elegomoto
 access_invoice_bike_scan_wizard_line_all,invoice.bike.scan.wizard.line.all,model_elegomotors_invoice_bike_scan_wizard_line,base.group_user,1,1,1,1
 access_purchase_bom_wizard_all,purchase.bom.wizard.all,model_elegomotors_purchase_bom_wizard,base.group_user,1,1,1,1
 access_purchase_bom_wizard_line_all,purchase.bom.wizard.line.all,model_elegomotors_purchase_bom_wizard_line,base.group_user,1,1,1,1
+access_sale_order_reject_wizard_all,sale.order.reject.wizard.all,model_sale_order_reject_wizard,base.group_user,1,1,1,1

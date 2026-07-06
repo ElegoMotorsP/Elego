@@ -255,10 +255,22 @@ class MrpProduction(models.Model):
             subtype_xmlid='mail.mt_comment',
         )
 
+    def _ego_qty_remaining(self):
+        """True remaining quantity to produce on this MO (demand - already produced),
+        regardless of whatever qty_producing currently holds. Used so the "produce all"
+        entry points (Generate Serial / Mark as Done) always default to the full
+        remaining batch in a single click instead of requiring a manual quantity edit.
+        """
+        self.ensure_one()
+        remaining = self.product_qty - self.qty_produced
+        return int(remaining) if remaining >= 1 else 1
+
     # --- Issue 8: guard the "Produce" / serial-generation action in Odoo 18 MRP ---
     def action_generate_serial(self):
         """Block lot/serial generation until Issue to Production is validated by Amit.
-        For EGO-S1 MOs: intercept and open barcode capture wizard first.
+        For EGO-S1 MOs: intercept and open the barcode capture wizard — single-unit
+        form when only one unit remains, bulk table (all remaining units, one click)
+        otherwise — instead of Odoo's native single-serial "Generate" wizard.
         """
         for prod in self:
             if not prod.x_issue_picking_done and not self.env.su:
@@ -270,6 +282,18 @@ class MrpProduction(models.Model):
             ego_tmpls = self._get_ego_templates()
             self.ensure_one()
             if ego_tmpls and self.product_id.product_tmpl_id in ego_tmpls:
+                if self._ego_qty_remaining() > 1:
+                    wizard = self.env['elegomotors.bulk.barcode.wizard'].create({
+                        'production_ids': [(6, 0, self.ids)],
+                    })
+                    return {
+                        'type': 'ir.actions.act_window',
+                        'name': 'Scan Component Barcodes — Bulk Production',
+                        'res_model': 'elegomotors.bulk.barcode.wizard',
+                        'res_id': wizard.id,
+                        'view_mode': 'form',
+                        'target': 'new',
+                    }
                 wizard = self.env['elegomotors.barcode.capture.wizard'].create({
                     'production_id': self.id,
                 })
@@ -320,10 +344,10 @@ class MrpProduction(models.Model):
                         production.product_id.product_tmpl_id in ego_tmpls
                         and not production.lot_producing_id
                     ):
-                        # Use qty_producing if set (≥1), else fall back to product_qty.
-                        # This ensures a multi-qty MO being produced one unit at a time
-                        # opens the single-unit wizard, not the bulk table.
-                        qty_now = int(production.qty_producing) if production.qty_producing >= 1 else int(production.product_qty)
+                        # True remaining quantity to produce — always defaults to the
+                        # full undone batch so "Mark as Done" reaches the bulk (all
+                        # units, one click) wizard without a manual quantity edit first.
+                        qty_now = production._ego_qty_remaining()
                         if len(self) == 1 and qty_now <= 1:
                             # Single MO, single unit → single-unit form wizard
                             wizard = self.env['elegomotors.barcode.capture.wizard'].create({
@@ -361,7 +385,19 @@ class MrpProduction(models.Model):
                                 }
                             # All EGO-S1 MOs already have lots — fall through to super()
 
-        result = super().button_mark_done()
+        # Skip Odoo's native "Consumption Warning" wizard: EGO bike component
+        # traceability is handled via chassis/motor/controller serial scanning,
+        # not per-component consumption matching against BOM demand, and this
+        # method is routinely driven from automated loops (bulk/single barcode
+        # wizards producing several units in one click) where nobody is present
+        # to click through a confirmation dialog. If the skip_consumption context
+        # doesn't suppress it (e.g. Odoo version differences), fall back to
+        # auto-confirming the wizard exactly as the "Confirm" button would.
+        result = super(MrpProduction, self.with_context(skip_consumption=True)).button_mark_done()
+        if isinstance(result, dict) and result.get('res_model') == 'mrp.consumption.warning':
+            warning_wizard = self.env['mrp.consumption.warning'].browse(result.get('res_id'))
+            if warning_wizard:
+                warning_wizard.action_confirm()
 
         # Post-production QC gate: FG transfer is deferred until Pratik approves QC.
         # qc_state is copy=False so each backorder MO starts at 'pending' automatically,
