@@ -1,6 +1,6 @@
 {
     'name': 'ElegoMotors Workflow Setup',
-    'version': '18.0.26.0.0',
+    'version': '18.0.27.0.0',
     'category': 'Manufacturing',
     'summary': 'ElegoMotors EV 2-wheeler end-to-end manufacturing workflow configuration',
     'description': """
@@ -58,6 +58,7 @@
         'data/bom_data_elego_20p_by_color.xml', # Color-specific BOMs for Elego 2.0+ (Red/White/Gray/Black)
         'data/pi_utils_data.xml',          # PI Section Header placeholder product
         'data/product_elego_30_data.xml',  # Elego 3.0 product template + serial sequence
+        'data/qc_required_components_data.xml', # Flag all bike BOM components as QC-required
         'data/gst_tax_data.xml',          # GST 5%/18% taxes + fiscal positions (MH intra/other inter)
         'data/sale_products_data.xml',    # Battery Pack + Side Guard accessory sale products
         'data/users_data.xml',            # department users (loaded after groups)

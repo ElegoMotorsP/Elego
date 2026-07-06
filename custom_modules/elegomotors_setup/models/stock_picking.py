@@ -382,9 +382,11 @@ class StockPicking(models.Model):
                         store_loc = self.env.ref('elegomotors_setup.location_ego_store')
                         for move in picking.move_ids:
                             move.location_dest_id = store_loc.id
+                            qty = move.x_qty_received or move.product_uom_qty
+                            move.x_qty_qc_passed = qty
                             for ml in move.move_line_ids:
                                 ml.location_dest_id = store_loc.id
-                                ml.qty_done = move.x_qty_received or move.product_uom_qty
+                                ml.qty_done = qty
                         picking.x_gate_entry_state = 'ready'
 
                 elif picking.x_gate_entry_state != 'ready':
