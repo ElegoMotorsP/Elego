@@ -260,8 +260,13 @@ class StockPicking(models.Model):
 
                 move.x_qty_qc_passed = passed_qty
             else:
-                # Non-serial/lot tracked, or no lots entered: use aggregate x_qty_qc_passed
-                qty = move.x_qty_qc_passed or move.product_uom_qty
+                # Non-serial/lot tracked, or no lots entered: use aggregate x_qty_qc_passed.
+                # Default to the full received quantity (all passed) unless Pratik
+                # has explicitly entered a lower "QC Passed" value on this row while
+                # inspecting — that lower value is what makes the remainder count
+                # as QC Failed once approved.
+                qty = move.x_qty_qc_passed or move.x_qty_received or move.product_uom_qty
+                move.x_qty_qc_passed = qty
                 for ml in move.move_line_ids:
                     ml.qty_done = qty
                 if not move.move_line_ids:
