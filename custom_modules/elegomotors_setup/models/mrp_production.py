@@ -385,7 +385,19 @@ class MrpProduction(models.Model):
                                 }
                             # All EGO-S1 MOs already have lots — fall through to super()
 
-        result = super().button_mark_done()
+        # Skip Odoo's native "Consumption Warning" wizard: EGO bike component
+        # traceability is handled via chassis/motor/controller serial scanning,
+        # not per-component consumption matching against BOM demand, and this
+        # method is routinely driven from automated loops (bulk/single barcode
+        # wizards producing several units in one click) where nobody is present
+        # to click through a confirmation dialog. If the skip_consumption context
+        # doesn't suppress it (e.g. Odoo version differences), fall back to
+        # auto-confirming the wizard exactly as the "Confirm" button would.
+        result = super(MrpProduction, self.with_context(skip_consumption=True)).button_mark_done()
+        if isinstance(result, dict) and result.get('res_model') == 'mrp.consumption.warning':
+            warning_wizard = self.env['mrp.consumption.warning'].browse(result.get('res_id'))
+            if warning_wizard:
+                warning_wizard.action_confirm()
 
         # Post-production QC gate: FG transfer is deferred until Pratik approves QC.
         # qc_state is copy=False so each backorder MO starts at 'pending' automatically,
