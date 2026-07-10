@@ -22,11 +22,16 @@
                     </list>
                 </field>
 
-                <field name="line_ids" nolabel="1" invisible="purchase_mode != 'components'">
+                <!-- Shown in both modes — a Kit is just its components at a
+                     lump-sum price, so this stays visible as a reference of
+                     what's included even when Purchase Mode = Kit. Only
+                     Components mode actually adds these as individual PO
+                     lines; in Kit mode this is read-only for visibility only. -->
+                <field name="line_ids" nolabel="1">
                     <list editable="bottom" decoration-muted="not selected">
-                        <field name="selected"/>
+                        <field name="selected" readonly="parent.purchase_mode == 'kit'"/>
                         <field name="product_id" string="Component" readonly="1" force_save="1"/>
-                        <field name="product_qty" string="Qty"/>
+                        <field name="product_qty" string="Qty" readonly="parent.purchase_mode == 'kit'"/>
                         <field name="product_uom_id" string="UoM" readonly="1" force_save="1"/>
                     </list>
                 </field>

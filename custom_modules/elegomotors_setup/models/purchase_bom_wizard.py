@@ -80,11 +80,34 @@ class ElegoMotorsPurchaseBomWizard(models.TransientModel):
         tmpl = self.env.ref(tmpl_ref, raise_if_not_found=False) if tmpl_ref else False
         self.kit_price = tmpl.x_kit_price_default if tmpl else 0.0
 
-    @api.onchange('model_selection', 'purchase_mode', 'color_line_ids.selected', 'color_line_ids.bike_qty')
+    @api.onchange('model_selection', 'color_line_ids.selected', 'color_line_ids.bike_qty')
     def _onchange_populate_lines(self):
+        # Component preview is shown for BOTH Components and Kit mode — a kit
+        # IS its components, so Kit mode should list them too (informational;
+        # the PO line(s) it actually creates are still the lump-sum kit lines).
+        existing_selected = {line.product_id.id: line.selected for line in self.line_ids}
         self.line_ids = [(5, 0, 0)]
-        if self.purchase_mode != 'components' or not self.model_selection:
+        if not self.model_selection:
             return
+        merged = self._compute_merged_components()
+        lines = [(0, 0, {
+            # Preserve a component the user manually unchecked, even though a
+            # different color/qty edit just rebuilt this whole table — only
+            # brand-new components (never seen before) default to selected.
+            'selected': existing_selected.get(product_id, True),
+            'product_id': product_id,
+            'product_qty': data['qty'],
+            'product_uom_id': data['uom_id'],
+        }) for product_id, data in merged.items()]
+        self.line_ids = lines
+
+    def _compute_merged_components(self):
+        """Merge BOM component quantities across every selected colour row
+        for the current model, using each row's live "No. of Bikes" value.
+        Called both by the live preview onchange and again at confirm time
+        so the PO always gets quantities matching the current field values,
+        not whatever the preview table last rendered.
+        """
         merged = {}
         for row in self.color_line_ids.filtered('selected'):
             bom = self._find_bom(row.color)
@@ -97,13 +120,7 @@ class ElegoMotorsPurchaseBomWizard(models.TransientModel):
                     'uom_id': bom_line.product_uom_id.id,
                 })
                 entry['qty'] += bom_line.product_qty * qty_mult
-        lines = [(0, 0, {
-            'selected': True,
-            'product_id': product_id,
-            'product_qty': data['qty'],
-            'product_uom_id': data['uom_id'],
-        }) for product_id, data in merged.items()]
-        self.line_ids = lines
+        return merged
 
     def _find_variant(self, color):
         tmpl_ref = _MODEL_REFS.get(self.model_selection)
@@ -165,8 +182,17 @@ class ElegoMotorsPurchaseBomWizard(models.TransientModel):
         summary_lines = []
 
         if self.purchase_mode == 'components':
-            for line in self.line_ids.filtered('selected'):
-                self._add_or_merge_po_line(po, line.product_id, line.product_qty, 0.0)
+            # Recompute fresh from the current color rows rather than trusting
+            # self.line_ids as-is — guarantees quantities on the PO always match
+            # the "No. of Bikes" values actually on screen right now. Still
+            # honours any component the user manually unchecked in the preview.
+            selected_map = {line.product_id.id: line.selected for line in self.line_ids}
+            merged = self._compute_merged_components()
+            for product_id, data in merged.items():
+                if not selected_map.get(product_id, True):
+                    continue
+                product = self.env['product.product'].browse(product_id)
+                self._add_or_merge_po_line(po, product, data['qty'], 0.0)
             for row in self.color_line_ids.filtered('selected'):
                 bom = self._find_bom(row.color)
                 if not bom:
