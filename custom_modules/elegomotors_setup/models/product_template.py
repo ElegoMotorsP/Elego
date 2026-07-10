@@ -1,7 +1,7 @@
 # -*- coding: utf-8 -*-
 import logging
 from odoo import api, fields, models
-from odoo.exceptions import AccessError
+from odoo.exceptions import AccessError, UserError
 
 _logger = logging.getLogger(__name__)
 
@@ -421,7 +421,14 @@ class ProductTemplate(models.Model):
                 ('product_id', '=', variant.id),
             ], limit=1)
             if existing:
-                existing.sudo().unlink()
+                try:
+                    existing.sudo().unlink()
+                except UserError:
+                    _logger.warning(
+                        'BOM for variant %s has running MOs — skipping recreation.',
+                        variant.display_name,
+                    )
+                    continue
 
             bom = Bom.sudo().create({
                 'product_tmpl_id': tmpl.id,
@@ -688,7 +695,14 @@ class ProductTemplate(models.Model):
                 ('product_id', '=', variant.id),
             ], limit=1)
             if existing:
-                existing.sudo().unlink()
+                try:
+                    existing.sudo().unlink()
+                except UserError:
+                    _logger.warning(
+                        'BOM for variant %s has running MOs — skipping recreation.',
+                        variant.display_name,
+                    )
+                    continue
 
             bom = Bom.sudo().create({
                 'product_tmpl_id': tmpl.id,
@@ -958,7 +972,14 @@ class ProductTemplate(models.Model):
                 ('product_id', '=', variant.id),
             ], limit=1)
             if existing:
-                existing.sudo().unlink()
+                try:
+                    existing.sudo().unlink()
+                except UserError:
+                    _logger.warning(
+                        'BOM for variant %s has running MOs — skipping recreation.',
+                        variant.display_name,
+                    )
+                    continue
 
             bom = Bom.sudo().create({
                 'product_tmpl_id': tmpl.id,
