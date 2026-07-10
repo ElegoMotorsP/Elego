@@ -10,11 +10,19 @@
                 <group col="4">
                     <field name="purchase_order_id" invisible="1"/>
                     <field name="model_selection" required="1"/>
-                    <field name="color_selection" required="1"/>
-                    <field name="bike_qty" string="No. of Bikes"/>
+                    <field name="purchase_mode" widget="radio" options="{'horizontal': true}" required="1"/>
+                    <field name="kit_price" invisible="purchase_mode != 'kit'" required="purchase_mode == 'kit'"/>
                 </group>
 
-                <field name="line_ids" nolabel="1">
+                <field name="color_line_ids" nolabel="1">
+                    <list editable="bottom" create="false" delete="false" decoration-muted="not selected">
+                        <field name="color" readonly="1" force_save="1"/>
+                        <field name="selected"/>
+                        <field name="bike_qty" string="No. of Bikes"/>
+                    </list>
+                </field>
+
+                <field name="line_ids" nolabel="1" invisible="purchase_mode != 'components'">
                     <list editable="bottom" decoration-muted="not selected">
                         <field name="selected"/>
                         <field name="product_id" string="Component" readonly="1" force_save="1"/>
@@ -28,7 +36,7 @@
                             string="Add to Purchase Order"
                             type="object"
                             class="btn-primary"
-                            invisible="not line_ids"/>
+                            invisible="(purchase_mode == 'components' and not line_ids) or (purchase_mode == 'kit' and not color_line_ids)"/>
                     <button string="Cancel" class="btn-secondary" special="cancel"/>
                 </footer>
             </form>
