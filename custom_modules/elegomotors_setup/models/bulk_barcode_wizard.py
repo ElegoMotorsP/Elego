@@ -48,8 +48,9 @@ class ElegomotorsBulkBarcodeWizard(models.TransientModel):
         """
         Line = self.env['elegomotors.bulk.barcode.wizard.line']
         for mo in self.production_ids:
-            # Use qty_producing if set (≥1) — respects partial production cycles.
-            total_units = max(1, int(mo.qty_producing) if mo.qty_producing >= 1 else int(mo.product_qty))
+            # Always the true remaining quantity to produce, not qty_producing —
+            # so this defaults to the full undone batch with no manual qty edit.
+            total_units = mo._ego_qty_remaining()
             for unit_idx in range(1, total_units + 1):
                 label = (
                     f"{mo.name} — Unit {unit_idx}" if total_units > 1 else mo.name

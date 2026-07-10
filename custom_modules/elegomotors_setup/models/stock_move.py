@@ -39,8 +39,11 @@ class StockMove(models.Model):
     @api.depends('x_qty_received', 'x_qty_qc_passed', 'picking_id.x_gate_entry_state')
     def _compute_qc_failed(self):
         for move in self:
-            # Only meaningful once QC inspection has started; show 0 at Pending QC
-            if move.picking_id.x_gate_entry_state in ('in_qc', 'ready'):
+            # Only meaningful once QC has been decided (approved); show 0 while
+            # inspection is still in progress, otherwise the formula reads as
+            # "received - 0" and every move looks fully failed before anyone
+            # has actually inspected it.
+            if move.picking_id.x_gate_entry_state == 'ready':
                 move.x_qty_qc_failed = move.x_qty_received - move.x_qty_qc_passed
             else:
                 move.x_qty_qc_failed = 0.0
@@ -48,8 +51,8 @@ class StockMove(models.Model):
     @api.depends('x_qty_qc_passed', 'picking_id.x_gate_entry_state')
     def _compute_qty_final(self):
         for move in self:
-            # Mirror x_qty_qc_passed only once QC is in progress/done
-            if move.picking_id.x_gate_entry_state in ('in_qc', 'ready'):
+            # Mirror x_qty_qc_passed only once QC has been decided (approved)
+            if move.picking_id.x_gate_entry_state == 'ready':
                 move.x_qty_final = move.x_qty_qc_passed
             else:
                 move.x_qty_final = 0.0

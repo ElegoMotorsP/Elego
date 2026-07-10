@@ -1,6 +1,6 @@
 {
     'name': 'ElegoMotors Workflow Setup',
-    'version': '18.0.24.0.0',
+    'version': '18.0.35.0.0',
     'category': 'Manufacturing',
     'summary': 'ElegoMotors EV 2-wheeler end-to-end manufacturing workflow configuration',
     'description': """
@@ -58,6 +58,8 @@
         'data/bom_data_elego_20p_by_color.xml', # Color-specific BOMs for Elego 2.0+ (Red/White/Gray/Black)
         'data/pi_utils_data.xml',          # PI Section Header placeholder product
         'data/product_elego_30_data.xml',  # Elego 3.0 product template + serial sequence
+        'data/purchase_ok_fix_bike_models.xml', # Enable purchase_ok for Kit Purchase mode
+        'data/qc_required_components_data.xml', # Flag all bike BOM components as QC-required
         'data/gst_tax_data.xml',          # GST 5%/18% taxes + fiscal positions (MH intra/other inter)
         'data/sale_products_data.xml',    # Battery Pack + Side Guard accessory sale products
         'data/users_data.xml',            # department users (loaded after groups)
@@ -70,6 +72,7 @@
         'views/mrp_production_views.xml',   # Post-production QC buttons on MO form; Issue 7+8
         'views/purchase_order_views.xml',   # Receive Products button restriction; Issues 2+3
         'views/purchase_bom_wizard_views.xml', # Load BOM Components wizard on PO form
+        'views/sale_order_reject_wizard_views.xml', # Reject Sales Order wizard (mandatory reason)
         'views/sale_order_views.xml',
         'views/stock_lot_views.xml',        # Component Traceability tab + serial list columns; Issue 7
         'views/stock_picking_views.xml',    # Gate Entry QC flow + vendor invoice + QC columns; Issues 5/6/12/13

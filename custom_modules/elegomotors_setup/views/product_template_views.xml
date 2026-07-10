@@ -27,6 +27,9 @@
                             </list>
                         </field>
                     </group>
+                    <group string="Kit Purchase">
+                        <field name="x_kit_price_default"/>
+                    </group>
                 </xpath>
             </field>
         </record>

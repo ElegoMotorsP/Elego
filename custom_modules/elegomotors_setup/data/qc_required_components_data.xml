@@ -1,0 +1,21 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+    <!--
+        Flag every BOM component of the EGO-S1 / Elego 1.1 / 1.2 / 2.0+ / 3.0
+        bike variants as QC-required (product.template.x_qc_required = True),
+        so their PO receipts route through QC Inward (Pending QC -> In QC ->
+        Pratik inspects pass/fail per unit -> Approve QC -> Amit validates to
+        Store) instead of bypassing QC straight to Store.
+
+        Driven by each bike's active BOM lines (see _ensure_qc_required_on_bike_components
+        in models/product_template.py) rather than hardcoded component names, so the
+        dynamically-created color-specific components (Elego 1.1/1.2/2.0+ panels,
+        which have no XML IDs) are covered automatically.
+
+        noupdate="0" — reruns on every module upgrade so components added to a
+        BOM later are also picked up.
+    -->
+    <data noupdate="0">
+        <function model="product.template" name="_ensure_qc_required_on_bike_components"/>
+    </data>
+</odoo>

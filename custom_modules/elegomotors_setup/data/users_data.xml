@@ -11,6 +11,15 @@
         credentials. Each user should change their password immediately
         after first login via Settings → My Profile.
 
+        base.group_allow_export ("Access to export feature") is granted to
+        all six operational users below (not Srushti/HR, who has no stock
+        access and isn't an authorized user of inventory/sales/purchase
+        reports). Odoo does not imply this group from group_user or any
+        functional group, and command (6, 0, [...]) replaces the full group
+        set — so without this explicit entry, none of these users can see
+        the Export (xlsx/csv) button on ANY list view, including Bike
+        Traceability (bike_traceability_views.xml).
+
         Department  | User            | Login                            | Temp Password
         ============|=================|==================================|===============
         Admin       | Manohar Kalbhor | manohar.kalbhor@elegomotors.com  | manohar@123
@@ -64,6 +73,7 @@
                     ref('elegomotors_setup.group_qc_pass_operator'),
                     ref('elegomotors_setup.group_fg_transfer_operator'),
                     ref('quality.group_quality_user'),
+                    ref('base.group_allow_export'),
                 ]),
             ]"/>
         </record>
@@ -115,6 +125,7 @@
                     ref('account.group_account_invoice'),
                     ref('elegomotors_setup.group_store_billing'),
                     ref('elegomotors_setup.group_inbound_operator'),
+                    ref('base.group_allow_export'),
                 ]),
             ]"/>
         </record>
@@ -156,6 +167,7 @@
                     ref('stock.group_stock_user'),
                     ref('elegomotors_setup.group_fg_transfer_operator'),
                     ref('elegomotors_setup.group_purchase_vendor_bill_viewer'),
+                    ref('base.group_allow_export'),
                 ]),
             ]"/>
         </record>
@@ -201,6 +213,7 @@
                     ref('sales_team.group_sale_manager'),
                     ref('stock.group_stock_user'),
                     ref('elegomotors_setup.group_sale_approver'),
+                    ref('base.group_allow_export'),
                 ]),
             ]"/>
         </record>
@@ -282,6 +295,7 @@
                     ref('quality.group_quality_user'),
                     ref('elegomotors_setup.group_qc_pass_operator'),
                     ref('elegomotors_setup.group_fg_transfer_operator'),
+                    ref('base.group_allow_export'),
                 ]),
             ]"/>
         </record>
@@ -311,6 +325,7 @@
                     ref('base.group_user'),
                     ref('sales_team.group_sale_salesman'),
                     ref('stock.group_stock_user'),
+                    ref('base.group_allow_export'),
                 ]),
             ]"/>
         </record>
