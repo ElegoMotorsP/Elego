@@ -33,11 +33,16 @@
         <field name="inherit_id" ref="stock.vpicktree"/>
         <field name="arch" type="xml">
             <field name="state" position="before">
-                <field name="picking_type_code" column_invisible="1"/>
+                <!-- No column_invisible condition here: picking_type_code is not
+                     reliably preloaded in every list-rendering context (Inventory
+                     Overview dashboard entry points), which crashed the whole list
+                     with "Name 'picking_type_code' is not defined". The underlying
+                     value is already blank for non-outgoing pickings (see
+                     stock_picking.py _compute_picked_serial_nos), so the column is
+                     just empty there instead of hidden — safe either way. -->
                 <field name="x_picked_serial_nos"
                        string="Serial No(s)"
-                       optional="show"
-                       column_invisible="picking_type_code != 'outgoing'"/>
+                       optional="show"/>
             </field>
         </field>
     </record>

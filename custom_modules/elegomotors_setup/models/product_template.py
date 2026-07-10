@@ -22,6 +22,15 @@ class ProductTemplate(models.Model):
              'Each row becomes a line Pratik must fill during QC inward inspection.',
     )
 
+    x_kit_price_default = fields.Float(
+        string='Default Kit Price',
+        digits='Product Price',
+        help='Default per-unit price used to pre-fill the Kit Price field in the '
+             'Load BOM Components wizard (Kit mode) when this model is selected. '
+             'One value per model, shared across all its colours — always '
+             'manually overridable at PO time.',
+    )
+
     @api.model
     def _ensure_ego_s1_variant_attributes(self):
         """Idempotent setup of EGO-S1 variant attributes — safe on every upgrade.

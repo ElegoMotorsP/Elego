@@ -1,0 +1,27 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+    <!--
+        Enable purchase_ok on Elego 1.1/1.2/2.0+/3.0 so their colour-variant
+        products (e.g. "Elego 1.1 (Red)") can be added directly as Purchase
+        Order lines by the Load BOM Components wizard's Kit mode.
+
+        Must load AFTER product_models_data.xml / product_elego_30_data.xml,
+        which define these templates with purchase_ok=False.
+
+        noupdate="0" — reruns on every upgrade to keep purchase_ok=True.
+    -->
+    <data noupdate="0">
+        <record id="elegomotors_setup.tmpl_elego_11" model="product.template">
+            <field name="purchase_ok" eval="True"/>
+        </record>
+        <record id="elegomotors_setup.tmpl_elego_12" model="product.template">
+            <field name="purchase_ok" eval="True"/>
+        </record>
+        <record id="elegomotors_setup.tmpl_elego_20p" model="product.template">
+            <field name="purchase_ok" eval="True"/>
+        </record>
+        <record id="elegomotors_setup.tmpl_elego_30" model="product.template">
+            <field name="purchase_ok" eval="True"/>
+        </record>
+    </data>
+</odoo>
