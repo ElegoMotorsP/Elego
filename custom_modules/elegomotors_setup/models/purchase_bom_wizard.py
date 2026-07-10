@@ -35,6 +35,15 @@ class ElegoMotorsPurchaseBomWizardColorLine(models.TransientModel):
     selected = fields.Boolean(default=False)
     bike_qty = fields.Integer('No. of Bikes', default=1)
 
+    @api.onchange('selected', 'bike_qty')
+    def _onchange_selected_or_qty(self):
+        # Cross-model onchange dependencies on a parent (e.g. declaring
+        # 'color_line_ids.selected' on the wizard) don't reliably refresh
+        # the component preview when a row is edited inline. Triggering the
+        # rebuild directly from the edited row itself is the reliable path.
+        if self.wizard_id:
+            self.wizard_id._onchange_populate_lines()
+
 
 class ElegoMotorsPurchaseBomWizard(models.TransientModel):
     _name = 'elegomotors.purchase.bom.wizard'
@@ -80,7 +89,7 @@ class ElegoMotorsPurchaseBomWizard(models.TransientModel):
         tmpl = self.env.ref(tmpl_ref, raise_if_not_found=False) if tmpl_ref else False
         self.kit_price = tmpl.x_kit_price_default if tmpl else 0.0
 
-    @api.onchange('model_selection', 'color_line_ids.selected', 'color_line_ids.bike_qty')
+    @api.onchange('model_selection')
     def _onchange_populate_lines(self):
         # Component preview is shown for BOTH Components and Kit mode — a kit
         # IS its components, so Kit mode should list them too (informational;
