@@ -605,7 +605,7 @@ for rec in records.filtered(lambda m: m.move_type == 'out_invoice'):
             "Invoice <b>%s</b> for <b>%s</b> — Amount: <b>%s %s</b><br/>"
             "<b>Finance (Rajshri):</b> Invoice is posted. Track payment and follow up if overdue.<br/>"
             "<b>Store (Amit):</b> Invoice is posted — coordinate with Finance for delivery-related entries.<br/>"
-            "<b>Sales (Tushar):</b> Invoice has been raised. "
+            "<b>Sales (Priyanka):</b> Invoice has been raised. "
             "The sales cycle for this order is complete.<br/>"
             "<b>Admin (Manohar):</b> Customer invoice posted for your records."
         ) % (
