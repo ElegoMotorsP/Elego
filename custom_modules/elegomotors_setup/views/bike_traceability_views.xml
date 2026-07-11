@@ -13,7 +13,7 @@
         Accessible via: Inventory > Bike Traceability — placed under the
         Inventory app root (stock.menu_stock_root, gated on
         stock.group_stock_manager/stock.group_stock_user) rather than
-        Manufacturing, since Amit (Store), Rajshri (Accounts), and Tushar
+        Manufacturing, since Amit (Store), Rajshri (Accounts), and Priyanka
         (Sales) all hold a stock group but not mrp.group_mrp_user, and
         need this report — every ElegoMotors user with Inventory access
         can now reach it, matching "all authorized users."

@@ -6,7 +6,7 @@ _USER_PASSWORDS = {
     "elegomotors_setup.user_ego_rajshri": "rajshri@123",
     "elegomotors_setup.user_ego_srushti": "srusti@123",
     "elegomotors_setup.user_ego_pratik": "pratik@123",
-    "elegomotors_setup.user_ego_tushar": "tushar@123",
+    "elegomotors_setup.user_ego_tushar": "priyanka@123",
 }
 
 

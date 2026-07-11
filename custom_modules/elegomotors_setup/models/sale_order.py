@@ -62,7 +62,7 @@ class SaleOrder(models.Model):
         ):
             raise AccessError(
                 'Sales viewers cannot create new Sales Orders or Quotations. '
-                'Ask Tushar (Sales) or Manohar (Admin) to raise the order.'
+                'Ask Priyanka (Sales) or Manohar (Admin) to raise the order.'
             )
         # group_sale_approver holders (Rajshri) can APPROVE SOs but not create them.
         # Rajshri retains sales_team.group_sale_manager for the approval button but
@@ -73,7 +73,7 @@ class SaleOrder(models.Model):
         ):
             raise AccessError(
                 'Sales approvers cannot create new Sales Orders or Quotations. '
-                'Ask Tushar (Sales) or Manohar (Admin) to raise the order.'
+                'Ask Priyanka (Sales) or Manohar (Admin) to raise the order.'
             )
         return super().create(vals_list)
 
