@@ -14,7 +14,7 @@ From `custom_modules/elegomotors_setup/data/`: user rules, order access, order f
 | **Rajshri Kadam** | Accounts | elegoac@gmail.com | Accounting User, Purchase User, **Sales Manager**, MRP User, Stock User | View PO, SO, MO, stock; full accounting (payments, JV, bills, reports). **Approves SOs** (2-step). **Exclusive payment access**. |
 | **Srushti Gund** | HR | hrelegomotors@gmail.com | HR Manager, Attendance Manager, Time Off Responsible | HR only (employees, attendance, leave). No order access. |
 | **Pratik Gund** | Quality / Warranty | quality.elego23@gmail.com | MRP User, MRP Routings, Stock Manager | MO (QC, work orders, scrap); stock (QC inward, quarantine, warranty). View SO for warranty. |
-| **Tushar Gaikwad** | Sales / CRM | leads@elegomotors.com | Sale Salesman, Stock User | Own quotations/SO only; read FG stock. No approval. |
+| **Priyanka Kul** | Sales / CRM | leads@elegomotors.com | Sale Salesman, Stock User | Own quotations/SO only; read FG stock. No approval. |
 
 ---
 
@@ -32,11 +32,11 @@ From `custom_modules/elegomotors_setup/data/`: user rules, order access, order f
 
 | Document | Who can create/edit | Who can view | Who is notified (subscribed / @mentioned) |
 |----------|---------------------|--------------|------------------------------------------|
-| **Sale Order (SO)** | Tushar (own); Manohar, Rajshri (approve) | Tushar (own), Amit, Rajshri, Manohar | Created: Tushar, Amit, Rajshri, Manohar (subscribed). To approve: Rajshri, Manohar, Tushar. Confirmed (approved): Tushar, Amit. Invoice posted: Rajshri, Amit, Tushar. |
+| **Sale Order (SO)** | Priyanka (own); Manohar, Rajshri (approve) | Priyanka (own), Amit, Rajshri, Manohar | Created: Priyanka, Amit, Rajshri, Manohar (subscribed). To approve: Rajshri, Manohar, Priyanka. Confirmed (approved): Priyanka, Amit. Invoice posted: Rajshri, Amit, Priyanka. |
 | **Purchase Order (PO)** | Prashant; Manohar (all + approve) | Prashant, Amit, Rajshri, Manohar | Created: Prashant. To approve: Prashant. Approved: Prashant, Amit. Bill posted: Rajshri, Prashant, Amit. |
-| **Manufacturing Order (MO)** | System / MRP; Manohar, Prashant (BOM); Pratik (QC) | Amit, Pratik, Rajshri, Manohar | Created: Pratik, Amit. Confirmed: Pratik, Amit. Done: Amit, Pratik, Tushar. |
+| **Manufacturing Order (MO)** | System / MRP; Manohar, Prashant (BOM); Pratik (QC) | Amit, Pratik, Rajshri, Manohar | Created: Pratik, Amit. Confirmed: Pratik, Amit. Done: Amit, Pratik, Priyanka. |
 | **Stock Picking** | Amit (primary); Pratik (QC/scrap) | Amit, Pratik, others per stock group | Created: Amit. Gate Entry done: Amit, Prashant. |
-| **Customer Invoice** | Rajshri (accounting); **Amit (billing)** | Rajshri, Amit, Tushar, Manohar | Created: Rajshri, Amit, Tushar (subscribed). Posted: Rajshri, Amit, Tushar. |
+| **Customer Invoice** | Rajshri (accounting); **Amit (billing)** | Rajshri, Amit, Priyanka, Manohar | Created: Rajshri, Amit, Priyanka (subscribed). Posted: Rajshri, Amit, Priyanka. |
 | **Vendor Bill** | Rajshri; **Amit (billing)** | Rajshri, Amit, Prashant, Manohar | Created: Rajshri, Amit, Prashant (subscribed). Posted: Rajshri, Amit, Prashant. |
 | **Payments** | **Rajshri only** (Accounting User) | Rajshri, Manohar | Rajshri books and pays; no other user has payment creation rights. |
 
@@ -48,7 +48,7 @@ From `custom_modules/elegomotors_setup/data/`: user rules, order access, order f
 
 Inquiry → Quotation Sent → Negotiation → **Sales Order (To Approve)** → **SO Approved** → Won (or Lost).
 
-- **Tushar**: leads, quotations, SO submission for approval; checks FG availability (read-only stock).
+- **Priyanka**: leads, quotations, SO submission for approval; checks FG availability (read-only stock).
 - **Rajshri / Manohar**: approve the SO (2-step SO approval — both hold `group_sale_manager`).
 - **Manohar**: full pipeline and SO oversight (Sales Manager + Admin).
 
@@ -64,7 +64,7 @@ Inquiry → Quotation Sent → Negotiation → **Sales Order (To Approve)** → 
 
 1. SO approved → Amit checks FG; if not available, MO is raised (manufacture-to-resupply).
 2. **MO confirmed** → Pratik (QC prep); Amit issues materials (Issue to Production).
-3. **MO done** → Pratik (production QC); Amit moves FG to Finished Goods (after QC); Tushar (delivery prep).
+3. **MO done** → Pratik (production QC); Amit moves FG to Finished Goods (after QC); Priyanka (delivery prep).
 4. Delivery (PDI + Dispatch): FG → Customer; Amit/Store executes.
 5. Customer invoice → **Amit creates/edits**; **Rajshri posts**; Finance + Store + Sales notified.
 
@@ -86,7 +86,7 @@ Inquiry → Quotation Sent → Negotiation → **Sales Order (To Approve)** → 
 
 | Approval | Approver | Rule / config |
 |----------|----------|----------------|
-| **Sales Order (2-step)** | **Rajshri Kadam** or **Manohar Kalbhor** | Both hold `group_sale_manager`. Company: `sale_order_approval = True`, `sale_order_approval_min_amount = 0.0` (all SOs). Tushar (salesman) submits; SO goes to 'to approve'; approver confirms. |
+| **Sales Order (2-step)** | **Rajshri Kadam** or **Manohar Kalbhor** | Both hold `group_sale_manager`. Company: `sale_order_approval = True`, `sale_order_approval_min_amount = 0.0` (all SOs). Priyanka (salesman) submits; SO goes to 'to approve'; approver confirms. |
 | **Purchase Order (2-step)** | **Manohar Kalbhor** | Only user with `group_purchase_manager`. Company: `po_double_validation = two_step`, `po_lock = lock`. |
 | Manufacturing Order | No separate approval | Confirmed per MRP rules; QC by Pratik. |
 | Stock / transfers | No separate approval | Validated by Amit (Stock Manager) or Pratik where applicable. |
@@ -99,18 +99,18 @@ Inquiry → Quotation Sent → Negotiation → **Sales Order (To Approve)** → 
 
 | Event | Notified (@mention + chatter) |
 |-------|------------------------------|
-| SO created | Tushar, Amit, Rajshri, Manohar (subscribed) |
-| **SO to approve** | **Rajshri, Manohar** (approvers), Tushar (submitter — for awareness) |
-| SO confirmed (approved) | Tushar, Amit |
+| SO created | Priyanka, Amit, Rajshri, Manohar (subscribed) |
+| **SO to approve** | **Rajshri, Manohar** (approvers), Priyanka (submitter — for awareness) |
+| SO confirmed (approved) | Priyanka, Amit |
 | PO created | Prashant (subscribed) |
 | PO to approve | Prashant |
 | PO approved | Prashant, Amit |
 | MO created | Pratik, Amit (subscribed) |
 | MO confirmed | Pratik, Amit |
-| MO done | Amit, Pratik, Tushar |
+| MO done | Amit, Pratik, Priyanka |
 | Gate Entry validated | Amit, Prashant |
-| Customer invoice created | Rajshri, Amit, Tushar (subscribed) |
-| Customer invoice posted | Rajshri, Amit, Tushar |
+| Customer invoice created | Rajshri, Amit, Priyanka (subscribed) |
+| Customer invoice posted | Rajshri, Amit, Priyanka |
 | Vendor bill created | Rajshri, Amit, Prashant (subscribed) |
 | Vendor bill posted | Rajshri, Amit, Prashant |
 | Stock picking created | Amit (subscribed) |
@@ -127,4 +127,4 @@ Inquiry → Quotation Sent → Negotiation → **Sales Order (To Approve)** → 
 | Rajshri Kadam | Accounts | All view; accounting full; **exclusive payments** | **SO (2-step)** |
 | Srushti Gund | HR | HR only | Leave / time off |
 | Pratik Gund | Quality | MO QC, work orders, scrap; QC/Quarantine stock | — |
-| Tushar Gaikwad | Sales/CRM | Own SO (submit for approval); FG stock read | — |
+| Priyanka Kul | Sales/CRM | Own SO (submit for approval); FG stock read | — |

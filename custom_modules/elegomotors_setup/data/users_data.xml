@@ -28,7 +28,7 @@
         Accounts    | Rajshri Kadam   | elegoac@gmail.com                | rajshri@123
         HR          | Srushti Gund    | hrelegomotors@gmail.com          | srusti@123
         Quality/WTY | Pratik Gund     | quality.elego23@gmail.com        | pratik@123
-        Sales/CRM   | Tushar Gaikwad  | leads@elegomotors.com            | tushar@123
+        Sales/CRM   | Priyanka Kul    | leads@elegomotors.com            | priyanka@123
     -->
     <data noupdate="0">
 
@@ -301,7 +301,7 @@
         </record>
 
         <!-- ============================================================
-             7. SALES & MARKETING / CRM — Tushar Gaikwad
+             7. SALES & MARKETING / CRM — Priyanka Kul
              Responsibilities: Sales Order creation, Quotation creation
                                and confirmation, CRM pipeline management,
                                FG stock availability check before committing.
@@ -313,11 +313,11 @@
                                      availability check before quoting
              ============================================================ -->
         <record id="user_ego_tushar" model="res.users">
-            <field name="name">Tushar Gaikwad</field>
+            <field name="name">Priyanka Kul</field>
             <field name="login">leads@elegomotors.com</field>
             <field name="email">leads@elegomotors.com</field>
             <field name="phone">8265091207</field>
-            <field name="password">tushar@123</field>
+            <field name="password">priyanka@123</field>
             <field name="notification_type">inbox</field>
             <field name="company_id" ref="base.main_company"/>
             <field name="groups_id" eval="[

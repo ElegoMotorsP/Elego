@@ -3,7 +3,7 @@
     <!--
         ElegoMotors Sales Order — Approval Workflow
 
-        When Tushar confirms a Quotation, the SO is held in Draft with
+        When Priyanka confirms a Quotation, the SO is held in Draft with
         pending_approval = True.  Either designated approver can click
         their approval button to confirm the SO:
 
@@ -12,7 +12,7 @@
           • Reject Order       — visible to either approver
 
         Once any one approval is recorded the SO moves to state='sale' and
-        the existing auto_so_confirmed automation notifies Tushar + Amit.
+        the existing auto_so_confirmed automation notifies Priyanka + Amit.
     -->
 
     <!-- Note: "Create Invoice" restriction is enforced in sale_order.py
