@@ -158,6 +158,11 @@
              number, so safe to re-run on every upgrade. -->
         <function model="sale.order" name="_backfill_sale_order_numbers"/>
 
+        <!-- Backfill: quotations marked 'Quotation Accepted' before acceptance
+             started arming the approval gate get pending_approval set, so the
+             Approve buttons appear for Rajshri/Manohar. Idempotent. -->
+        <function model="sale.order" name="_backfill_accepted_pending_approval"/>
+
         <!-- 2-step manufacturing: when Prashant confirms an MO, Odoo auto-creates a
              Picking Slip (Raw Material) linked to the MO via production.picking_ids.
              The picking uses our existing "Issue to Production" operation type (PI),

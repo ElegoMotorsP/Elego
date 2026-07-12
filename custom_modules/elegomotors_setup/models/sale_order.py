@@ -46,6 +46,21 @@ class SaleOrder(models.Model):
         return result
 
     @api.model
+    def _backfill_accepted_pending_approval(self):
+        """One-time (idempotent) fix for quotations marked 'accepted' before
+        acceptance started arming the approval gate — without this they would
+        be stuck with no visible action button. Called from
+        company_config_data.xml on every upgrade.
+        """
+        orders = self.search([
+            ('state', '=', 'accepted'),
+            ('pending_approval', '=', False),
+            ('approval_accounts', '=', False),
+            ('approval_manohar', '=', False),
+        ])
+        orders.write({'pending_approval': True})
+
+    @api.model
     def _backfill_sale_order_numbers(self):
         """One-time (idempotent) fix for orders confirmed before this field
         existed. Called from company_config_data.xml on every upgrade.
@@ -87,19 +102,36 @@ class SaleOrder(models.Model):
 
     def action_mark_accepted(self):
         """Salesperson records that the customer accepted the quotation.
-        Distinct stage before Confirm so the acceptance moment is on record."""
+        This immediately sends the order for SO confirmation: it stays in
+        'Quotation Accepted' with pending_approval = True, and the Approve
+        click by Rajshri (Accounts) or Manohar (MD) is what confirms it
+        into a Sales Order (see _on_approval_recorded)."""
         for order in self:
-            if order.state not in ('draft', 'sent'):
+            if order.state != 'sent':
                 raise UserError(
-                    'Only draft or sent quotations can be marked as accepted.'
+                    'Send the quotation to the customer first — only sent '
+                    'quotations can be marked as accepted.'
                 )
             order.state = 'accepted'
+            order.pending_approval = True
+            order.rejection_reason = False
+            rajshri = self.env.ref(
+                'elegomotors_setup.user_ego_rajshri', raise_if_not_found=False
+            )
+            manohar = self.env.ref(
+                'elegomotors_setup.user_ego_manohar', raise_if_not_found=False
+            )
+            partner_ids = [
+                u.partner_id.id for u in [rajshri, manohar] if u and u.partner_id
+            ]
             order.message_post(
                 body=Markup(
                     f"Quotation accepted by customer — recorded by "
-                    f"<b>{self.env.user.name}</b>. Click <b>Confirm</b> to "
-                    f"convert it into a Sales Order."
+                    f"<b>{self.env.user.name}</b>. Awaiting SO confirmation: "
+                    f"please click <b>Approve (Accounts)</b> or <b>Approve (MD)</b> — "
+                    f"either approval confirms the order."
                 ),
+                partner_ids=partner_ids,
                 message_type='comment',
                 subtype_xmlid='mail.mt_comment',
             )
@@ -126,11 +158,12 @@ class SaleOrder(models.Model):
                 order.type_name = 'Quotation'
 
     def action_confirm(self):
-        # Confirmation is no longer gated: the quotation converts to a Sales
-        # Order immediately, and approval (Rajshri/Manohar) happens on the
-        # confirmed SO. Until approved, delivery validation and invoicing
-        # are blocked (see stock_picking.button_validate and
-        # _create_invoices below).
+        # Normal UI flow never reaches this directly: the Confirm buttons are
+        # hidden and approval (via _on_approval_recorded) confirms the order
+        # through the base method. This override covers the remaining direct
+        # paths — customer portal signature, tests, API — where the order
+        # confirms first; the approval gate is then armed on the confirmed SO
+        # (delivery validation and invoicing stay blocked until approved).
         result = super().action_confirm()
         for order in self:
             if order.state != 'sale':
@@ -206,9 +239,10 @@ class SaleOrder(models.Model):
             return
         self.pending_approval = False
         if self.state != 'sale':
-            # Legacy in-flight orders: held in draft by the old
-            # pre-confirmation gate — confirm them now. Calls the base
-            # action_confirm directly so our override doesn't re-arm the gate.
+            # Normal path: order is in 'Quotation Accepted' (or a legacy
+            # pre-confirmation draft) — the approval IS the SO confirmation.
+            # Calls the base action_confirm directly so our override doesn't
+            # re-arm the approval gate.
             super(SaleOrder, self).action_confirm()
         else:
             self.message_post(
