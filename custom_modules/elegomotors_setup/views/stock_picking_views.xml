@@ -79,15 +79,18 @@
         <field name="inherit_id" ref="stock.view_picking_form"/>
         <field name="arch" type="xml">
             <!-- Source PO dropdown: only active POs of the selected vendor.
-                 state='purchase' excludes draft/sent/cancelled/locked orders and
-                 x_receipt_complete excludes POs already fully received. Selecting
-                 a PO auto-fills the operation lines with the remaining quantities
+                 The company auto-locks confirmed POs (po_lock='lock'), so a normal
+                 approved PO sits in state 'done' (Locked) — both 'purchase' and
+                 'done' therefore count as active; draft/sent/to-approve/cancelled
+                 are excluded, and x_receipt_complete drops POs already fully
+                 received ("closed" for receiving). Selecting a PO auto-fills the
+                 operation lines with the remaining quantities
                  (see _onchange_x_source_po_id in stock_picking.py). -->
             <xpath expr="//field[@name='origin']" position="before">
                 <field name="x_source_po_id"
                        invisible="picking_type_code != 'incoming'"
                        readonly="state != 'draft'"
-                       domain="[('state', '=', 'purchase'), ('x_receipt_complete', '=', False), ('partner_id', '=?', partner_id)]"
+                       domain="[('state', 'in', ('purchase', 'done')), ('x_receipt_complete', '=', False), ('partner_id', '=?', partner_id)]"
                        options="{'no_create': True}"/>
             </xpath>
             <xpath expr="//field[@name='origin']" position="after">
