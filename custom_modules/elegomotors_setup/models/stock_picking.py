@@ -1,6 +1,6 @@
 # -*- coding: utf-8 -*-
 from markupsafe import Markup
-from odoo import api, fields, models
+from odoo import Command, api, fields, models
 from odoo.exceptions import AccessError, UserError
 
 
@@ -18,6 +18,53 @@ class StockPicking(models.Model):
         copy=False,
         help='Date on the supplier invoice captured during receipt.',
     )
+
+    # --- Gate Entry: pick an active PO for the selected vendor and auto-fill lines ---
+    x_source_po_id = fields.Many2one(
+        'purchase.order',
+        string='Purchase Order',
+        copy=False,
+        help='Select an open Purchase Order of the vendor above — the operation '
+             'lines are filled automatically with the remaining (not yet received) '
+             'quantities of that PO. Fully received or closed POs are not listed.',
+    )
+
+    @api.onchange('partner_id')
+    def _onchange_partner_clear_source_po(self):
+        # Vendor changed — a PO of the old vendor no longer applies
+        if self.x_source_po_id and self.x_source_po_id.partner_id != self.partner_id:
+            self.x_source_po_id = False
+
+    @api.onchange('x_source_po_id')
+    def _onchange_x_source_po_id(self):
+        po = self.x_source_po_id
+        if not po:
+            return
+        if not self.partner_id:
+            self.partner_id = po.partner_id
+        self.origin = po.name
+        moves = [Command.clear()]
+        for line in po.order_line:
+            if line.display_type or line.product_id.type == 'service':
+                continue
+            qty_remaining = line.product_qty - line.qty_received
+            if qty_remaining <= 0:
+                continue
+            # purchase_line_id links the move back to the PO so qty_received
+            # updates on validation and picking.purchase_id resolves for the
+            # auto vendor-bill logic in button_validate (Issue 4).
+            moves.append(Command.create({
+                'name': line.product_id.display_name,
+                'product_id': line.product_id.id,
+                'product_uom': line.product_uom.id,
+                'product_uom_qty': qty_remaining,
+                'purchase_line_id': line.id,
+                'location_id': self.location_id.id,
+                'location_dest_id': self.location_dest_id.id,
+                'picking_type_id': self.picking_type_id.id,
+                'company_id': self.company_id.id,
+            }))
+        self.move_ids_without_package = moves
 
     # --- Issue 5/6: Gate Entry QC workflow state ---
     x_gate_entry_state = fields.Selection([

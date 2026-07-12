@@ -78,6 +78,18 @@
         <field name="model">stock.picking</field>
         <field name="inherit_id" ref="stock.view_picking_form"/>
         <field name="arch" type="xml">
+            <!-- Source PO dropdown: only active POs of the selected vendor.
+                 state='purchase' excludes draft/sent/cancelled/locked orders and
+                 x_receipt_complete excludes POs already fully received. Selecting
+                 a PO auto-fills the operation lines with the remaining quantities
+                 (see _onchange_x_source_po_id in stock_picking.py). -->
+            <xpath expr="//field[@name='origin']" position="before">
+                <field name="x_source_po_id"
+                       invisible="picking_type_code != 'incoming'"
+                       readonly="state != 'draft'"
+                       domain="[('state', '=', 'purchase'), ('x_receipt_complete', '=', False), ('partner_id', '=?', partner_id)]"
+                       options="{'no_create': True}"/>
+            </xpath>
             <xpath expr="//field[@name='origin']" position="after">
                 <field name="x_vendor_invoice_number"
                        invisible="picking_type_code != 'incoming'"
