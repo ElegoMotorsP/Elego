@@ -1,18 +1,23 @@
 <?xml version="1.0" encoding="utf-8"?>
 <odoo>
     <!--
-        ElegoMotors Sales Order — Approval Workflow
+        ElegoMotors Sales Order — Approval Workflow (post-confirmation)
 
-        When Priyanka confirms a Quotation, the SO is held in Draft with
-        pending_approval = True.  Either designated approver can click
-        their approval button to confirm the SO:
+        Quotation → Quotation Sent → Quotation Accepted → Sales Order
+
+        1. Salesperson sends the quotation to the customer (state 'sent').
+        2. When the customer accepts, salesperson clicks "Quotation Accepted"
+           (custom state 'accepted').
+        3. Salesperson clicks Confirm — the quotation converts to a Sales
+           Order immediately (state 'sale') with pending_approval = True.
+        4. The confirmed SO then needs approval; until recorded, delivery
+           validation and invoicing are blocked (sale_order.py /
+           stock_picking.py):
 
           • Approve (Accounts) — visible only to group_sale_approver (Rajshri)
           • Approve (MD)       — visible only to base.group_erp_manager (Manohar)
-          • Reject Order       — visible to either approver
-
-        Once any one approval is recorded the SO moves to state='sale' and
-        the existing auto_so_confirmed automation notifies Priyanka + Amit.
+          • Reject Order       — either approver; cancels deliveries and
+                                 returns the order to Draft (mandatory reason)
     -->
 
     <!-- Note: "Create Invoice" restriction is enforced in sale_order.py
@@ -36,8 +41,29 @@
                 <field name="sale_order_number" invisible="not sale_order_number" readonly="1"/>
             </field>
 
+            <!-- Show the custom 'Quotation Accepted' stage in the status bar -->
+            <field name="state" position="attributes">
+                <attribute name="statusbar_visible">draft,sent,accepted,sale</attribute>
+            </field>
+
             <!-- Approval action buttons in the form header -->
             <xpath expr="//header/button[@name='action_confirm']" position="after">
+
+                <!-- Salesperson records the customer's acceptance of the quotation -->
+                <button name="action_mark_accepted"
+                        string="Quotation Accepted"
+                        type="object"
+                        class="btn-primary"
+                        groups="sales_team.group_sale_salesman"
+                        invisible="state not in ('draft', 'sent')"/>
+
+                <!-- Base Confirm buttons only show for draft/sent — this one
+                     covers the custom 'accepted' state -->
+                <button name="action_confirm"
+                        string="Confirm"
+                        type="object"
+                        class="btn-primary"
+                        invisible="state != 'accepted'"/>
 
                 <!-- Accounts approval — only Rajshri (group_sale_approver) -->
                 <button name="action_approve_accounts"
@@ -74,7 +100,7 @@
                         class="btn-secondary"
                         confirm="Reset this order to Draft so it can be edited? It will need approval again before it's re-confirmed."
                         groups="sales_team.group_sale_salesman,elegomotors_setup.group_sale_approver,base.group_erp_manager"
-                        invisible="state != 'sale'"/>
+                        invisible="state != 'sale' or pending_approval"/>
 
             </xpath>
 
@@ -84,6 +110,7 @@
                      invisible="not pending_approval"
                      role="alert">
                     <strong>Awaiting Approval</strong> — this Sales Order needs approval from either Accounts (Rajshri) or MD (Manohar).
+                    Delivery validation and invoicing are blocked until an approval is recorded.
                     <ul class="mb-0 mt-1">
                         <li>
                             Accounts (Rajshri):

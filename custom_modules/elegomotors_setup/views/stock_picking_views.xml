@@ -93,6 +93,13 @@
                        domain="[('state', 'in', ('purchase', 'done')), ('x_receipt_complete', '=', False), ('partner_id', '=?', partner_id)]"
                        options="{'no_create': True}"/>
             </xpath>
+            <!-- Hide Source Document on incoming receipts: the Purchase Order
+                 dropdown above replaces it there (and still fills origin in the
+                 background for traceability). Other transfer types keep it —
+                 deliveries show the SO reference through it. -->
+            <xpath expr="//field[@name='origin']" position="attributes">
+                <attribute name="invisible">picking_type_code == 'incoming'</attribute>
+            </xpath>
             <xpath expr="//field[@name='origin']" position="after">
                 <field name="x_vendor_invoice_number"
                        invisible="picking_type_code != 'incoming'"

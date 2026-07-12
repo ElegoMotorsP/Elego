@@ -1,11 +1,19 @@
 # -*- coding: utf-8 -*-
 from markupsafe import Markup
 from odoo import api, fields, models
-from odoo.exceptions import AccessError
+from odoo.exceptions import AccessError, UserError
 
 
 class SaleOrder(models.Model):
     _inherit = 'sale.order'
+
+    # Extra quotation stage between "Quotation Sent" and "Sales Order":
+    # the salesperson records the customer's acceptance explicitly, then
+    # clicks Confirm to convert the quotation into a Sales Order.
+    state = fields.Selection(
+        selection_add=[('accepted', 'Quotation Accepted'), ('sale',)],
+        ondelete={'accepted': 'set default'},
+    )
 
     pending_approval = fields.Boolean(
         string="Pending Approval", default=False, copy=False
@@ -77,40 +85,86 @@ class SaleOrder(models.Model):
             )
         return super().create(vals_list)
 
-    def action_confirm(self):
+    def action_mark_accepted(self):
+        """Salesperson records that the customer accepted the quotation.
+        Distinct stage before Confirm so the acceptance moment is on record."""
         for order in self:
-            # Already pending — do not re-trigger; approvers need to act
-            if order.pending_approval:
-                return False
-            # No approval yet — hold in draft and notify
-            if not (order.approval_accounts or order.approval_manohar):
-                order.pending_approval = True
-                # Clear any stale rejection banner now that the order is being
-                # resubmitted for approval.
-                order.rejection_reason = False
-                # Mention approvers in chatter so they receive an inbox notification
-                rajshri = self.env.ref(
-                    'elegomotors_setup.user_ego_rajshri', raise_if_not_found=False
+            if order.state not in ('draft', 'sent'):
+                raise UserError(
+                    'Only draft or sent quotations can be marked as accepted.'
                 )
-                manohar = self.env.ref(
-                    'elegomotors_setup.user_ego_manohar', raise_if_not_found=False
-                )
-                partner_ids = []
-                if rajshri:
-                    partner_ids.append(rajshri.partner_id.id)
-                if manohar:
-                    partner_ids.append(manohar.partner_id.id)
-                order.message_post(
-                    body=Markup(
-                        "This Sales Order is awaiting approval before it can be confirmed. "
-                        "Please review and click <b>Approve (Accounts)</b> or <b>Approve (MD)</b> — either approval is sufficient."
-                    ),
-                    partner_ids=partner_ids,
-                    message_type='comment',
-                    subtype_xmlid='mail.mt_comment',
-                )
-                return False
-        return super().action_confirm()
+            order.state = 'accepted'
+            order.message_post(
+                body=Markup(
+                    f"Quotation accepted by customer — recorded by "
+                    f"<b>{self.env.user.name}</b>. Click <b>Confirm</b> to "
+                    f"convert it into a Sales Order."
+                ),
+                message_type='comment',
+                subtype_xmlid='mail.mt_comment',
+            )
+
+    def _confirmation_error_message(self):
+        self.ensure_one()
+        if self.state == 'accepted':
+            # Base method only allows draft/sent; 'accepted' is our extra
+            # pre-confirmation stage — mirror the base order-line validation.
+            if any(
+                not line.display_type
+                and not line.is_downpayment
+                and not line.product_id
+                for line in self.order_line
+            ):
+                return "A line on these orders missing a product, you cannot confirm it."
+            return False
+        return super()._confirmation_error_message()
+
+    def _compute_type_name(self):
+        super()._compute_type_name()
+        for order in self:
+            if order.state == 'accepted':
+                order.type_name = 'Quotation'
+
+    def action_confirm(self):
+        # Confirmation is no longer gated: the quotation converts to a Sales
+        # Order immediately, and approval (Rajshri/Manohar) happens on the
+        # confirmed SO. Until approved, delivery validation and invoicing
+        # are blocked (see stock_picking.button_validate and
+        # _create_invoices below).
+        result = super().action_confirm()
+        for order in self:
+            if order.state != 'sale':
+                continue
+            if order.approval_accounts or order.approval_manohar:
+                continue  # already approved earlier (e.g. re-confirm) — no gate
+            order.pending_approval = True
+            # Clear any stale rejection banner now that the order is being
+            # resubmitted for approval.
+            order.rejection_reason = False
+            # Mention approvers in chatter so they receive an inbox notification
+            rajshri = self.env.ref(
+                'elegomotors_setup.user_ego_rajshri', raise_if_not_found=False
+            )
+            manohar = self.env.ref(
+                'elegomotors_setup.user_ego_manohar', raise_if_not_found=False
+            )
+            partner_ids = []
+            if rajshri:
+                partner_ids.append(rajshri.partner_id.id)
+            if manohar:
+                partner_ids.append(manohar.partner_id.id)
+            order.message_post(
+                body=Markup(
+                    "This Sales Order has been confirmed and is awaiting approval. "
+                    "Please review and click <b>Approve (Accounts)</b> or <b>Approve (MD)</b> — "
+                    "either approval is sufficient. Delivery validation and invoicing "
+                    "are blocked until then."
+                ),
+                partner_ids=partner_ids,
+                message_type='comment',
+                subtype_xmlid='mail.mt_comment',
+            )
+        return result
 
     def action_approve_accounts(self):
         self.ensure_one()
@@ -127,7 +181,7 @@ class SaleOrder(models.Model):
             message_type='comment',
             subtype_xmlid='mail.mt_comment',
         )
-        self._try_confirm_if_approved()
+        self._on_approval_recorded()
 
     def action_approve_manohar(self):
         self.ensure_one()
@@ -144,13 +198,27 @@ class SaleOrder(models.Model):
             message_type='comment',
             subtype_xmlid='mail.mt_comment',
         )
-        self._try_confirm_if_approved()
+        self._on_approval_recorded()
 
-    def _try_confirm_if_approved(self):
+    def _on_approval_recorded(self):
         self.ensure_one()
-        if self.approval_accounts or self.approval_manohar:
-            self.pending_approval = False
+        if not (self.approval_accounts or self.approval_manohar):
+            return
+        self.pending_approval = False
+        if self.state != 'sale':
+            # Legacy in-flight orders: held in draft by the old
+            # pre-confirmation gate — confirm them now. Calls the base
+            # action_confirm directly so our override doesn't re-arm the gate.
             super(SaleOrder, self).action_confirm()
+        else:
+            self.message_post(
+                body=Markup(
+                    f"Approval complete — recorded by <b>{self.env.user.name}</b>. "
+                    f"Delivery validation and invoicing are now unblocked."
+                ),
+                message_type='comment',
+                subtype_xmlid='mail.mt_comment',
+            )
 
     def action_create_invoice(self):
         """Block invoice creation from salespeople.
@@ -168,6 +236,21 @@ class SaleOrder(models.Model):
                 'invoices from Sales Orders.'
             )
         return super().action_create_invoice()
+
+    def _create_invoices(self, grouped=False, final=False, date=None):
+        # Approval gate: no customer invoice until Rajshri or Manohar has
+        # approved the confirmed SO. Guarded here (rather than only on the
+        # button) because every invoicing path — advance payment wizard,
+        # Create Invoice button, batch invoicing — funnels through this method.
+        if not self.env.su:
+            pending = self.filtered('pending_approval')
+            if pending:
+                raise UserError(
+                    f"Sales Order(s) {', '.join(pending.mapped('name'))} are "
+                    f"awaiting approval from Rajshri (Accounts) or Manohar (MD). "
+                    f"Invoicing is blocked until the approval is recorded."
+                )
+        return super()._create_invoices(grouped=grouped, final=final, date=date)
 
     def _do_reject(self, reason):
         """Reject a pending Sales Order with a mandatory reason.

@@ -387,6 +387,19 @@ class StockPicking(models.Model):
                         f'Contact Manohar (Admin) if you need access.'
                     )
 
+            # --- SO approval gate: outgoing deliveries of a confirmed but not
+            #     yet approved Sales Order cannot be validated (shipped) ---
+            for picking in self:
+                if picking.picking_type_code == 'outgoing':
+                    sale = getattr(picking, 'sale_id', False)
+                    if sale and sale.pending_approval:
+                        raise UserError(
+                            f'{picking.name}: Sales Order {sale.name} is still '
+                            f'awaiting approval from Rajshri (Accounts) or '
+                            f'Manohar (MD). The delivery cannot be validated '
+                            f'until the SO is approved.'
+                        )
+
             # --- Issue 5/6 + QC-required products: smart QC routing ---
             for picking in self:
                 if picking.picking_type_code != 'incoming':
