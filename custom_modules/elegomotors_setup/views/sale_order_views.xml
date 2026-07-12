@@ -43,6 +43,15 @@
                 <field name="sale_order_number" invisible="not sale_order_number" readonly="1"/>
             </field>
 
+            <!-- Shared sales login: record which person is actually handling
+                 the order. Required while it's still a quotation (old
+                 confirmed orders without a value can still be edited), and
+                 enforced server-side before send / accept / confirm. -->
+            <xpath expr="//field[@name='partner_id']" position="after">
+                <field name="x_actual_salesperson"
+                       required="state in ('draft', 'sent', 'accepted')"/>
+            </xpath>
+
             <!-- Show the custom 'Quotation Accepted' stage in the status bar -->
             <field name="state" position="attributes">
                 <attribute name="statusbar_visible">draft,sent,accepted,sale</attribute>

@@ -15,6 +15,17 @@ class SaleOrder(models.Model):
         ondelete={'accepted': 'set default'},
     )
 
+    # One shared sales login is used by three people — this records which of
+    # them actually created / is handling the order. Mandatory before the
+    # quotation can be sent, accepted, or confirmed.
+    x_actual_salesperson = fields.Selection([
+        ('priyanka_kul', 'Priyanka Kul'),
+        ('priyanka_sutar', 'Priyanka Sutar'),
+        ('srushti_gund', 'Srushti Gund'),
+    ], string='Handled By', copy=False, tracking=True,
+       help='Which person on the shared sales account actually created / '
+            'is handling this order.')
+
     pending_approval = fields.Boolean(
         string="Pending Approval", default=False, copy=False
     )
@@ -100,12 +111,28 @@ class SaleOrder(models.Model):
             )
         return super().create(vals_list)
 
+    def _ensure_actual_salesperson(self):
+        """The quotation cannot move forward until it records which person
+        on the shared sales login is handling it."""
+        for order in self:
+            if not order.x_actual_salesperson:
+                raise UserError(
+                    'Please select who is handling this order in the '
+                    '"Handled By" field (Priyanka Kul / Priyanka Sutar / '
+                    'Srushti Gund) before proceeding.'
+                )
+
+    def action_quotation_send(self):
+        self._ensure_actual_salesperson()
+        return super().action_quotation_send()
+
     def action_mark_accepted(self):
         """Salesperson records that the customer accepted the quotation.
         This immediately sends the order for SO confirmation: it stays in
         'Quotation Accepted' with pending_approval = True, and the Approve
         click by Rajshri (Accounts) or Manohar (MD) is what confirms it
         into a Sales Order (see _on_approval_recorded)."""
+        self._ensure_actual_salesperson()
         for order in self:
             if order.state != 'sent':
                 raise UserError(
@@ -164,6 +191,8 @@ class SaleOrder(models.Model):
         # paths — customer portal signature, tests, API — where the order
         # confirms first; the approval gate is then armed on the confirmed SO
         # (delivery validation and invoicing stay blocked until approved).
+        if not self.env.su:
+            self._ensure_actual_salesperson()
         result = super().action_confirm()
         for order in self:
             if order.state != 'sale':
