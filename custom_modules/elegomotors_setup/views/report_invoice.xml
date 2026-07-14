@@ -400,11 +400,16 @@
                                 GST <t t-esc="'%g' % g['rate']"/>%
                             </td>
                             <td style="border:1px solid #000; padding:3px;"><t t-esc="'%.2f' % g['taxable']"/></td>
-                            <td style="border:1px solid #000; padding:3px; text-align:center;" t-if="has_cgst"><t t-esc="'%.2f%%' % g['cgst_rate']"/></td>
+                            <!-- NOTE: never use a doubled percent sign in QWeb t-esc
+                                 here — Odoo's XML data loader collapses it to a single
+                                 percent in view archs, producing "ValueError: incomplete
+                                 format" at render. Use str.format() for literal percent
+                                 signs instead. -->
+                            <td style="border:1px solid #000; padding:3px; text-align:center;" t-if="has_cgst"><t t-esc="'{:.2f}%'.format(g['cgst_rate'])"/></td>
                             <td style="border:1px solid #000; padding:3px;" t-if="has_cgst"><t t-esc="'%.2f' % g['cgst_amount']"/></td>
-                            <td style="border:1px solid #000; padding:3px; text-align:center;" t-if="has_cgst"><t t-esc="'%.2f%%' % g['sgst_rate']"/></td>
+                            <td style="border:1px solid #000; padding:3px; text-align:center;" t-if="has_cgst"><t t-esc="'{:.2f}%'.format(g['sgst_rate'])"/></td>
                             <td style="border:1px solid #000; padding:3px;" t-if="has_cgst"><t t-esc="'%.2f' % g['sgst_amount']"/></td>
-                            <td style="border:1px solid #000; padding:3px; text-align:center;" t-if="has_igst"><t t-esc="'%.2f%%' % g['igst_rate']"/></td>
+                            <td style="border:1px solid #000; padding:3px; text-align:center;" t-if="has_igst"><t t-esc="'{:.2f}%'.format(g['igst_rate'])"/></td>
                             <td style="border:1px solid #000; padding:3px;" t-if="has_igst"><t t-esc="'%.2f' % g['igst_amount']"/></td>
                             <td style="border:1px solid #000; padding:3px;"><t t-esc="'%.2f' % g['total_tax']"/></td>
                         </tr>
