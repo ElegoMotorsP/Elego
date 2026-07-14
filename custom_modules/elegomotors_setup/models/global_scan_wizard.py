@@ -394,7 +394,7 @@ class GlobalScanWizard(models.TransientModel):
         """TSPL2 for a 75 x 50 mm label at 203 dpi (TSC TTP-244 Pro).
 
         Layout per label: model + colour header, Code-128 serial barcode
-        with human-readable text, chassis number footer.
+        with human-readable text.
         """
         commands = []
         for lot in lots:
@@ -407,7 +407,6 @@ class GlobalScanWizard(models.TransientModel):
                 'CLS',
                 f'TEXT 40,24,"3",0,1,1,"{model_name} {color}"',
                 f'BARCODE 40,72,"128",120,1,0,2,2,"{lot.name}"',
-                f'TEXT 40,320,"2",0,1,1,"Chassis: {lot.x_chassis_serial or ""}"',
                 'PRINT 1,1',
             ]
         return '\r\n'.join(commands) + '\r\n'

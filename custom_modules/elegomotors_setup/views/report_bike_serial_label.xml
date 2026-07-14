@@ -34,9 +34,6 @@
                     <img t-att-src="'/report/barcode/?barcode_type=Code128&amp;value=%s&amp;width=550&amp;height=110&amp;humanreadable=0' % o.name"
                          style="width: 95%; height: 32px;"/>
                     <div style="font-size: 12px; font-weight: bold; letter-spacing: 1px;" t-esc="o.name"/>
-                    <div style="font-size: 8px; margin-top: 1px;" t-if="o.x_chassis_serial">
-                        Chassis: <span t-esc="o.x_chassis_serial"/>
-                    </div>
                 </div>
             </t>
         </t>

@@ -52,18 +52,14 @@ class DeliveryBikeScanWizard(models.TransientModel):
                 continue
             qty = max(1, int(move.product_uom_qty))
             for unit_idx in range(1, qty + 1):
+                # Intentionally NOT pre-filled with Odoo's auto-reserved
+                # serial: serials are assigned by scanning only — Amit must
+                # scan the physical bike being shipped, every time.
                 Line.create({
                     'wizard_id': self.id,
                     'move_id': move.id,
                     'unit_index': unit_idx,
-                    # Pre-fill with the serial Odoo auto-reserved, if any —
-                    # Amit can overwrite it with the bike actually picked.
-                    'scanned_serial': (
-                        move.move_line_ids[unit_idx - 1].lot_id.name
-                        if len(move.move_line_ids) >= unit_idx
-                        and move.move_line_ids[unit_idx - 1].lot_id
-                        else ''
-                    ),
+                    'scanned_serial': '',
                 })
 
     def _validate_serial(self, line, seen_lot_ids):
@@ -167,6 +163,11 @@ class DeliveryBikeScanWizard(models.TransientModel):
                     'location_id': quant.location_id.id if quant else move.location_id.id,
                     'location_dest_id': move.location_dest_id.id,
                 })
+
+        # Marks the delivery as scan-verified — button_validate refuses bike
+        # deliveries without this flag (serials must never come from Odoo's
+        # automatic reservation).
+        self.picking_id.x_bike_serials_scanned = True
 
         serial_names = ', '.join(
             lot.name for pairs in lots_by_move.values() for lot, _q in pairs

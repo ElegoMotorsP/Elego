@@ -358,10 +358,15 @@ class AccountMove(models.Model):
     def _format_ego_serial_block(self, lot, number=None):
         """Build the serial annotation block appended to the invoice line name.
 
-        Format: [N : ]Chassis No : X, Motor No : Y, Controller : Z[, Battery No : B][, Charger No : C]
+        Format: [N : ]Serial No. : S, Chassis No : X, Motor No : Y, Controller : Z[, Battery No : B][, Charger No : C]
         Second line: Variant: Color: Red  |  Battery: Lithium 60V30Ah
         """
         parts = []
+        # Bike serial first — the primary traceability key.
+        # Spelled "Serial No." to match the strip markers used when
+        # rebuilding/removing the block, keeping the injection idempotent.
+        if lot.name:
+            parts.append(f'Serial No. : {lot.name}')
         if lot.x_chassis_serial:
             parts.append(f'Chassis No : {lot.x_chassis_serial}')
         if lot.x_motor_serial:

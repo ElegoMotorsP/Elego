@@ -176,9 +176,96 @@ function attachBarcodeHandlers(dialog) {
     });
 }
 
+/**
+ * Serial-scan wizards (delivery "Scan Bike Serials" + invoice fallback):
+ * a single scan column across multiple unit rows. After each scan the
+ * cursor advances to the NEXT ROW's serial field automatically, so Amit
+ * can scan unit after unit without touching the mouse.
+ */
+function attachSerialRowHandlers(dialog) {
+    const input = dialog.querySelector('.o_selected_row [name="scanned_serial"] input');
+    if (!input || input._elego_barcode) return;
+    input._elego_barcode = true;
+    let debounceTimer = null;
+
+    function advance() {
+        clearTimeout(debounceTimer);
+        debounceTimer = null;
+        if (!input.value) return;
+        playBeep();
+        const row = input.closest(".o_data_row");
+        const rows = Array.from(dialog.querySelectorAll(".o_data_row"));
+        const idx = rows.indexOf(row);
+        input.blur(); // commits the value into Odoo's record
+        setTimeout(() => {
+            const newRows = dialog.querySelectorAll(".o_data_row");
+            if (idx < 0 || idx + 1 >= newRows.length) return;
+            const cell = newRows[idx + 1].querySelector('[name="scanned_serial"]');
+            if (!cell) return;
+            cell.click(); // enter edit mode on the next unit's row
+            setTimeout(() => {
+                const next = dialog.querySelector(
+                    '.o_selected_row [name="scanned_serial"] input'
+                );
+                if (next) {
+                    next.focus();
+                    next.select();
+                }
+            }, 120);
+        }, 120);
+    }
+
+    input.addEventListener("input", () => {
+        clearTimeout(debounceTimer);
+        if (!input.value) return;
+        debounceTimer = setTimeout(advance, 150);
+    });
+    input.addEventListener(
+        "keydown",
+        (ev) => {
+            if (ev.key !== "Enter") return;
+            ev.stopImmediatePropagation();
+            ev.preventDefault();
+            advance();
+        },
+        true
+    );
+}
+
+/** Fresh serial-scan dialog: enter edit mode on the first row's serial cell
+ *  so scanning can start immediately without a click. */
+function autoFocusFirstSerialCell(dialog) {
+    if (dialog.querySelector(".o_selected_row")) return;
+    if (dialog._elego_focus_pending) return;
+    const rows = dialog.querySelectorAll(".o_data_row");
+    if (!rows.length) return;
+    for (const row of rows) {
+        const cell = row.querySelector('[name="scanned_serial"]');
+        if (cell && cell.textContent.trim()) return; // scans already present
+    }
+    dialog._elego_focus_pending = true;
+    const firstCell = rows[0].querySelector('[name="scanned_serial"]');
+    if (firstCell) firstCell.click();
+    setTimeout(() => {
+        const input = dialog.querySelector(
+            '.o_selected_row [name="scanned_serial"] input'
+        );
+        if (input) {
+            input.focus();
+            input.select();
+        }
+        dialog._elego_focus_pending = false;
+    }, 120);
+}
+
 const observer = new MutationObserver(() => {
     const dialog = document.querySelector(".o_dialog");
     if (!dialog) return;
+    if (dialog.querySelector('[name="scanned_serial"]')) {
+        autoFocusFirstSerialCell(dialog);
+        attachSerialRowHandlers(dialog);
+        return;
+    }
     if (
         !dialog.querySelector('[name="x_motor_serial"]') &&
         !dialog.querySelector('[name="x_model_code"]')

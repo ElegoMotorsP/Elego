@@ -506,13 +506,14 @@
                     <thead>
                         <tr style="background:#f0f0f0; text-align:center; vertical-align:middle; font-weight:bold;">
                             <th style="border:1px solid #000; padding:3px; width:4%;">Sr.<br/>No.</th>
-                            <th style="border:1px solid #000; padding:3px; width:16%;">Bike Model</th>
-                            <th style="border:1px solid #000; padding:3px; width:14%;">Chassis No.</th>
-                            <th style="border:1px solid #000; padding:3px; width:13%;">Motor No.</th>
-                            <th style="border:1px solid #000; padding:3px; width:13%;">Controller No.</th>
-                            <th style="border:1px solid #000; padding:3px; width:13%;">Battery No.</th>
-                            <th style="border:1px solid #000; padding:3px; width:12%;">Charger No.</th>
-                            <th style="border:1px solid #000; padding:3px; width:8%;">Color</th>
+                            <th style="border:1px solid #000; padding:3px; width:13%;">Bike Model</th>
+                            <th style="border:1px solid #000; padding:3px; width:13%;">Serial No.</th>
+                            <th style="border:1px solid #000; padding:3px; width:12%;">Chassis No.</th>
+                            <th style="border:1px solid #000; padding:3px; width:11%;">Motor No.</th>
+                            <th style="border:1px solid #000; padding:3px; width:11%;">Controller No.</th>
+                            <th style="border:1px solid #000; padding:3px; width:11%;">Battery No.</th>
+                            <th style="border:1px solid #000; padding:3px; width:10%;">Charger No.</th>
+                            <th style="border:1px solid #000; padding:3px; width:7%;">Color</th>
                             <th style="border:1px solid #000; padding:3px; width:7%;">Battery<br/>Type</th>
                         </tr>
                     </thead>
@@ -524,6 +525,9 @@
                                 </td>
                                 <td style="border:1px solid #000; padding:3px;">
                                     <t t-esc="lot.product_id.display_name or ''"/>
+                                </td>
+                                <td style="border:1px solid #000; padding:3px; font-size:7.5pt; font-weight:bold;">
+                                    <t t-esc="lot.name or '-'"/>
                                 </td>
                                 <td style="border:1px solid #000; padding:3px; font-size:7.5pt;">
                                     <t t-esc="lot.x_chassis_serial or '-'"/>

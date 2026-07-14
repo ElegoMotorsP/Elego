@@ -98,6 +98,15 @@ class StockPicking(models.Model):
         store=False,
     )
 
+    # OUT deliveries: True once Amit has assigned the bike serials via the
+    # Scan Bike Serials wizard. Bike deliveries cannot be validated without
+    # it — serials must come from scanning, never from auto-reservation.
+    x_bike_serials_scanned = fields.Boolean(
+        string='Bike Serials Scanned',
+        default=False,
+        copy=False,
+    )
+
     # Serial numbers picked on outgoing deliveries — traceability for SO → invoice flow
     x_picked_serial_nos = fields.Char(
         string='Serial No(s)',
@@ -131,10 +140,18 @@ class StockPicking(models.Model):
         for picking in self:
             picking.x_is_gate_entry = bool(gate_ref and picking.picking_type_id == gate_ref)
 
-    @api.depends('move_line_ids', 'move_line_ids.lot_id', 'state', 'picking_type_code')
+    @api.depends('move_line_ids', 'move_line_ids.lot_id', 'state',
+                 'picking_type_code', 'x_bike_serials_scanned')
     def _compute_picked_serial_nos(self):
         for picking in self:
             if picking.picking_type_code == 'outgoing':
+                # Only show serials that were actually scanned by the Store
+                # (or on already-validated legacy transfers) — never Odoo's
+                # auto-reserved lots, which do not represent the physical
+                # bikes picked.
+                if not picking.x_bike_serials_scanned and picking.state != 'done':
+                    picking.x_picked_serial_nos = ''
+                    continue
                 lots = picking.move_line_ids.filtered(
                     lambda ml: ml.lot_id and ml.qty_done > 0
                 ).mapped('lot_id.name')
@@ -413,6 +430,27 @@ class StockPicking(models.Model):
                             f'(QC failed) and cannot be shipped. Use "Scan Bike '
                             f'Serials" to pick different unit(s).'
                         )
+
+            # --- Scan gate: bike serials must be assigned by scanning, never
+            #     by Odoo's automatic reservation. Amit (Store) must run the
+            #     Scan Bike Serials wizard before the delivery can validate. ---
+            bike_tmpls = self.env['mrp.production']._get_ego_templates()
+            for picking in self:
+                if (
+                    picking.picking_type_code == 'outgoing'
+                    and not picking.x_bike_serials_scanned
+                    and bike_tmpls
+                    and any(
+                        m.product_id.product_tmpl_id in bike_tmpls
+                        for m in picking.move_ids
+                        if m.state not in ('done', 'cancel')
+                    )
+                ):
+                    raise UserError(
+                        f'{picking.name}: bike serial numbers must be assigned '
+                        f'by scanning the physical units. Click "Scan Bike '
+                        f'Serials" and scan each bike before validating.'
+                    )
 
             # --- Issue 5/6 + QC-required products: smart QC routing ---
             for picking in self:
