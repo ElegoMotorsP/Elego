@@ -139,8 +139,9 @@
             <field name="active" eval="True"/>
         </record>
 
-        <!-- Attempt to set INR as company currency. Silently no-ops when
-             journal entries already exist (caught in Python try/except). -->
+        <!-- Force INR everywhere: company currency (SQL fallback when journal
+             entries block the ORM write — relabel only, no conversion), all
+             pricelists repointed to INR, USD deactivated. Runs every upgrade. -->
         <function model="res.company" name="_try_set_inr_currency"/>
 
         <!-- Re-prefix the Quotation Number sequence to EGO-QUO- so it's
