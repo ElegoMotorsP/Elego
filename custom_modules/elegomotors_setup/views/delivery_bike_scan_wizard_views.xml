@@ -1,0 +1,69 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+    <!--
+        Scan Bike Serials — Outgoing Delivery (Amit / Store)
+
+        Serial assignment happens at the OUT delivery, not on the invoice:
+        Amit scans the exact physical bike(s) shipped, model-wise. Validations:
+        right model + colour variant, available in FG store, not blacklisted,
+        not reserved on another delivery. After delivery validation the
+        serials appear on the customer invoice automatically.
+    -->
+
+    <record id="view_delivery_bike_scan_wizard_form" model="ir.ui.view">
+        <field name="name">elegomotors.delivery.bike.scan.wizard.form</field>
+        <field name="model">elegomotors.delivery.bike.scan.wizard</field>
+        <field name="arch" type="xml">
+            <form string="Scan Bike Serials — Outgoing Delivery">
+                <sheet>
+                    <div class="alert alert-info mb-3" role="alert">
+                        <strong>Scan the serial number of each bike being shipped.</strong>
+                        The scanned units are checked against the delivery lines
+                        (model + colour), Finished Goods availability and the QC
+                        blacklist. These serials flow to the customer invoice
+                        automatically after validation.
+                    </div>
+                    <field name="picking_id" invisible="1"/>
+                    <field name="line_ids" nolabel="1">
+                        <list editable="bottom" create="false" delete="false"
+                              decoration-success="status == 'OK'"
+                              decoration-danger="status not in ('OK', '') and status != False">
+                            <field name="product_display" string="Model / Variant" readonly="1"/>
+                            <field name="unit_index" string="Unit #" readonly="1"/>
+                            <field name="scanned_serial"
+                                   string="Scan Serial No."
+                                   placeholder="Scan bike serial barcode…"/>
+                            <field name="status" string="Status" readonly="1"/>
+                            <field name="move_id" column_invisible="1"/>
+                        </list>
+                    </field>
+                </sheet>
+                <footer>
+                    <button name="action_confirm"
+                            string="Assign Scanned Bikes"
+                            type="object"
+                            class="btn-primary"/>
+                    <button string="Cancel" special="cancel" class="btn-secondary"/>
+                </footer>
+            </form>
+        </field>
+    </record>
+
+    <!-- "Scan Bike Serials" button on outgoing deliveries — Store + Admin -->
+    <record id="stock_picking_form_delivery_bike_scan" model="ir.ui.view">
+        <field name="name">stock.picking.form.delivery.bike.scan</field>
+        <field name="model">stock.picking</field>
+        <field name="inherit_id" ref="stock.view_picking_form"/>
+        <field name="arch" type="xml">
+            <xpath expr="//header/button[@name='button_validate']" position="before">
+                <button name="action_open_delivery_bike_scan_wizard"
+                        string="Scan Bike Serials"
+                        type="object"
+                        class="btn-primary"
+                        invisible="picking_type_code != 'outgoing' or state in ('done', 'cancel')"
+                        groups="elegomotors_setup.group_inbound_operator,base.group_erp_manager"/>
+            </xpath>
+        </field>
+    </record>
+
+</odoo>

@@ -160,13 +160,57 @@ class AccountMove(models.Model):
         result = super().action_post()
         for move in self:
             if move.move_type in ('out_invoice', 'out_refund'):
+                # Preferred path: serials scanned by the Store on the delivery.
+                # The legacy name-block injection below no-ops when lots were
+                # synced (it skips when x_assigned_lot_ids is set).
+                move._sync_assigned_lots_from_deliveries()
                 move._append_ego_serial_to_lines()
         return result
+
+    def _sync_assigned_lots_from_deliveries(self):
+        """Pull the bike serials scanned by the Store on the SO's validated
+        deliveries into x_assigned_lot_ids (rendered as Page 2 of the Tax
+        Invoice). This replaces the manual invoice-side scanning by Accounts.
+        Returns True when at least one invoice received lots."""
+        synced = False
+        for move in self:
+            if move.move_type not in ('out_invoice', 'out_refund'):
+                continue
+            bike_tmpls = move._get_bike_templates()
+            if not bike_tmpls:
+                continue
+            sales = self.env['sale.order']
+            if 'sale_line_ids' in move.invoice_line_ids._fields:
+                sales = move.invoice_line_ids.sale_line_ids.order_id
+            if not sales and move.invoice_origin:
+                sales = self.env['sale.order'].search(
+                    [('name', '=', move.invoice_origin)], limit=1
+                )
+            if not sales:
+                continue
+            lots = sales.picking_ids.filtered(
+                lambda p: p.state == 'done' and p.picking_type_code == 'outgoing'
+            ).move_line_ids.filtered(
+                lambda ml: ml.lot_id
+                and ml.product_id.product_tmpl_id in bike_tmpls
+                and ml.qty_done > 0
+            ).lot_id
+            if lots:
+                move.x_assigned_lot_ids = [(6, 0, lots.ids)]
+                move._refresh_serial_blocks_from_lots()
+                synced = True
+        return synced
 
     def action_refresh_ego_serials(self):
         """Manual refresh button — re-injects serial block on already-posted invoices."""
         for move in self:
             if move.move_type not in ('out_invoice', 'out_refund'):
+                continue
+            # Serials already assigned from the delivery scan (or wizard):
+            # details live on Page 2 of the report — keep line names clean
+            # instead of injecting the serial text block.
+            if move.x_assigned_lot_ids:
+                move._refresh_serial_blocks_from_lots()
                 continue
             bike_tmpls = move._get_bike_templates()
             if not bike_tmpls:

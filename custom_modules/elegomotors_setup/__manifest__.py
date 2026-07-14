@@ -1,6 +1,6 @@
 {
     'name': 'ElegoMotors Workflow Setup',
-    'version': '18.0.46.0.0',
+    'version': '18.0.47.0.0',
     'category': 'Manufacturing',
     'summary': 'ElegoMotors EV 2-wheeler end-to-end manufacturing workflow configuration',
     'description': """
@@ -80,7 +80,8 @@
         'views/stock_picking_qc_wizard_views.xml',  # QC routing wizard form + action
         'views/batch_mo_wizard_views.xml',          # Batch MO creation wizard + menu entry; Req 2
         'views/bulk_barcode_wizard_views.xml',      # Bulk barcode scan wizard for multi-unit MO
-        'views/invoice_bike_scan_wizard_views.xml', # Bike serial scan wizard for invoice assignment
+        'views/invoice_bike_scan_wizard_views.xml', # Bike serial scan wizard for invoice assignment (admin fallback)
+        'views/delivery_bike_scan_wizard_views.xml', # Store scans shipped bike serials on OUT delivery
         'views/bike_traceability_views.xml',        # Bike Traceability search window + menu
         'views/generate_pi_wizard_views.xml',       # Generate Daily PI wizard + menu entry
         'views/report_bike_serial_label.xml',       # 75x50mm bike serial label (TSC TTP-244 Pro)

@@ -400,6 +400,20 @@ class StockPicking(models.Model):
                             f'until the SO is approved.'
                         )
 
+            # --- Blacklist gate: a QC-failed bike serial can never ship ---
+            for picking in self:
+                if picking.picking_type_code == 'outgoing':
+                    bad = picking.move_line_ids.filtered(
+                        lambda ml: ml.lot_id and ml.lot_id.x_blacklisted
+                    )
+                    if bad:
+                        names = ', '.join(bad.mapped('lot_id.name'))
+                        raise UserError(
+                            f'{picking.name}: serial(s) {names} are blacklisted '
+                            f'(QC failed) and cannot be shipped. Use "Scan Bike '
+                            f'Serials" to pick different unit(s).'
+                        )
+
             # --- Issue 5/6 + QC-required products: smart QC routing ---
             for picking in self:
                 if picking.picking_type_code != 'incoming':
@@ -592,4 +606,28 @@ class StockPicking(models.Model):
             lambda inv: inv.move_type in ('out_invoice', 'out_refund')
         )
         for invoice in invoices:
-            invoice.action_refresh_ego_serials()
+            # Preferred: pull the store-scanned serials into x_assigned_lot_ids
+            # (renders as Page 2 of the Tax Invoice). Legacy name-block
+            # injection only when no delivery lots were found.
+            if not invoice._sync_assigned_lots_from_deliveries():
+                invoice.action_refresh_ego_serials()
+
+    def action_open_delivery_bike_scan_wizard(self):
+        """Amit scans the exact bikes being shipped on this delivery."""
+        self.ensure_one()
+        wizard = self.env['elegomotors.delivery.bike.scan.wizard'].create({
+            'picking_id': self.id,
+        })
+        if not wizard.line_ids:
+            raise UserError(
+                'This delivery has no bike units to scan '
+                '(no ElegoMotors bike products on it).'
+            )
+        return {
+            'type': 'ir.actions.act_window',
+            'name': 'Scan Bike Serials — Outgoing Delivery',
+            'res_model': 'elegomotors.delivery.bike.scan.wizard',
+            'res_id': wizard.id,
+            'view_mode': 'form',
+            'target': 'new',
+        }
