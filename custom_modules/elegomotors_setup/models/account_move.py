@@ -28,6 +28,53 @@ class AccountMove(models.Model):
         compute='_compute_so_delivery_info',
         store=False,
     )
+
+    def _ego_gst_breakdown(self):
+        """GST summary rows for the Tax Invoice report, grouped by GST rate.
+
+        Returns a list of dicts: taxable value per rate with the CGST /
+        SGST(UTGST) / IGST split (rates and amounts), plus a 'total' entry.
+        Handles both the module's individual CGST/SGST/IGST percent taxes
+        and l10n_in group taxes (flattened to their children).
+        """
+        self.ensure_one()
+        groups = {}
+        for line in self.invoice_line_ids:
+            if line.display_type in ('line_section', 'line_note'):
+                continue
+            taxes = line.tax_ids
+            if hasattr(taxes, 'flatten_taxes_hierarchy'):
+                taxes = taxes.flatten_taxes_hierarchy()
+            cgst = sgst = igst = other = 0.0
+            for tax in taxes:
+                if tax.amount_type != 'percent':
+                    continue
+                name = (tax.name or '').upper()
+                if 'CGST' in name:
+                    cgst += tax.amount
+                elif 'SGST' in name or 'UTGST' in name:
+                    sgst += tax.amount
+                elif 'IGST' in name:
+                    igst += tax.amount
+                else:
+                    other += tax.amount  # unnamed generic GST → IGST column
+            igst += other
+            rate = round(cgst + sgst + igst, 4)
+            group = groups.setdefault(rate, {
+                'rate': rate,
+                'cgst_rate': cgst, 'sgst_rate': sgst, 'igst_rate': igst,
+                'taxable': 0.0,
+            })
+            group['taxable'] += line.price_subtotal
+        rows = []
+        for rate in sorted(groups):
+            g = groups[rate]
+            g['cgst_amount'] = g['taxable'] * g['cgst_rate'] / 100.0
+            g['sgst_amount'] = g['taxable'] * g['sgst_rate'] / 100.0
+            g['igst_amount'] = g['taxable'] * g['igst_rate'] / 100.0
+            g['total_tax'] = g['cgst_amount'] + g['sgst_amount'] + g['igst_amount']
+            rows.append(g)
+        return rows
     x_delivery_ref = fields.Char(
         string='Delivery Ref',
         compute='_compute_so_delivery_info',

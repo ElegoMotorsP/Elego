@@ -1,0 +1,54 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+    <!--
+        ElegoMotors — Quotation / Sales Order PDF column layout
+
+        Matches the Tax Invoice column order:
+        Sr.No. | Description of Goods | HSN Code | Qty | Rate | Disc.% | GST | Total Amount
+
+        Base sale report order is already Description → Qty → Unit Price →
+        Disc → Taxes → Amount, so this inherit adds the Sr.No. and HSN Code
+        columns and relabels Unit Price → Rate, Taxes → GST,
+        Amount → Total Amount.
+    -->
+
+    <template id="report_saleorder_document_ego" inherit_id="sale.report_saleorder_document">
+
+        <!-- Header: Sr.No. before Description, HSN Code after it -->
+        <xpath expr="//th[@name='th_description']" position="before">
+            <th name="th_ego_sr" class="text-center">Sr. No.</th>
+        </xpath>
+        <xpath expr="//th[@name='th_description']" position="after">
+            <th name="th_ego_hsn" class="text-center">HSN Code</th>
+        </xpath>
+
+        <!-- Relabels -->
+        <xpath expr="//th[@name='th_priceunit']" position="replace">
+            <th name="th_priceunit" class="text-end">Rate</th>
+        </xpath>
+        <xpath expr="//th[@name='th_taxes']" position="replace">
+            <th name="th_taxes" class="text-end">GST</th>
+        </xpath>
+        <xpath expr="//th[@name='th_subtotal']" position="replace">
+            <th name="th_subtotal" class="text-end">
+                <span groups="account.group_show_line_subtotals_tax_excluded">Total Amount</span>
+                <span groups="account.group_show_line_subtotals_tax_included">Total Amount</span>
+            </th>
+        </xpath>
+
+        <!-- Body cells (product lines only — sections/notes span the full
+             row and are unaffected). Sr.No. counts product lines only. -->
+        <xpath expr="//td[@name='td_name']" position="before">
+            <td name="td_ego_sr" class="text-center">
+                <span t-esc="len([l for l in lines_to_report[:line_index + 1] if not l.display_type])"/>
+            </td>
+        </xpath>
+        <xpath expr="//td[@name='td_name']" position="after">
+            <td name="td_ego_hsn" class="text-center">
+                <span t-esc="(line.product_id and line.product_id._fields.get('l10n_in_hsn_code') and line.product_id.l10n_in_hsn_code) or ''"/>
+            </td>
+        </xpath>
+
+    </template>
+
+</odoo>

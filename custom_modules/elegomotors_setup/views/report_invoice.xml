@@ -4,7 +4,8 @@
     <!-- ════════════════════════════════════════════════════════════════════
          ElegoMotors Custom TAX INVOICE / PROFORMA INVOICE Report
          Matches the printed invoice format used by Elego Motors Pvt Ltd.
-         Page 1: Sr.No. | Description | GST% | HSN | Qty | Rate | Disc% | Total (no serial numbers)
+         Page 1: Sr.No. | Description | HSN | Qty | Rate | Disc% | GST% | Total (no serial numbers)
+                 + GST breakdown table (Taxable Value × CGST/SGST or IGST per slab)
          Page 2: Vehicle Serial Details table (chassis/motor/controller/battery/charger) from x_assigned_lot_ids
     ════════════════════════════════════════════════════════════════════ -->
 
@@ -245,11 +246,11 @@
                 <tr style="background:#f0f0f0; text-align:center; vertical-align:middle; font-weight:bold;">
                     <th style="border:1px solid #000; padding:3px; width:4%;">Sr.<br/>No.</th>
                     <th style="border:1px solid #000; padding:3px; width:38%;">Description Of Goods</th>
-                    <th style="border:1px solid #000; padding:3px; width:6%;">GST<br/>(%)</th>
                     <th style="border:1px solid #000; padding:3px; width:10%;">HSN<br/>Code</th>
                     <th style="border:1px solid #000; padding:3px; width:6%;">Qty</th>
                     <th style="border:1px solid #000; padding:3px; width:14%;">Rate</th>
                     <th style="border:1px solid #000; padding:3px; width:8%;">Disc<br/>(%)</th>
+                    <th style="border:1px solid #000; padding:3px; width:6%;">GST<br/>(%)</th>
                     <th style="border:1px solid #000; padding:3px; width:14%; text-align:right;">Total Amount<br/>(Rs.)</th>
                 </tr>
             </thead>
@@ -291,11 +292,11 @@
                         <tr style="vertical-align:top;">
                             <td style="border:1px solid #000; padding:3px; text-align:center;"><t t-esc="sr"/></td>
                             <td style="border:1px solid #000; padding:3px;"><t t-esc="line_desc"/></td>
-                            <td style="border:1px solid #000; padding:3px; text-align:center;"><t t-esc="gst_pct"/></td>
                             <td style="border:1px solid #000; padding:3px; text-align:center;"><t t-esc="hsn"/></td>
                             <td style="border:1px solid #000; padding:3px; text-align:center;"><t t-esc="'%.2f' % line.quantity"/></td>
                             <td style="border:1px solid #000; padding:3px; text-align:right;"><t t-esc="'%.2f' % line.price_unit"/></td>
                             <td style="border:1px solid #000; padding:3px; text-align:center;"><t t-esc="'%.2f' % (line.discount or 0.0)"/></td>
+                            <td style="border:1px solid #000; padding:3px; text-align:center;"><t t-esc="gst_pct"/></td>
                             <td style="border:1px solid #000; padding:3px; text-align:right;"><t t-esc="'%.2f' % line.price_subtotal"/></td>
                         </tr>
                     </t>
@@ -364,6 +365,69 @@
                 </td>
             </tr>
         </table>
+
+        <!-- ── 5b. GST breakdown table — shows exactly how tax was computed
+                per rate slab (Taxable Value × CGST/SGST or IGST), so the
+                customer understands why the grand total differs from the
+                line total. ── -->
+        <t t-set="gst_rows" t-value="o._ego_gst_breakdown()"/>
+        <t t-if="gst_rows">
+            <t t-set="has_igst" t-value="any(r['igst_amount'] for r in gst_rows)"/>
+            <t t-set="has_cgst" t-value="any(r['cgst_amount'] or r['sgst_amount'] for r in gst_rows) or not has_igst"/>
+            <table style="width:100%; border:1px solid #000; border-collapse:collapse; margin-top:6px; font-size:8pt;">
+                <thead>
+                    <tr style="background:#f0f0f0; text-align:center; font-weight:bold;">
+                        <th style="border:1px solid #000; padding:3px;" rowspan="2">HSN / GST Slab</th>
+                        <th style="border:1px solid #000; padding:3px;" rowspan="2">Taxable<br/>Value</th>
+                        <th style="border:1px solid #000; padding:3px;" colspan="2" t-if="has_cgst">CGST</th>
+                        <th style="border:1px solid #000; padding:3px;" colspan="2" t-if="has_cgst">SGST/UTGST</th>
+                        <th style="border:1px solid #000; padding:3px;" colspan="2" t-if="has_igst">IGST</th>
+                        <th style="border:1px solid #000; padding:3px;" rowspan="2">Total<br/>Tax Amount</th>
+                    </tr>
+                    <tr style="background:#f0f0f0; text-align:center; font-weight:bold;">
+                        <th style="border:1px solid #000; padding:3px;" t-if="has_cgst">Rate</th>
+                        <th style="border:1px solid #000; padding:3px;" t-if="has_cgst">Amount</th>
+                        <th style="border:1px solid #000; padding:3px;" t-if="has_cgst">Rate</th>
+                        <th style="border:1px solid #000; padding:3px;" t-if="has_cgst">Amount</th>
+                        <th style="border:1px solid #000; padding:3px;" t-if="has_igst">Rate</th>
+                        <th style="border:1px solid #000; padding:3px;" t-if="has_igst">Amount</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    <t t-foreach="gst_rows" t-as="g">
+                        <tr style="text-align:right;">
+                            <td style="border:1px solid #000; padding:3px; text-align:center;">
+                                GST <t t-esc="'%g' % g['rate']"/>%
+                            </td>
+                            <td style="border:1px solid #000; padding:3px;"><t t-esc="'%.2f' % g['taxable']"/></td>
+                            <td style="border:1px solid #000; padding:3px; text-align:center;" t-if="has_cgst"><t t-esc="'%.2f%%' % g['cgst_rate']"/></td>
+                            <td style="border:1px solid #000; padding:3px;" t-if="has_cgst"><t t-esc="'%.2f' % g['cgst_amount']"/></td>
+                            <td style="border:1px solid #000; padding:3px; text-align:center;" t-if="has_cgst"><t t-esc="'%.2f%%' % g['sgst_rate']"/></td>
+                            <td style="border:1px solid #000; padding:3px;" t-if="has_cgst"><t t-esc="'%.2f' % g['sgst_amount']"/></td>
+                            <td style="border:1px solid #000; padding:3px; text-align:center;" t-if="has_igst"><t t-esc="'%.2f%%' % g['igst_rate']"/></td>
+                            <td style="border:1px solid #000; padding:3px;" t-if="has_igst"><t t-esc="'%.2f' % g['igst_amount']"/></td>
+                            <td style="border:1px solid #000; padding:3px;"><t t-esc="'%.2f' % g['total_tax']"/></td>
+                        </tr>
+                    </t>
+                    <tr style="text-align:right; font-weight:bold; background:#f7f7f7;">
+                        <td style="border:1px solid #000; padding:3px; text-align:center;">Total:</td>
+                        <td style="border:1px solid #000; padding:3px;"><t t-esc="'%.2f' % sum(r['taxable'] for r in gst_rows)"/></td>
+                        <td style="border:1px solid #000; padding:3px;" t-if="has_cgst"></td>
+                        <td style="border:1px solid #000; padding:3px;" t-if="has_cgst"><t t-esc="'%.2f' % sum(r['cgst_amount'] for r in gst_rows)"/></td>
+                        <td style="border:1px solid #000; padding:3px;" t-if="has_cgst"></td>
+                        <td style="border:1px solid #000; padding:3px;" t-if="has_cgst"><t t-esc="'%.2f' % sum(r['sgst_amount'] for r in gst_rows)"/></td>
+                        <td style="border:1px solid #000; padding:3px;" t-if="has_igst"></td>
+                        <td style="border:1px solid #000; padding:3px;" t-if="has_igst"><t t-esc="'%.2f' % sum(r['igst_amount'] for r in gst_rows)"/></td>
+                        <td style="border:1px solid #000; padding:3px;"><t t-esc="'%.2f' % sum(r['total_tax'] for r in gst_rows)"/></td>
+                    </tr>
+                </tbody>
+            </table>
+            <!-- Tax amount in words, as in the reference bill -->
+            <div style="border:1px solid #000; border-top:0; padding:3px 8px; font-size:8pt; font-weight:bold;">
+                Tax Amount (in words):
+                <t t-esc="o.currency_id.amount_to_text(sum(r['total_tax'] for r in gst_rows))"/>
+            </div>
+        </t>
 
         <!-- ── 6. Terms + Signature ── -->
         <table style="width:100%; border:1px solid #000; border-collapse:collapse; margin-top:8px; font-size:8pt;">

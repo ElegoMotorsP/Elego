@@ -1,6 +1,6 @@
 {
     'name': 'ElegoMotors Workflow Setup',
-    'version': '18.0.44.0.0',
+    'version': '18.0.45.0.0',
     'category': 'Manufacturing',
     'summary': 'ElegoMotors EV 2-wheeler end-to-end manufacturing workflow configuration',
     'description': """
@@ -86,6 +86,7 @@
         'views/report_bike_serial_label.xml',       # 75x50mm bike serial label (TSC TTP-244 Pro)
         'views/global_scan_wizard_views.xml',       # Global Production Scan wizard + menu (FIFO MO closing)
         'views/report_invoice.xml',                 # ElegoMotors custom TAX INVOICE QWeb report
+        'views/report_saleorder.xml',               # Quotation PDF: Sr.No/HSN columns + invoice-matching order
     ],
     'assets': {
         'web.assets_backend': [
