@@ -255,7 +255,12 @@
                 </tr>
             </thead>
             <tbody>
+                <!-- sr = top-level bike/product number; sub_sr = position of
+                     a combo-included battery/charger under the CURRENT top
+                     line — reset every time a new top-level line starts, so
+                     a bike combo prints "1", "1.1", "1.2", then "2", "2.1"… -->
                 <t t-set="sr" t-value="0"/>
+                <t t-set="sub_sr" t-value="0"/>
                 <t t-foreach="o.invoice_line_ids" t-as="line">
 
                     <!-- Section header -->
@@ -278,7 +283,15 @@
 
                     <!-- Product line -->
                     <t t-else="">
-                        <t t-set="sr" t-value="sr + 1"/>
+                        <t t-set="is_combo_item" t-value="getattr(line, 'x_is_combo_item', False)"/>
+                        <t t-if="is_combo_item">
+                            <t t-set="sub_sr" t-value="sub_sr + 1"/>
+                        </t>
+                        <t t-else="">
+                            <t t-set="sr" t-value="sr + 1"/>
+                            <t t-set="sub_sr" t-value="0"/>
+                        </t>
+                        <t t-set="sr_label" t-value="('%s.%s' % (sr, sub_sr)) if is_combo_item else str(sr)"/>
 
                         <!-- Use only the first line of line.name as description (strips serial block) -->
                         <t t-set="line_desc" t-value="(line.name or '').split('\n', 1)[0].strip()"/>
@@ -290,8 +303,10 @@
                         <t t-set="hsn" t-value="(line._fields.get('l10n_in_hsn_code') and line.l10n_in_hsn_code) or (line.product_id._fields.get('l10n_in_hsn_code') and line.product_id.l10n_in_hsn_code) or ''"/>
 
                         <tr style="vertical-align:top;">
-                            <td style="border:1px solid #000; padding:3px; text-align:center;"><t t-esc="sr"/></td>
-                            <td style="border:1px solid #000; padding:3px;"><t t-esc="line_desc"/></td>
+                            <td style="border:1px solid #000; padding:3px; text-align:center;"><t t-esc="sr_label"/></td>
+                            <td t-attf-style="border:1px solid #000; padding:3px;{{ ' padding-left:16px; font-style:italic; color:#444;' if is_combo_item else '' }}">
+                                <t t-esc="line_desc"/>
+                            </td>
                             <td style="border:1px solid #000; padding:3px; text-align:center;"><t t-esc="hsn"/></td>
                             <td style="border:1px solid #000; padding:3px; text-align:center;"><t t-esc="'%.2f' % line.quantity"/></td>
                             <td style="border:1px solid #000; padding:3px; text-align:right;"><t t-esc="'%.2f' % line.price_unit"/></td>

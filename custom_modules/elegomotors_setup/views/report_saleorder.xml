@@ -37,10 +37,29 @@
         </xpath>
 
         <!-- Body cells (product lines only — sections/notes span the full
-             row and are unaffected). Sr.No. counts product lines only. -->
+             row and are unaffected). Sr.No. counts product lines only.
+
+             Bike combo numbering: a battery/charger line added at ₹0 by
+             "Add Bike Combo" (x_is_combo_item=True) prints as a sub-item of
+             the bike above it — "1", "1.1", "1.2", then "2", "2.1"…
+             ego_top_sr = count of TOP-LEVEL (non-combo) product lines up to
+             and including this one — for a combo item this equals its
+             parent bike's number, since the combo item itself doesn't count.
+             ego_parent_idx = position of that nearest preceding top-level
+             line, used to count only ITS combo children for ego_sub_sr
+             (so a second bike's combo items restart at .1). -->
         <xpath expr="//td[@name='td_name']" position="before">
+            <t t-set="ego_prior" t-value="lines_to_report[:line_index + 1]"/>
+            <t t-set="ego_is_combo" t-value="not line.display_type and getattr(line, 'x_is_combo_item', False)"/>
+            <t t-set="ego_top_sr" t-value="len([l for l in ego_prior if not l.display_type and not getattr(l, 'x_is_combo_item', False)])"/>
+            <t t-if="ego_is_combo">
+                <t t-set="ego_parent_positions" t-value="[i for i, l in enumerate(ego_prior) if not l.display_type and not getattr(l, 'x_is_combo_item', False)]"/>
+                <t t-set="ego_parent_idx" t-value="ego_parent_positions[-1] if ego_parent_positions else -1"/>
+                <t t-set="ego_sub_sr" t-value="len([l for l in ego_prior[ego_parent_idx + 1:] if not l.display_type and getattr(l, 'x_is_combo_item', False)])"/>
+            </t>
             <td name="td_ego_sr" class="text-center">
-                <span t-esc="len([l for l in lines_to_report[:line_index + 1] if not l.display_type])"/>
+                <span t-if="not ego_is_combo" t-esc="ego_top_sr"/>
+                <span t-if="ego_is_combo" t-esc="'%s.%s' % (ego_top_sr, ego_sub_sr)"/>
             </td>
         </xpath>
         <xpath expr="//td[@name='td_name']" position="after">

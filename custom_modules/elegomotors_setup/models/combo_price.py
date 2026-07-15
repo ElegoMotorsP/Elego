@@ -198,6 +198,7 @@ class BikeComboWizard(models.TransientModel):
                 'price_unit': 0.0,
                 'tax_id': [(6, 0, [])],
                 'name': battery_variant.display_name + included_note,
+                'x_is_combo_item': True,
             })
         if self.charger_product_id:
             SOL.create({
@@ -207,5 +208,30 @@ class BikeComboWizard(models.TransientModel):
                 'price_unit': 0.0,
                 'tax_id': [(6, 0, [])],
                 'name': self.charger_product_id.display_name + included_note,
+                'x_is_combo_item': True,
             })
         return {'type': 'ir.actions.act_window_close'}
+
+
+class SaleOrderLineCombo(models.Model):
+    _inherit = 'sale.order.line'
+
+    # True for the battery/charger line added at ₹0 by "Add Bike Combo" —
+    # lets the quotation/invoice reports render it as a numbered sub-item
+    # (1.1, 1.2, …) under its bike line instead of its own top-level Sr.No.
+    x_is_combo_item = fields.Boolean(
+        string='Included In Combo', default=False, copy=False,
+    )
+
+    def _prepare_invoice_line(self, **optional_values):
+        vals = super()._prepare_invoice_line(**optional_values)
+        vals['x_is_combo_item'] = self.x_is_combo_item
+        return vals
+
+
+class AccountMoveLineCombo(models.Model):
+    _inherit = 'account.move.line'
+
+    x_is_combo_item = fields.Boolean(
+        string='Included In Combo', default=False, copy=False,
+    )
