@@ -61,8 +61,14 @@ class BikeComboWizard(models.TransientModel):
     bike_tmpl_id = fields.Many2one(
         'product.template', string='Bike Model', required=True,
     )
+    # Populated via default (not compute): this set is static — it never
+    # changes based on user input — and a compute field with no @api.depends
+    # is not guaranteed to run before the web client evaluates domains on a
+    # brand-new (unsaved) wizard record, which left the Bike Model dropdown
+    # showing "No records".
     allowed_bike_tmpl_ids = fields.Many2many(
-        'product.template', compute='_compute_allowed_bike_tmpl_ids',
+        'product.template',
+        default=lambda self: self.env['mrp.production']._get_ego_templates().ids,
     )
     color_value_id = fields.Many2one(
         'product.attribute.value', string='Colour',
@@ -86,11 +92,6 @@ class BikeComboWizard(models.TransientModel):
     combo_price_display = fields.Char(
         compute='_compute_combo_price_display', string='Combo Price',
     )
-
-    def _compute_allowed_bike_tmpl_ids(self):
-        bike_tmpls = self.env['mrp.production']._get_ego_templates()
-        for wiz in self:
-            wiz.allowed_bike_tmpl_ids = bike_tmpls
 
     @api.depends('bike_tmpl_id')
     def _compute_valid_color_value_ids(self):
