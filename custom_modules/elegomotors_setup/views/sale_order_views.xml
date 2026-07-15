@@ -40,8 +40,29 @@
                 <field name="approval_accounts" invisible="1"/>
                 <field name="approval_manohar" invisible="1"/>
                 <field name="rejection_reason" invisible="1"/>
-                <field name="sale_order_number" invisible="not sale_order_number" readonly="1"/>
+                <field name="sale_order_number" invisible="1"/>
             </field>
+
+            <!-- Prominent Sales Order number banner: once the order is
+                 approved and becomes a confirmed Sales Order (state='sale'),
+                 EGO-SO-00020 is shown right at the top of the form — above
+                 the page title, which still reads the original quotation
+                 number underneath (kept for traceability, e.g. delivery/
+                 invoice "origin" fields still reference it). Placed via
+                 //sheet position="before" — the same safe, proven xpath
+                 already used for the Awaiting Approval banner below, rather
+                 than guessing at the base view's <h1> internals (a wrong
+                 guess there would break the whole module install). -->
+            <xpath expr="//sheet" position="before">
+                <div class="alert alert-success mb-0 py-2"
+                     invisible="not sale_order_number"
+                     role="alert">
+                    <strong style="font-size: 1.2em;">Sales Order:
+                        <field name="sale_order_number" readonly="1" nolabel="1" class="d-inline"/>
+                    </strong>
+                    <span class="text-muted ms-2">(Quotation No: <field name="name" readonly="1" nolabel="1" class="d-inline"/>)</span>
+                </div>
+            </xpath>
 
             <!-- Shared sales login: record which person is actually handling
                  the order. Required while it's still a quotation (old

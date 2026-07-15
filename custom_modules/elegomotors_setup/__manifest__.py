@@ -1,6 +1,6 @@
 {
     'name': 'ElegoMotors Workflow Setup',
-    'version': '18.0.58.0.0',
+    'version': '18.0.60.0.0',
     'category': 'Manufacturing',
     'summary': 'ElegoMotors EV 2-wheeler end-to-end manufacturing workflow configuration',
     'description': """
@@ -61,6 +61,7 @@
         'data/purchase_ok_fix_bike_models.xml', # Enable purchase_ok for Kit Purchase mode
         'data/qc_required_components_data.xml', # Flag all bike BOM components as QC-required
         'data/gst_tax_data.xml',          # GST 5%/18% taxes + fiscal positions (MH intra/other inter)
+        'data/bike_gst_fix.xml',          # Force 5% GST as the bike templates' default tax
         'data/sale_products_data.xml',    # Battery Pack + Side Guard accessory sale products
         'data/battery_kit_data.xml',      # Base battery cells + chargers + pack kit (phantom) BOMs
         'data/combo_price_data.xml',      # Bike combo dealer prices (July-2026 list)

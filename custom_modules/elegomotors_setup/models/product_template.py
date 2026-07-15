@@ -21,6 +21,16 @@ class ProductTemplate(models.Model):
         help='Define the inspection checklist for this product. '
              'Each row becomes a line Pratik must fill during QC inward inspection.',
     )
+    x_qc_sample_percent = fields.Float(
+        string='QC Sample %',
+        default=100.0,
+        help='Percentage of received units actually inspected during QC '
+             'Inward, for bulk deliveries where checking every unit is not '
+             'practical (e.g. 20 = only the first 20% of units received get '
+             'a QC checklist to fill; Pratik inspects that sample and '
+             'enters the overall "QC Passed" quantity for the whole batch). '
+             '100 = every unit inspected. Only Manohar (Admin) can change this.',
+    )
 
     x_kit_price_default = fields.Float(
         string='Default Kit Price',
@@ -1019,6 +1029,39 @@ class ProductTemplate(models.Model):
             _logger.info(
                 'QC Required: flagged %d bike BOM component(s) for QC Inward.',
                 len(components),
+            )
+
+    @api.model
+    def _ensure_bike_gst_5_percent(self):
+        """Bike units are always taxed at 5% GST (CGST 2.5% + SGST 2.5%,
+        remapped to IGST 5% for inter-state customers by the existing fiscal
+        position tax maps). The bike templates never had an explicit
+        taxes_id, so every quotation/invoice line picked up whatever the
+        database's generic default sale tax happened to be (observed: 15%)
+        instead of 5%. Runs on every upgrade (noupdate="0" in
+        data/bike_gst_fix.xml, loaded after gst_tax_data.xml); idempotent.
+        """
+        cgst = self.env.ref('elegomotors_setup.tax_cgst_2_5', raise_if_not_found=False)
+        sgst = self.env.ref('elegomotors_setup.tax_sgst_2_5', raise_if_not_found=False)
+        if not cgst or not sgst:
+            return
+        refs = [
+            'elegomotors_setup.tmpl_ego_scooter',
+            'elegomotors_setup.tmpl_elego_11',
+            'elegomotors_setup.tmpl_elego_12',
+            'elegomotors_setup.tmpl_elego_20p',
+            'elegomotors_setup.tmpl_elego_30',
+        ]
+        bike_tmpls = self.env['product.template']
+        for ref in refs:
+            tmpl = self.env.ref(ref, raise_if_not_found=False)
+            if tmpl:
+                bike_tmpls |= tmpl
+        if bike_tmpls:
+            bike_tmpls.write({'taxes_id': [(6, 0, [cgst.id, sgst.id])]})
+            _logger.info(
+                'ElegoMotors: set 5%% GST (CGST 2.5 + SGST 2.5) as default '
+                'tax on %d bike template(s).', len(bike_tmpls)
             )
 
     @api.model_create_multi

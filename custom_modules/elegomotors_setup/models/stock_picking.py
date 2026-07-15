@@ -1,4 +1,5 @@
 # -*- coding: utf-8 -*-
+import math
 from markupsafe import Markup
 from odoo import Command, api, fields, models
 from odoo.exceptions import AccessError, UserError
@@ -186,19 +187,30 @@ class StockPicking(models.Model):
 
     def _create_qc_check_results(self):
         """Auto-create elegomotors.qc.check.result rows for every QC-required
-        product move in this picking. Creates one row per parameter per unit
-        received (unit_index 1..N). Idempotent — skips (parameter, unit) pairs
-        that already have a result record (safe to call multiple times)."""
+        product move in this picking. Creates one row per parameter per
+        SAMPLED unit (unit_index 1..sample_count) — sample_count is derived
+        from the product's x_qc_sample_percent (Manohar/Admin-only setting,
+        default 100%), so a bulk receipt doesn't force Pratik to fill a
+        checklist for every single unit. At least 1 unit is always sampled
+        unless the percentage is explicitly set to 0. Idempotent — skips
+        (parameter, unit) pairs that already have a result record (safe to
+        call multiple times)."""
         CheckResult = self.env['elegomotors.qc.check.result'].sudo()
         for picking in self:
             for move in picking.move_ids.filtered(lambda m: m.product_id.x_qc_required):
-                params = move.product_id.product_tmpl_id.x_qc_parameter_ids
+                tmpl = move.product_id.product_tmpl_id
+                params = tmpl.x_qc_parameter_ids
                 unit_count = max(1, int(move.x_qty_received or move.product_uom_qty))
+                sample_pct = min(100.0, max(0.0, tmpl.x_qc_sample_percent))
+                if sample_pct <= 0:
+                    sample_count = 0
+                else:
+                    sample_count = min(unit_count, max(1, math.ceil(unit_count * sample_pct / 100.0)))
                 existing = picking.x_qc_check_result_ids.filtered(
                     lambda r: r.move_id == move
                 )
                 existing_pairs = {(r.parameter_id.id, r.unit_index) for r in existing}
-                for unit_idx in range(1, unit_count + 1):
+                for unit_idx in range(1, sample_count + 1):
                     for param in params:
                         if (param.id, unit_idx) not in existing_pairs:
                             CheckResult.create({
@@ -312,6 +324,14 @@ class StockPicking(models.Model):
                         lot_pass[lid] = True
                     if r.result == 'fail':
                         lot_pass[lid] = False
+
+                # Sampling safety net: a lot already reserved on this move
+                # but with NO check-result rows (skipped by QC Sample %)
+                # was never inspected — treat it as passed rather than
+                # silently dropping it when move lines are rebuilt below.
+                for ml in move.move_line_ids:
+                    if ml.lot_id and ml.lot_id.id not in lot_pass:
+                        lot_pass[ml.lot_id.id] = True
 
                 # Rebuild move lines: 1 line per lot, qty_done=1 if pass, 0 if fail
                 move.move_line_ids.unlink()

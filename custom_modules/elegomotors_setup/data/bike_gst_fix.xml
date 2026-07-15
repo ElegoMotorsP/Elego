@@ -1,0 +1,15 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+    <!--
+        Bike unit GST fix: the bike templates never had an explicit
+        taxes_id, so quotations/invoices picked up the database's generic
+        default sale tax (observed: 15%) instead of the required 5% GST
+        (CGST 2.5 + SGST 2.5, remapped to IGST 5% inter-state).
+        Must load AFTER gst_tax_data.xml (needs tax_cgst_2_5/tax_sgst_2_5)
+        and after all 5 bike templates are created. noupdate="0" — runs on
+        every upgrade so the correct default is always enforced.
+    -->
+    <data noupdate="0">
+        <function model="product.template" name="_ensure_bike_gst_5_percent"/>
+    </data>
+</odoo>
