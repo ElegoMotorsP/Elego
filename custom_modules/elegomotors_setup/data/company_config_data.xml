@@ -172,6 +172,12 @@
              number, so safe to re-run on every upgrade. -->
         <function model="sale.order" name="_backfill_sale_order_numbers"/>
 
+        <!-- Backfill: confirmed orders from the earlier version of this
+             feature that only recorded sale_order_number without actually
+             renaming the record — brings their name/breadcrumb/origin refs
+             in line with the SO number, same as new confirmations. -->
+        <function model="sale.order" name="_backfill_rename_confirmed_orders"/>
+
         <!-- Backfill: quotations marked 'Quotation Accepted' before acceptance
              started arming the approval gate get pending_approval set, so the
              Approve buttons appear for Rajshri/Manohar. Idempotent. -->

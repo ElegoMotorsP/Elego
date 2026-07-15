@@ -41,20 +41,60 @@ class SaleOrder(models.Model):
     sale_order_number = fields.Char(
         string="Sales Order Number", copy=False, readonly=True
     )
+    x_quotation_number = fields.Char(
+        string="Quotation Number", copy=False, readonly=True,
+        help="The original quotation number (EGO-QUO-…), preserved for "
+             "traceability once the record's own name is renamed to the "
+             "Sales Order number on approval.",
+    )
 
     def write(self, vals):
         result = super().write(vals)
-        # Assign the Sales Order Number the first time an order is confirmed.
-        # Hooked on write() rather than action_confirm()/_try_confirm_if_approved()
-        # because every path that flips state to 'sale' ultimately persists
-        # through write() — this is the one hook guaranteed to catch it.
+        # Assign the Sales Order Number the first time an order is confirmed,
+        # AND rename the record's own name to it — so the SO number becomes
+        # the primary identifier everywhere: page title, breadcrumbs, and
+        # downstream documents' Source Document / origin fields created
+        # from this point on. Hooked on write() rather than
+        # action_confirm()/_try_confirm_if_approved() because every path
+        # that flips state to 'sale' ultimately persists through write() —
+        # this is the one hook guaranteed to catch it.
         if vals.get('state') == 'sale':
             for order in self:
                 if not order.sale_order_number:
-                    order.sale_order_number = (
+                    old_name = order.name
+                    new_number = (
                         self.env['ir.sequence'].sudo().next_by_code('sale.order.confirmed') or '/'
                     )
+                    order.sale_order_number = new_number
+                    order.x_quotation_number = old_name
+                    order.name = new_number
+                    order._rename_linked_origin_refs(old_name, new_number)
         return result
+
+    def _rename_linked_origin_refs(self, old_name, new_name):
+        """Propagate the EGO-QUO- → EGO-SO- rename to every document already
+        created (delivery, invoice) that stored a plain-text copy of the old
+        quotation number as its origin/reference at creation time. Those
+        fields are NOT live-linked to sale.order.name — without this they'd
+        keep showing the retired quotation number forever, and any lookup
+        matching sale.order by name against that stored string (e.g. the
+        serial-sync fallback in stock_picking.py, or the invoice_origin
+        fallback in account_move.py) would silently stop finding this order.
+        """
+        self.ensure_one()
+        if not old_name or old_name == new_name:
+            return
+        self.env['stock.picking'].sudo().search([
+            ('origin', '=', old_name)
+        ]).write({'origin': new_name})
+        invoices = self.env['account.move'].sudo().search([
+            ('invoice_origin', '=', old_name)
+        ])
+        for inv in invoices:
+            inv.invoice_origin = ','.join(
+                new_name if part.strip() == old_name else part.strip()
+                for part in inv.invoice_origin.split(',')
+            )
 
     @api.model
     def _backfill_accepted_pending_approval(self):
@@ -84,6 +124,31 @@ class SaleOrder(models.Model):
             order.sale_order_number = (
                 self.env['ir.sequence'].sudo().next_by_code('sale.order.confirmed') or '/'
             )
+
+    @api.model
+    def _backfill_rename_confirmed_orders(self):
+        """One-time (idempotent) fix for orders confirmed under the earlier
+        version of this feature, which only recorded sale_order_number
+        without actually renaming the record — e.g. EGO-QUO-00001 whose
+        page title/breadcrumbs still show the quotation number even though
+        sale_order_number already holds EGO-SO-00020. Brings them in line
+        with new confirmations, which rename on write() (see write() above):
+        preserves the original quotation number in x_quotation_number, then
+        renames the record and cascades the change to already-created
+        deliveries/invoices' origin fields. Called from
+        company_config_data.xml on every upgrade.
+        """
+        orders = self.search([
+            ('state', '=', 'sale'),
+            ('sale_order_number', '!=', False),
+        ])
+        orders = orders.filtered(lambda o: o.name != o.sale_order_number)
+        for order in orders:
+            old_name = order.name
+            new_name = order.sale_order_number
+            order.x_quotation_number = old_name
+            order.name = new_name
+            order._rename_linked_origin_refs(old_name, new_name)
 
     @api.model_create_multi
     def create(self, vals_list):
@@ -125,6 +190,31 @@ class SaleOrder(models.Model):
     def action_quotation_send(self):
         self._ensure_actual_salesperson()
         return super().action_quotation_send()
+
+    @api.model
+    def _redirect_default_quotation_report(self):
+        """Point the standard Preview / Send by Email / Print quotation PDF
+        at our fully custom template (report_elegomotors_quotation) instead
+        of Odoo's base sale.report_saleorder_document — needed so bike-combo
+        battery/charger lines fold into their parent bike's row ("same box")
+        there too, matching the Tax Invoice.
+
+        Deliberately a data-driven search on report_name rather than an
+        env.ref() on a guessed xmlid: inheriting/patching the base template
+        via xpath already proved unsafe (a wrong guess at its internal row
+        structure broke the entire module install — see report_saleorder.xml
+        history). If Odoo's report_name convention for the base quotation
+        report ever differs from 'sale.report_saleorder', this search simply
+        finds nothing and no-ops — it can never break install.
+        """
+        report_action = self.env['ir.actions.report'].search(
+            [('report_name', '=', 'sale.report_saleorder')], limit=1
+        )
+        if report_action and report_action.report_name != 'elegomotors_setup.report_elegomotors_quotation':
+            report_action.write({
+                'report_name': 'elegomotors_setup.report_elegomotors_quotation',
+                'report_file': 'elegomotors_setup.report_elegomotors_quotation',
+            })
 
     def action_open_bike_combo_wizard(self):
         """Add a bike + battery + charger combo priced from the dealer
