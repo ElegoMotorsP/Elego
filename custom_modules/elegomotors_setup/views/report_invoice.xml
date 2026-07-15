@@ -283,7 +283,11 @@
 
                     <!-- Product line -->
                     <t t-else="">
-                        <t t-set="is_combo_item" t-value="getattr(line, 'x_is_combo_item', False)"/>
+                        <!-- No getattr() — QWeb's safe_eval sandbox doesn't
+                             expose it as a builtin; x_is_combo_item is a
+                             real field on account.move.line so direct
+                             access is safe (see report_saleorder.xml note). -->
+                        <t t-set="is_combo_item" t-value="line.x_is_combo_item"/>
                         <t t-if="is_combo_item">
                             <t t-set="sub_sr" t-value="sub_sr + 1"/>
                         </t>
