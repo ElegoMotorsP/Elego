@@ -323,16 +323,23 @@ class MrpProduction(models.Model):
         # auto-creates one Picking Slip per MO confirmation linked via
         # production.picking_ids.  Pratik must wait for Amit to validate the
         # picking (EGO/Store → EGO/Production WIP) before producing.
-        for production in self:
-            pending = production.picking_ids.filtered(
-                lambda p: p.state not in ('done', 'cancel')
-            )
-            if pending:
-                names = ', '.join(pending.mapped('name'))
-                raise UserError(
-                    f'Please complete the Picking Slip (Raw Material) before finalising '
-                    f'{production.name}.\nPending transfer(s): {names}'
+        # Skipped under superuser (module installs, demo data, tests) —
+        # matches Guards 1 and 3 below. Without this bypass, enabling any
+        # Enterprise app whose demo data marks its own unrelated MOs done
+        # (e.g. purchase_mrp_workorder_quality) fails at install time,
+        # since this guard applied to every mrp.production, not just
+        # ElegoMotors bike orders.
+        if not self.env.su:
+            for production in self:
+                pending = production.picking_ids.filtered(
+                    lambda p: p.state not in ('done', 'cancel')
                 )
+                if pending:
+                    names = ', '.join(pending.mapped('name'))
+                    raise UserError(
+                        f'Please complete the Picking Slip (Raw Material) before finalising '
+                        f'{production.name}.\nPending transfer(s): {names}'
+                    )
 
         # Guard 3: ElegoMotors bike templates require component serials scanned before
         # marking done. Intercepts any path that skips the barcode wizard.
