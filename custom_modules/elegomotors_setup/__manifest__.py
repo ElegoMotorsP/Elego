@@ -1,6 +1,6 @@
 {
     'name': 'ElegoMotors Workflow Setup',
-    'version': '18.0.52.0.0',
+    'version': '18.0.54.0.0',
     'category': 'Manufacturing',
     'summary': 'ElegoMotors EV 2-wheeler end-to-end manufacturing workflow configuration',
     'description': """
@@ -62,6 +62,8 @@
         'data/qc_required_components_data.xml', # Flag all bike BOM components as QC-required
         'data/gst_tax_data.xml',          # GST 5%/18% taxes + fiscal positions (MH intra/other inter)
         'data/sale_products_data.xml',    # Battery Pack + Side Guard accessory sale products
+        'data/battery_kit_data.xml',      # Base battery cells + chargers + pack kit (phantom) BOMs
+        'data/combo_price_data.xml',      # Bike combo dealer prices (July-2026 list)
         'data/users_data.xml',            # department users (loaded after groups)
         'data/quality_data.xml',         # QC control points: gate entry + FG receipt
         'data/qc_check_sheets_data.xml', # Charger + Battery QC check sheet templates
@@ -88,6 +90,7 @@
         'views/global_scan_wizard_views.xml',       # Global Production Scan wizard + menu (FIFO MO closing)
         'views/report_invoice.xml',                 # ElegoMotors custom TAX INVOICE QWeb report
         'views/report_saleorder.xml',               # Quotation PDF: Sr.No/HSN columns + invoice-matching order
+        'views/combo_price_views.xml',              # Bike Combo Prices config + Add Bike Combo wizard
     ],
     'assets': {
         'web.assets_backend': [

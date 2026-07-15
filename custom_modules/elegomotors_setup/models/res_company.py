@@ -65,3 +65,56 @@ class ResCompany(models.Model):
                 usd.active = False
             except Exception as e:
                 _logger.info('ElegoMotors: could not deactivate USD: %s', e)
+
+    @api.model
+    def _cleanup_lithium_fake_cells(self):
+        """Retract a corrected mistake: an earlier version of
+        battery_kit_data.xml wrongly decomposed the Lithium 60V30Ah/60V39Ah
+        battery packs into invented "Li 12V30AH"/"Li 12V39AH" sub-cells via a
+        phantom BOM. Lithium packs are sealed units sold/stocked as
+        themselves — they were never built from smaller cells.
+
+        Runs on every upgrade (noupdate="0"). On a database where the
+        mistake was never deployed this is a no-op (the xmlids simply don't
+        exist). Where it WAS deployed, the noupdate="1" data file no longer
+        declaring these records does not auto-delete them, so this removes
+        the phantom BOMs and, if unused elsewhere (no stock moves/POs
+        referencing them), the fake cell products too.
+        """
+        bom_xmlids = [
+            'elegomotors_setup.bom_kit_battery_li_60v30ah',
+            'elegomotors_setup.bom_kit_battery_li_60v39ah',
+        ]
+        boms = self.env['mrp.bom']
+        for xmlid in bom_xmlids:
+            bom = self.env.ref(xmlid, raise_if_not_found=False)
+            if bom:
+                boms |= bom
+        if boms:
+            boms.bom_line_ids.unlink()
+            boms.unlink()
+
+        product_xmlids = [
+            'elegomotors_setup.prod_cell_li_12v30ah',
+            'elegomotors_setup.prod_cell_li_12v39ah',
+        ]
+        for xmlid in product_xmlids:
+            product = self.env.ref(xmlid, raise_if_not_found=False)
+            if not product:
+                continue
+            has_moves = bool(self.env['stock.move'].search_count(
+                [('product_id', '=', product.id)]
+            ))
+            has_po_lines = bool(self.env['purchase.order.line'].search_count(
+                [('product_id', '=', product.id)]
+            ))
+            if has_moves or has_po_lines:
+                # Real transactions reference it — don't delete history,
+                # just hide it from future use.
+                product.write({'active': False, 'purchase_ok': False})
+                _logger.info(
+                    'ElegoMotors: %s has stock/purchase history — archived '
+                    'instead of deleted.', product.display_name
+                )
+            else:
+                product.unlink()

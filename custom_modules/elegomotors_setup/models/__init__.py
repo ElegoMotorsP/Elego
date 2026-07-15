@@ -20,3 +20,4 @@ from . import purchase_bom_wizard
 from . import invoice_bike_scan_wizard
 from . import global_scan_wizard
 from . import delivery_bike_scan_wizard
+from . import combo_price

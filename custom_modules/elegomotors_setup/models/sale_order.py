@@ -126,6 +126,19 @@ class SaleOrder(models.Model):
         self._ensure_actual_salesperson()
         return super().action_quotation_send()
 
+    def action_open_bike_combo_wizard(self):
+        """Add a bike + battery + charger combo priced from the dealer
+        combo price list (Sales → Configuration → Bike Combo Prices)."""
+        self.ensure_one()
+        return {
+            'type': 'ir.actions.act_window',
+            'name': 'Add Bike Combo',
+            'res_model': 'elegomotors.bike.combo.wizard',
+            'view_mode': 'form',
+            'target': 'new',
+            'context': {'default_order_id': self.id},
+        }
+
     def action_mark_accepted(self):
         """Salesperson records that the customer accepted the quotation.
         This immediately sends the order for SO confirmation: it stays in

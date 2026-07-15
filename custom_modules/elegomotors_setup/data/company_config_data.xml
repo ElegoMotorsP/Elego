@@ -182,6 +182,10 @@
              next serial ends in 0004). No-ops once the counter has advanced. -->
         <function model="stock.lot" name="_init_global_serial_counter"/>
 
+        <!-- Retract the earlier mistaken lithium-pack cell decomposition —
+             see res_company._cleanup_lithium_fake_cells docstring. -->
+        <function model="res.company" name="_cleanup_lithium_fake_cells"/>
+
         <!-- 2-step manufacturing: when Prashant confirms an MO, Odoo auto-creates a
              Picking Slip (Raw Material) linked to the MO via production.picking_ids.
              The picking uses our existing "Issue to Production" operation type (PI),

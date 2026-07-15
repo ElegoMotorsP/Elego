@@ -1,0 +1,114 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+    <!--
+        Bike Combo Prices — config menu (Sales → Configuration) +
+        "Add Bike Combo" wizard on the quotation.
+    -->
+
+    <!-- ── Combo price list (editable in place) ── -->
+    <record id="view_combo_price_list" model="ir.ui.view">
+        <field name="name">elegomotors.combo.price.list</field>
+        <field name="model">elegomotors.combo.price</field>
+        <field name="arch" type="xml">
+            <list editable="bottom">
+                <field name="bike_tmpl_id"
+                       options="{'no_create': True}"
+                       domain="[('sale_ok', '=', True), ('name', 'ilike', 'elego')]"/>
+                <field name="battery_tmpl_id"
+                       options="{'no_create': True}"
+                       domain="[('name', 'ilike', 'battery pack')]"
+                       placeholder="Without Battery &amp; Charger"/>
+                <field name="price_incl_gst" string="Dealer Price (incl. 5% GST)"/>
+                <field name="active" widget="boolean_toggle"/>
+            </list>
+        </field>
+    </record>
+
+    <record id="action_combo_price" model="ir.actions.act_window">
+        <field name="name">Bike Combo Prices</field>
+        <field name="res_model">elegomotors.combo.price</field>
+        <field name="view_mode">list</field>
+        <field name="context">{'active_test': False}</field>
+        <field name="help" type="html">
+            <p class="o_view_nocontent_smiling_face">Add a combo price row</p>
+            <p>One row per bike model × battery option, dealer price including
+               5% GST — exactly as on the printed price list. Leave the battery
+               empty for the "without battery &amp; charger" price.</p>
+        </field>
+    </record>
+
+    <menuitem id="menu_combo_price"
+              name="Bike Combo Prices"
+              parent="sale.menu_sale_config"
+              action="action_combo_price"
+              sequence="30"
+              groups="sales_team.group_sale_manager,base.group_erp_manager"/>
+
+    <!-- ── Add Bike Combo wizard ── -->
+    <record id="view_bike_combo_wizard_form" model="ir.ui.view">
+        <field name="name">elegomotors.bike.combo.wizard.form</field>
+        <field name="model">elegomotors.bike.combo.wizard</field>
+        <field name="arch" type="xml">
+            <form string="Add Bike Combo">
+                <sheet>
+                    <div class="alert alert-info mb-3" role="alert">
+                        Pick the bike, battery and charger sold together.
+                        The bike line carries the full combo dealer price with
+                        <strong>5% GST</strong>; battery and charger are added at
+                        <strong>₹0 with no tax</strong> (included in the combo).
+                    </div>
+                    <field name="order_id" invisible="1"/>
+                    <field name="allowed_bike_tmpl_ids" invisible="1"/>
+                    <field name="valid_color_value_ids" invisible="1"/>
+                    <field name="allowed_battery_tmpl_ids" invisible="1"/>
+                    <group>
+                        <group>
+                            <field name="bike_tmpl_id"
+                                   domain="[('id', 'in', allowed_bike_tmpl_ids)]"
+                                   options="{'no_create': True}"/>
+                            <field name="color_value_id"
+                                   domain="[('id', 'in', valid_color_value_ids)]"
+                                   options="{'no_create': True}"
+                                   invisible="not valid_color_value_ids"/>
+                            <field name="qty"/>
+                        </group>
+                        <group>
+                            <field name="battery_tmpl_id"
+                                   domain="[('id', 'in', allowed_battery_tmpl_ids)]"
+                                   options="{'no_create': True}"
+                                   placeholder="Without battery &amp; charger"/>
+                            <field name="charger_product_id"
+                                   options="{'no_create': True}"/>
+                            <field name="combo_price_display" readonly="1"/>
+                        </group>
+                    </group>
+                </sheet>
+                <footer>
+                    <button name="action_add_combo"
+                            string="Add to Quotation"
+                            type="object"
+                            class="btn-primary"/>
+                    <button string="Cancel" special="cancel" class="btn-secondary"/>
+                </footer>
+            </form>
+        </field>
+    </record>
+
+    <!-- ── "Add Bike Combo" button on the quotation ── -->
+    <record id="sale_order_form_bike_combo_button" model="ir.ui.view">
+        <field name="name">sale.order.form.bike.combo.button</field>
+        <field name="model">sale.order</field>
+        <field name="inherit_id" ref="sale.view_order_form"/>
+        <field name="arch" type="xml">
+            <xpath expr="//header" position="inside">
+                <button name="action_open_bike_combo_wizard"
+                        string="Add Bike Combo"
+                        type="object"
+                        class="btn-secondary"
+                        invisible="state not in ('draft', 'sent', 'accepted')"
+                        groups="sales_team.group_sale_salesman"/>
+            </xpath>
+        </field>
+    </record>
+
+</odoo>
