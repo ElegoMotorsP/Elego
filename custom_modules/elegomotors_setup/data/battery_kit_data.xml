@@ -98,6 +98,12 @@
             ])]"/>
         </record>
 
+        <!-- Remove any pre-existing reordering rule on these two products
+             first — Odoo refuses to create a kit-type BOM for a product
+             that still has one. Production had these configured before
+             this feature existed. See product_template.py for details. -->
+        <function model="product.template" name="_remove_reorder_rules_for_kit_battery_packs"/>
+
         <!-- ── Phantom (kit) BOMs: packs explode into base cells on the PI ── -->
         <record id="bom_kit_battery_lead_60v32ah" model="mrp.bom">
             <field name="product_tmpl_id" ref="prod_battery_lead_acid_60v32ah"/>
