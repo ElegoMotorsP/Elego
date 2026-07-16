@@ -3,16 +3,23 @@
     <!--
         ElegoMotors Sales Order — Approval Workflow
 
-        When Priyanka confirms a Quotation, the SO is held in Draft with
-        pending_approval = True.  Either designated approver can click
-        their approval button to confirm the SO:
+        Quotation → Quotation Sent → Quotation Accepted → Sales Order
+
+        1. Salesperson sends the quotation to the customer (state 'sent').
+           Only "Send by Email" shows on a draft quotation.
+        2. When the customer accepts, salesperson clicks "Quotation Accepted"
+           (custom state 'accepted') — this automatically sends the order
+           for SO confirmation (pending_approval = True).
+        3. The Approve click by Rajshri/Manohar IS the SO confirmation:
+           the order becomes a Sales Order only then. Base Confirm buttons
+           are hidden; direct confirmations (portal signature, API) instead
+           arm the approval gate on the confirmed SO, where delivery
+           validation and invoicing stay blocked until approved:
 
           • Approve (Accounts) — visible only to group_sale_approver (Rajshri)
           • Approve (MD)       — visible only to base.group_erp_manager (Manohar)
-          • Reject Order       — visible to either approver
-
-        Once any one approval is recorded the SO moves to state='sale' and
-        the existing auto_so_confirmed automation notifies Priyanka + Amit.
+          • Reject Order       — either approver; cancels deliveries and
+                                 returns the order to Draft (mandatory reason)
     -->
 
     <!-- Note: "Create Invoice" restriction is enforced in sale_order.py
@@ -33,11 +40,66 @@
                 <field name="approval_accounts" invisible="1"/>
                 <field name="approval_manohar" invisible="1"/>
                 <field name="rejection_reason" invisible="1"/>
-                <field name="sale_order_number" invisible="not sale_order_number" readonly="1"/>
+                <field name="sale_order_number" invisible="1"/>
+                <field name="x_quotation_number" invisible="1"/>
             </field>
+
+            <!-- The record's own name/title IS the Sales Order number once
+                 approved (sale_order.py write() renames it directly, e.g.
+                 EGO-SO-00020) — so the big page title, breadcrumbs, and any
+                 downstream document's Source Document/origin created from
+                 this point on all show the SO number, not the quotation
+                 number. This banner is just a traceability note back to
+                 where it came from. Placed via //sheet position="before" —
+                 the same safe, proven xpath already used for the Awaiting
+                 Approval banner below, rather than guessing at the base
+                 view's <h1> internals (a wrong guess there would break the
+                 whole module install). -->
+            <xpath expr="//sheet" position="before">
+                <div class="alert alert-success mb-0 py-2"
+                     invisible="not x_quotation_number"
+                     role="alert">
+                    Originally quoted as:
+                    <field name="x_quotation_number" readonly="1" nolabel="1" class="d-inline fw-bold"/>
+                </div>
+            </xpath>
+
+            <!-- Shared sales login: record which person is actually handling
+                 the order. Required while it's still a quotation (old
+                 confirmed orders without a value can still be edited), and
+                 enforced server-side before send / accept / confirm. -->
+            <xpath expr="//field[@name='partner_id']" position="after">
+                <field name="x_actual_salesperson"
+                       required="state in ('draft', 'sent', 'accepted')"/>
+            </xpath>
+
+            <!-- Show the custom 'Quotation Accepted' stage in the status bar -->
+            <field name="state" position="attributes">
+                <attribute name="statusbar_visible">draft,sent,accepted,sale</attribute>
+            </field>
+
+            <!-- Hide both base Confirm buttons (sent-primary + draft-secondary):
+                 salespeople never confirm manually — the Approve click by
+                 Rajshri/Manohar performs the SO confirmation. -->
+            <xpath expr="(//header/button[@name='action_confirm'])[1]" position="attributes">
+                <attribute name="invisible">1</attribute>
+            </xpath>
+            <xpath expr="(//header/button[@name='action_confirm'])[2]" position="attributes">
+                <attribute name="invisible">1</attribute>
+            </xpath>
 
             <!-- Approval action buttons in the form header -->
             <xpath expr="//header/button[@name='action_confirm']" position="after">
+
+                <!-- Salesperson records the customer's acceptance — only once
+                     the quotation has been sent. This sends the order for
+                     approval/SO confirmation automatically. -->
+                <button name="action_mark_accepted"
+                        string="Quotation Accepted"
+                        type="object"
+                        class="btn-primary"
+                        groups="sales_team.group_sale_salesman"
+                        invisible="state != 'sent'"/>
 
                 <!-- Accounts approval — only Rajshri (group_sale_approver) -->
                 <button name="action_approve_accounts"
@@ -74,7 +136,7 @@
                         class="btn-secondary"
                         confirm="Reset this order to Draft so it can be edited? It will need approval again before it's re-confirmed."
                         groups="sales_team.group_sale_salesman,elegomotors_setup.group_sale_approver,base.group_erp_manager"
-                        invisible="state != 'sale'"/>
+                        invisible="state != 'sale' or pending_approval"/>
 
             </xpath>
 
@@ -83,7 +145,8 @@
                 <div class="alert alert-warning mb-0"
                      invisible="not pending_approval"
                      role="alert">
-                    <strong>Awaiting Approval</strong> — this Sales Order needs approval from either Accounts (Rajshri) or MD (Manohar).
+                    <strong>Awaiting Approval</strong> — this order needs approval from either Accounts (Rajshri) or MD (Manohar).
+                    Their approval confirms it as a Sales Order; until then it cannot proceed to delivery or invoicing.
                     <ul class="mb-0 mt-1">
                         <li>
                             Accounts (Rajshri):

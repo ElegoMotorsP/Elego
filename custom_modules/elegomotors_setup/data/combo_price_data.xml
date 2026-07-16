@@ -1,0 +1,93 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+    <!--
+        Bike Combo dealer prices — seeded from "ELEGO MOTORS PRICE LIST
+        JULY-2026" (Doc PRICE/REV/0017, dealer price WITH GST column).
+        noupdate="1": loaded once; afterwards Sales Managers / Admin maintain
+        these rows from Sales → Configuration → Bike Combo Prices.
+        The bike-row names "60V38AH Li" on the sheet map to the
+        "Lithium 60V39Ah" battery product.
+    -->
+    <data noupdate="1">
+
+        <!-- ── ELEGO 1.1 ── -->
+        <record id="combo_el11_none" model="elegomotors.combo.price">
+            <field name="bike_tmpl_id" ref="tmpl_elego_11"/>
+            <field name="price_incl_gst">26719</field>
+        </record>
+        <record id="combo_el11_lead60" model="elegomotors.combo.price">
+            <field name="bike_tmpl_id" ref="tmpl_elego_11"/>
+            <field name="battery_tmpl_id" ref="prod_battery_lead_acid_60v32ah"/>
+            <field name="price_incl_gst">38720</field>
+        </record>
+        <record id="combo_el11_li30" model="elegomotors.combo.price">
+            <field name="bike_tmpl_id" ref="tmpl_elego_11"/>
+            <field name="battery_tmpl_id" ref="prod_battery_lithium_60v30ah"/>
+            <field name="price_incl_gst">54744</field>
+        </record>
+        <record id="combo_el11_li39" model="elegomotors.combo.price">
+            <field name="bike_tmpl_id" ref="tmpl_elego_11"/>
+            <field name="battery_tmpl_id" ref="prod_battery_lithium_60v39ah"/>
+            <field name="price_incl_gst">60370</field>
+        </record>
+        <record id="combo_el11_lead72" model="elegomotors.combo.price">
+            <field name="bike_tmpl_id" ref="tmpl_elego_11"/>
+            <field name="battery_tmpl_id" ref="prod_battery_lead_acid_72v32ah"/>
+            <field name="price_incl_gst">41719</field>
+        </record>
+
+        <!-- ── ELEGO 1.2 ── -->
+        <record id="combo_el12_none" model="elegomotors.combo.price">
+            <field name="bike_tmpl_id" ref="tmpl_elego_12"/>
+            <field name="price_incl_gst">25000</field>
+        </record>
+        <record id="combo_el12_lead60" model="elegomotors.combo.price">
+            <field name="bike_tmpl_id" ref="tmpl_elego_12"/>
+            <field name="battery_tmpl_id" ref="prod_battery_lead_acid_60v32ah"/>
+            <field name="price_incl_gst">36490</field>
+        </record>
+        <record id="combo_el12_li30" model="elegomotors.combo.price">
+            <field name="bike_tmpl_id" ref="tmpl_elego_12"/>
+            <field name="battery_tmpl_id" ref="prod_battery_lithium_60v30ah"/>
+            <field name="price_incl_gst">52514</field>
+        </record>
+        <record id="combo_el12_li39" model="elegomotors.combo.price">
+            <field name="bike_tmpl_id" ref="tmpl_elego_12"/>
+            <field name="battery_tmpl_id" ref="prod_battery_lithium_60v39ah"/>
+            <field name="price_incl_gst">58370</field>
+        </record>
+        <record id="combo_el12_lead72" model="elegomotors.combo.price">
+            <field name="bike_tmpl_id" ref="tmpl_elego_12"/>
+            <field name="battery_tmpl_id" ref="prod_battery_lead_acid_72v32ah"/>
+            <field name="price_incl_gst">39489</field>
+        </record>
+
+        <!-- ── ELEGO 2.0+ ── -->
+        <record id="combo_el20p_none" model="elegomotors.combo.price">
+            <field name="bike_tmpl_id" ref="tmpl_elego_20p"/>
+            <field name="price_incl_gst">31650</field>
+        </record>
+        <record id="combo_el20p_lead60" model="elegomotors.combo.price">
+            <field name="bike_tmpl_id" ref="tmpl_elego_20p"/>
+            <field name="battery_tmpl_id" ref="prod_battery_lead_acid_60v32ah"/>
+            <field name="price_incl_gst">42650</field>
+        </record>
+        <record id="combo_el20p_li30" model="elegomotors.combo.price">
+            <field name="bike_tmpl_id" ref="tmpl_elego_20p"/>
+            <field name="battery_tmpl_id" ref="prod_battery_lithium_60v30ah"/>
+            <field name="price_incl_gst">59500</field>
+        </record>
+        <record id="combo_el20p_li39" model="elegomotors.combo.price">
+            <field name="bike_tmpl_id" ref="tmpl_elego_20p"/>
+            <field name="battery_tmpl_id" ref="prod_battery_lithium_60v39ah"/>
+            <field name="price_incl_gst">64529</field>
+        </record>
+
+        <!-- ── ELEGO 3.0 (72v35Ah built in, without guard) ── -->
+        <record id="combo_el30_none" model="elegomotors.combo.price">
+            <field name="bike_tmpl_id" ref="tmpl_elego_30"/>
+            <field name="price_incl_gst">83499</field>
+        </record>
+
+    </data>
+</odoo>
