@@ -329,6 +329,25 @@
             </tbody>
         </table>
 
+        <!-- ── 4b. Combo Battery/Charger handover summary — a quick total
+             count across the whole invoice (not per bike model), so Store
+             knows exactly how many spare batteries/chargers to hand over
+             without re-counting each bike's folded sub-lines above. -->
+        <t t-set="ego_combo_lines" t-value="o.invoice_line_ids.filtered(lambda l: l.x_is_combo_item)"/>
+        <t t-if="ego_combo_lines">
+            <t t-set="ego_battery_qty" t-value="sum(l.quantity for l in ego_combo_lines if 'battery' in (l.product_id.name or '').lower())"/>
+            <t t-set="ego_charger_qty" t-value="sum(l.quantity for l in ego_combo_lines if 'charger' in (l.product_id.name or '').lower())"/>
+            <table style="width:100%; border:1px solid #000; border-collapse:collapse; margin-top:4px; font-size:8.5pt;">
+                <tr>
+                    <td style="padding:4px 8px; font-weight:bold; background:#fafafa;">
+                        Hand Over With Bike(s):
+                        <t t-if="ego_battery_qty">&#160;&#160;Battery: <t t-esc="'%g' % ego_battery_qty"/></t>
+                        <t t-if="ego_charger_qty">&#160;&#160;&#160;&#160;Charger: <t t-esc="'%g' % ego_charger_qty"/></t>
+                    </td>
+                </tr>
+            </table>
+        </t>
+
         <!-- ── 5. Totals ── -->
         <table style="width:100%; border-collapse:collapse; margin-top:6px; font-size:8.5pt;">
             <tr>
