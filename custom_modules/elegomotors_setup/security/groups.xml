@@ -61,7 +61,11 @@
         -->
         <record id="group_sale_viewer" model="res.groups">
             <field name="name">Sales: View Only</field>
-            <field name="implied_ids" eval="[(4, ref('sales_team.group_sale_salesman'))]"/>
+            <!-- group_sale_manager allows reading ALL SOs regardless of salesperson.
+                 group_sale_salesman was too restrictive — Odoo 18 record rules limit
+                 it to the user's own SOs, blocking Amit from reading Tushar's orders.
+                 Python-level create() block in sale_order.py still prevents SO creation. -->
+            <field name="implied_ids" eval="[(4, ref('sales_team.group_sale_manager'))]"/>
         </record>
 
         <!--

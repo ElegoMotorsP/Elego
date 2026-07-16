@@ -3,56 +3,123 @@
     <!--
         ElegoMotors Manufacturing Order — Post-Production QC Buttons
 
-        Adds "Pass QC" / "Fail QC" / "Reset QC" buttons and a QC status badge
-        to the MO form header. Only visible when the MO is in 'to_close' state
-        (production quantities entered, awaiting QC approval before mark-done).
+        Adds "Pass QC" / "Fail QC" / "Reset QC" / "Mark as Done" buttons
+        and a QC status badge to the MO form header.
 
         Button visibility:
-          Pass QC  — to_close state + not already passed, quality_manager group only
-          Fail QC  — to_close state, quality_manager group only
-          Reset QC — to_close state + currently failed (for rework cycle)
+          Pass QC      — to_close state + not already passed, quality_manager group
+          Fail QC      — to_close state, quality_manager group
+          Reset QC     — to_close state + currently failed (rework cycle)
+          Mark as Done — to_close state + qc_state == passed, manufacturing_operator group only
 
-        The "Mark as Done" button is NOT hidden — attempting to click it without
-        QC approval raises a clear UserError from mrp_production.py Guard 3.
+        NOTE: "Mark as Done" is added here as a custom button (calling the same
+        button_mark_done Python method) rather than modifying Odoo's base button via
+        position="attributes". This is because Odoo 18 OWL evaluates header button
+        invisible expressions in a separate compile pass where qc_state (from a
+        sibling inherited view) may be undefined, causing the attribute override to
+        permanently hide the button. Adding the button explicitly here ensures qc_state
+        is in the same render context.
 
         Quality group: quality.group_quality_manager = Pratik
-        (quality.quality_manager group includes Pratik via users_data.xml)
+        Manufacturing operator group: elegomotors_setup.group_manufacturing_operator = Pratik, Prashant
     -->
+
+    <!-- Issue 8: Materials-pending alert banner + Issue 7: serial column in MO list -->
+    <record id="mrp_production_form_issue_picking_gate" model="ir.ui.view">
+        <field name="name">mrp.production.form.issue.picking.gate</field>
+        <field name="model">mrp.production</field>
+        <field name="inherit_id" ref="mrp.mrp_production_form_view"/>
+        <field name="arch" type="xml">
+            <xpath expr="//sheet" position="before">
+                <field name="x_issue_picking_done" invisible="1"/>
+                <div class="alert alert-info mb-0"
+                     invisible="x_issue_picking_done or state not in ('confirmed', 'progress')"
+                     role="alert">
+                    <strong>Materials Pending</strong> — Issue to Production transfer
+                    must be validated by Amit (Store) before production can proceed.
+                </div>
+            </xpath>
+        </field>
+    </record>
+
+    <!-- Issue 7: Serial number shown in MO form header -->
+    <record id="mrp_production_form_serial_field" model="ir.ui.view">
+        <field name="name">mrp.production.form.serial.field</field>
+        <field name="model">mrp.production</field>
+        <field name="inherit_id" ref="mrp.mrp_production_form_view"/>
+        <field name="arch" type="xml">
+            <xpath expr="//field[@name='lot_producing_id']" position="after">
+                <field name="x_finished_serial" readonly="1"
+                       invisible="not x_finished_serial"
+                       string="Finished Serial No."/>
+            </xpath>
+        </field>
+    </record>
+
     <record id="mrp_production_form_view_qc" model="ir.ui.view">
         <field name="name">mrp.production.form.qc.buttons</field>
         <field name="model">mrp.production</field>
         <field name="inherit_id" ref="mrp.mrp_production_form_view"/>
         <field name="arch" type="xml">
 
-            <!-- QC status statusbar in header, only shown in to_close / done states -->
+            <!-- QC status statusbar in header, shown in progress (unit ready)/to_close/done -->
             <xpath expr="//header/field[@name='state']" position="after">
                 <field name="mo_flow_state" widget="statusbar"
                        statusbar_visible="manufactured,in_qc,done"
-                       invisible="state not in ('to_close', 'done')"/>
+                       invisible="mo_flow_state == False"/>
                 <field name="qc_state" invisible="1"/>
+                <field name="qty_producing" invisible="1"/>
             </xpath>
 
-            <!-- QC action buttons placed before "Mark as Done" -->
+            <!-- QC action buttons + custom Mark as Done placed before Odoo's base button.
+                 Visible in BOTH 'to_close' (single unit or last backorder) and 'progress'
+                 with qty_producing > 0 (multi-unit MO mid-production). -->
             <xpath expr="//header/button[@name='button_mark_done']" position="before">
                 <button name="action_qc_pass"
                         string="Pass QC"
                         type="object"
                         class="btn-success"
-                        invisible="state != 'to_close' or qc_state == 'passed'"
+                        invisible="state not in ('progress', 'to_close') or qty_producing == 0 or qc_state == 'passed'"
                         groups="quality.group_quality_manager"/>
                 <button name="action_qc_fail"
                         string="Fail QC"
                         type="object"
                         class="btn-danger"
-                        invisible="state != 'to_close'"
+                        invisible="state not in ('progress', 'to_close') or qty_producing == 0"
                         groups="quality.group_quality_manager"/>
                 <button name="action_qc_reset"
                         string="Reset QC"
                         type="object"
-                        invisible="state != 'to_close' or qc_state != 'failed'"
+                        invisible="state not in ('progress', 'to_close') or qty_producing == 0 or qc_state != 'failed'"
                         groups="quality.group_quality_manager"/>
+                <!--
+                    Custom Mark as Done: visible ONLY when QC is passed.
+                    Works for both single-unit (to_close) and multi-unit (progress + qty_producing>0).
+                -->
+                <button name="button_mark_done"
+                        string="Mark as Done"
+                        type="object"
+                        class="btn-primary"
+                        invisible="state not in ('progress', 'to_close') or qty_producing == 0 or qc_state != 'passed'"
+                        groups="elegomotors_setup.group_manufacturing_operator"/>
             </xpath>
 
+        </field>
+    </record>
+
+    <!--
+        Hide Odoo's base button_mark_done for group_manufacturing_operator users
+        so they see only our custom Mark as Done button above (which has the QC gate).
+        Other users (Manohar/admin) keep the original button for emergency override.
+    -->
+    <record id="mrp_production_form_view_mark_done_visibility" model="ir.ui.view">
+        <field name="name">mrp.production.form.mark.done.visibility</field>
+        <field name="model">mrp.production</field>
+        <field name="inherit_id" ref="mrp.mrp_production_form_view"/>
+        <field name="arch" type="xml">
+            <xpath expr="//header/button[@name='button_mark_done']" position="attributes">
+                <attribute name="groups">base.group_erp_manager</attribute>
+            </xpath>
         </field>
     </record>
 </odoo>

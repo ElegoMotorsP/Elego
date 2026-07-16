@@ -21,12 +21,54 @@ class MrpProduction(models.Model):
     ], compute='_compute_mo_flow_state', string='MO QC Flow', store=False, copy=False,
        help="Derived UI flow (Manufactured -> In QC -> Done) based on production state and QC status.")
 
-    @api.depends('state', 'qc_state')
+    # --- Issue 7: show produced serial number in MO list view ---
+    x_finished_serial = fields.Char(
+        string='Finished Serial No.',
+        compute='_compute_finished_serial',
+        store=False,
+        help='Serial number of the produced unit (from lot_producing_id).',
+    )
+
+    # --- Issue 8: gate "Produce" actions until Amit validates Issue to Production ---
+    x_issue_picking_done = fields.Boolean(
+        string='Issue to Production Done',
+        compute='_compute_issue_picking_done',
+        store=False,
+        help='True once all Issue-to-Production pickings are validated by Amit.',
+    )
+
+    @api.depends('lot_producing_id')
+    def _compute_finished_serial(self):
+        for prod in self:
+            prod.x_finished_serial = prod.lot_producing_id.name or ''
+
+    def _compute_issue_picking_done(self):
+        issue_type = self.env.ref(
+            'elegomotors_setup.picking_type_production_issue', raise_if_not_found=False
+        )
+        for prod in self:
+            if not issue_type:
+                prod.x_issue_picking_done = True
+                continue
+            issue_pickings = prod.picking_ids.filtered(
+                lambda p: p.picking_type_id == issue_type and p.state != 'cancel'
+            )
+            if not issue_pickings:
+                # No PI picking linked to this MO — this is a backorder MO.
+                # The parent MO's PI picking already issued all components to
+                # Production WIP; no new PI picking is created for the backorder.
+                prod.x_issue_picking_done = True
+            else:
+                # PI picking exists — must be fully validated before production
+                prod.x_issue_picking_done = all(p.state == 'done' for p in issue_pickings)
+
+    @api.depends('state', 'qc_state', 'qty_producing')
     def _compute_mo_flow_state(self):
         for production in self:
             if production.state == 'done':
                 production.mo_flow_state = 'done'
-            elif production.state == 'to_close':
+            elif production.state in ('to_close', 'progress') and production.qty_producing > 0:
+                # progress + qty_producing > 0 = multi-unit MO with one unit ready for QC
                 production.mo_flow_state = (
                     'manufactured'
                     if production.qc_state == 'pending'
@@ -35,13 +77,18 @@ class MrpProduction(models.Model):
             else:
                 production.mo_flow_state = False
 
+    def _qc_state_check(self):
+        """Shared guard: QC actions valid in progress (unit ready) or to_close."""
+        self.ensure_one()
+        if self.state == 'progress' and self.qty_producing <= 0:
+            raise UserError("Set the quantity to produce first before recording QC.")
+        if self.state not in ('progress', 'to_close'):
+            raise UserError("QC can only be recorded when a unit is being produced.")
+
     def action_qc_pass(self):
         """Pratik approves post-production QC. Unblocks button_mark_done."""
         self.ensure_one()
-        if self.state != 'to_close':
-            raise UserError(
-                "QC can only be recorded when production is complete (state: To Close)."
-            )
+        self._qc_state_check()
         self.qc_state = 'passed'
         self.message_post(
             body=Markup(
@@ -53,10 +100,9 @@ class MrpProduction(models.Model):
         )
 
     def action_qc_fail(self):
-        """Pratik fails post-production QC. MO stays in to_close for rework."""
+        """Pratik fails post-production QC. MO stays in progress/to_close for rework."""
         self.ensure_one()
-        if self.state != 'to_close':
-            raise UserError("QC can only be recorded when production is complete.")
+        self._qc_state_check()
         self.qc_state = 'failed'
         prashant = self.env.ref(
             'elegomotors_setup.user_ego_prashant', raise_if_not_found=False
@@ -76,14 +122,24 @@ class MrpProduction(models.Model):
     def action_qc_reset(self):
         """Reset QC state to pending after rework so Pratik can re-inspect."""
         self.ensure_one()
-        if self.state != 'to_close':
-            raise UserError("Can only reset QC on an MO that is in 'To Close' state.")
+        self._qc_state_check()
         self.qc_state = 'pending'
         self.message_post(
             body="QC reset to Pending — rework complete, ready for re-inspection.",
             message_type='comment',
             subtype_xmlid='mail.mt_comment',
         )
+
+    # --- Issue 8: guard the "Produce" / serial-generation action in Odoo 18 MRP ---
+    def action_generate_serial(self):
+        """Block lot/serial generation until Issue to Production is validated by Amit."""
+        for prod in self:
+            if not prod.x_issue_picking_done and not self.env.su:
+                raise UserError(
+                    f'{prod.name}: Materials must be issued to Production by Amit '
+                    f'(Store) before production quantities can be recorded.'
+                )
+        return super().action_generate_serial()
 
     def button_mark_done(self):
         # Guard 1: only group_manufacturing_operator (Pratik, Prashant) may mark MOs done.
@@ -172,12 +228,22 @@ class MrpProduction(models.Model):
             'move_ids': move_vals,
         })
         picking.action_confirm()
-        picking.action_assign()
 
-        # Propagate qty_done and serial lot_id to the new picking's move lines
-        for ml, src_ml in zip(picking.move_line_ids, finished_lines):
-            ml.qty_done = src_ml.qty_done
-            ml.lot_id = src_ml.lot_id          # e.g. EGO-S1-2503-0001
+        # Do NOT use action_assign() — Odoo MRP may land finished goods at its own
+        # virtual output location rather than EGO/Production WIP, so reservation
+        # would find nothing and button_validate() would raise "no quantities reserved".
+        # Instead, directly create move lines with qty_done to force the transfer.
+        for move, src_ml in zip(picking.move_ids, finished_lines):
+            self.env['stock.move.line'].create({
+                'move_id': move.id,
+                'picking_id': picking.id,
+                'product_id': src_ml.product_id.id,
+                'product_uom_id': src_ml.product_uom_id.id,
+                'qty_done': src_ml.qty_done,
+                'lot_id': src_ml.lot_id.id if src_ml.lot_id else False,
+                'location_id': picking_type.default_location_src_id.id,
+                'location_dest_id': picking_type.default_location_dest_id.id,
+            })
 
         picking.with_context(skip_immediate=True, skip_backorder=True).button_validate()
 
