@@ -50,26 +50,36 @@ class SaleOrder(models.Model):
 
     def write(self, vals):
         result = super().write(vals)
-        # Assign the Sales Order Number the first time an order is confirmed,
-        # AND rename the record's own name to it — so the SO number becomes
-        # the primary identifier everywhere: page title, breadcrumbs, and
-        # downstream documents' Source Document / origin fields created
-        # from this point on. Hooked on write() rather than
-        # action_confirm()/_try_confirm_if_approved() because every path
-        # that flips state to 'sale' ultimately persists through write() —
-        # this is the one hook guaranteed to catch it.
+        # Fallback only: the normal UI path assigns the Sales Order Number
+        # in action_mark_accepted(), the moment the customer accepts the
+        # quotation, so the record already carries its final SO number
+        # throughout the Manohar/Rajshri approval window — not just after
+        # approval. This catches the remaining paths that skip 'accepted'
+        # entirely and confirm directly (portal signature, tests, API);
+        # _assign_sale_order_number() is idempotent so it's a no-op for
+        # orders numbered earlier.
         if vals.get('state') == 'sale':
-            for order in self:
-                if not order.sale_order_number:
-                    old_name = order.name
-                    new_number = (
-                        self.env['ir.sequence'].sudo().next_by_code('sale.order.confirmed') or '/'
-                    )
-                    order.sale_order_number = new_number
-                    order.x_quotation_number = old_name
-                    order.name = new_number
-                    order._rename_linked_origin_refs(old_name, new_number)
+            self._assign_sale_order_number()
         return result
+
+    def _assign_sale_order_number(self):
+        """Assign the Sales Order Number and rename the record to it —
+        so the SO number becomes the primary identifier everywhere: page
+        title, breadcrumbs, and downstream documents' Source Document /
+        origin fields created from this point on. Idempotent: no-ops for
+        an order that already has a sale_order_number.
+        """
+        for order in self:
+            if order.sale_order_number:
+                continue
+            old_name = order.name
+            new_number = (
+                self.env['ir.sequence'].sudo().next_by_code('sale.order.confirmed') or '/'
+            )
+            order.sale_order_number = new_number
+            order.x_quotation_number = old_name
+            order.name = new_number
+            order._rename_linked_origin_refs(old_name, new_number)
 
     def _rename_linked_origin_refs(self, old_name, new_name):
         """Propagate the EGO-QUO- → EGO-SO- rename to every document already
@@ -124,6 +134,22 @@ class SaleOrder(models.Model):
             order.sale_order_number = (
                 self.env['ir.sequence'].sudo().next_by_code('sale.order.confirmed') or '/'
             )
+
+    @api.model
+    def _backfill_accepted_sale_order_numbers(self):
+        """One-time (idempotent) fix for orders already sitting in
+        'Quotation Accepted' (pending_approval already armed) from before
+        the SO number was assigned at acceptance time — e.g. an order still
+        displaying its old EGO-QUO-… / legacy EGO-SO-… quotation number
+        while "Awaiting Approval". Brings them in line with new acceptances
+        by assigning/renaming now instead of waiting for approval. Called
+        from company_config_data.xml on every upgrade.
+        """
+        orders = self.search([
+            ('state', '=', 'accepted'),
+            ('sale_order_number', '=', False),
+        ])
+        orders._assign_sale_order_number()
 
     @api.model
     def _backfill_rename_confirmed_orders(self):
@@ -231,10 +257,13 @@ class SaleOrder(models.Model):
 
     def action_mark_accepted(self):
         """Salesperson records that the customer accepted the quotation.
-        This immediately sends the order for SO confirmation: it stays in
-        'Quotation Accepted' with pending_approval = True, and the Approve
-        click by Rajshri (Accounts) or Manohar (MD) is what confirms it
-        into a Sales Order (see _on_approval_recorded)."""
+        This immediately creates the Sales Order: the record is renamed to
+        its SO number (EGO-SO-…) right here via _assign_sale_order_number(),
+        so it carries that number throughout the approval window rather than
+        still showing its old quotation number (EGO-QUO-…) while pending. It
+        stays in 'Quotation Accepted' with pending_approval = True; the
+        Approve click by Rajshri (Accounts) or Manohar (MD) is what confirms
+        it into state 'sale' (see _on_approval_recorded)."""
         self._ensure_actual_salesperson()
         for order in self:
             if order.state != 'sent':
@@ -245,6 +274,7 @@ class SaleOrder(models.Model):
             order.state = 'accepted'
             order.pending_approval = True
             order.rejection_reason = False
+            order._assign_sale_order_number()
             rajshri = self.env.ref(
                 'elegomotors_setup.user_ego_rajshri', raise_if_not_found=False
             )
@@ -257,7 +287,8 @@ class SaleOrder(models.Model):
             order.message_post(
                 body=Markup(
                     f"Quotation accepted by customer — recorded by "
-                    f"<b>{self.env.user.name}</b>. Awaiting SO confirmation: "
+                    f"<b>{self.env.user.name}</b>. This order is now "
+                    f"<b>{order.name}</b>, awaiting SO confirmation: "
                     f"please click <b>Approve (Accounts)</b> or <b>Approve (MD)</b> — "
                     f"either approval confirms the order."
                 ),
