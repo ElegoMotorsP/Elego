@@ -90,7 +90,7 @@
                         </list>
                     </field>
 
-                    <div class="alert alert-success mt-3 mb-0" invisible="not all_complete">
+                    <div class="alert alert-success mt-3 mb-0" invisible="not all_complete" role="alert">
                         All units scanned — click
                         <strong>Confirm &amp; Produce All</strong> to proceed.
                     </div>
