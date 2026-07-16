@@ -281,7 +281,7 @@
                                placeholder="Scan Charger barcode…"/>
                     </group>
 
-                    <div class="alert alert-success mt-3 mb-0" invisible="not all_scanned">
+                    <div class="alert alert-success mt-3 mb-0" invisible="not all_scanned" role="alert">
                         Required barcodes scanned — click
                         <strong>Confirm &amp; Produce</strong> to proceed.
                     </div>
