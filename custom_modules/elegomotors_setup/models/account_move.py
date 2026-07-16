@@ -1,4 +1,6 @@
 # -*- coding: utf-8 -*-
+import re
+
 from odoo import api, fields, models
 from odoo.exceptions import AccessError
 
@@ -354,6 +356,35 @@ class AccountMove(models.Model):
     def _find_ego_lot_for_line(self, line):
         lots = self._find_ego_lots_for_line(line, qty=1)
         return lots[0] if lots else False
+
+    def _ego_battery_type_display(self, lot):
+        """Descriptive Battery Type text for the Vehicle Serial Details
+        table. Prefers the manufacturing-recorded type on the lot itself;
+        falls back to the combo Battery Pack product sold on this invoice
+        (the x_is_combo_item line whose product name contains "battery")
+        when the lot has none — otherwise the column just printed '-' for
+        any bike produced without a battery type explicitly recorded.
+        Appends a "(12V x N)" cell-count hint parsed from the battery's
+        voltage (e.g. 60V -> 5, 72V -> 6) so the sheet is self-explanatory
+        without looking the spec up elsewhere.
+        """
+        self.ensure_one()
+        text = lot.x_battery_type
+        if not text:
+            battery_line = self.invoice_line_ids.filtered(
+                lambda l: l.x_is_combo_item
+                and 'battery' in (l.product_id.name or '').lower()
+            )[:1]
+            if battery_line:
+                text = battery_line.product_id.display_name
+        if not text:
+            return '-'
+        match = re.search(r'(\d+)\s*V', text, re.IGNORECASE)
+        if match:
+            cells = int(match.group(1)) // 12
+            if cells:
+                return f'{text} (12V x {cells})'
+        return text
 
     def _format_ego_serial_block(self, lot, number=None):
         """Build the serial annotation block appended to the invoice line name.
