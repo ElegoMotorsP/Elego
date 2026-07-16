@@ -58,7 +58,8 @@
         <field name="arch" type="xml">
             <xpath expr="//sheet" position="before">
                 <div class="alert alert-info mb-0 py-2"
-                     invisible="picking_type_code != 'outgoing' or not x_picked_serial_nos">
+                     invisible="picking_type_code != 'outgoing' or not x_picked_serial_nos"
+                     role="alert">
                     <strong>Bike Serial No(s) Picked:</strong>
                     <field name="x_picked_serial_nos" readonly="1" nolabel="1" class="ms-2 fw-bold"/>
                 </div>
