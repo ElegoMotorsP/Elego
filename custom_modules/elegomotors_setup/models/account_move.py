@@ -364,9 +364,12 @@ class AccountMove(models.Model):
         (the x_is_combo_item line whose product name contains "battery")
         when the lot has none — otherwise the column just printed '-' for
         any bike produced without a battery type explicitly recorded.
-        Appends a "(12V x N)" cell-count hint parsed from the battery's
-        voltage (e.g. 60V -> 5, 72V -> 6) so the sheet is self-explanatory
-        without looking the spec up elsewhere.
+        For Lead Acid packs only, appends a "(12V x N)" cell-count hint
+        parsed from the battery's voltage (e.g. 60V -> 5, 72V -> 6) — these
+        packs are physically built from that many 12V cells (see
+        battery_kit_data.xml's phantom BOMs: 5 cells for 60V32Ah, 6 for
+        72V32Ah). Lithium packs are sealed single units, not built from
+        12V sub-cells, so no cell count is shown for them.
         """
         self.ensure_one()
         text = lot.x_battery_type
@@ -379,6 +382,8 @@ class AccountMove(models.Model):
                 text = battery_line.product_id.display_name
         if not text:
             return '-'
+        if 'lead' not in text.lower():
+            return text
         match = re.search(r'(\d+)\s*V', text, re.IGNORECASE)
         if match:
             cells = int(match.group(1)) // 12
