@@ -1053,6 +1053,49 @@ class ProductTemplate(models.Model):
             )
 
     @api.model
+    def _remove_reorder_rules_for_kit_battery_packs(self):
+        """A product cannot have a kit-type (phantom) BOM while it also has
+        an active reordering rule — Odoo blocks this outright ("You can not
+        create a kit-type bill of materials for products that have at least
+        one reordering rule"). The lead-acid battery pack products already
+        had reordering rules configured on production before this feature
+        existed (dev/staging never had that data, which is why this only
+        surfaced against the real production database). Once a pack becomes
+        a kit, its own stock is derived from its component cells, so
+        replenishment belongs on the base cells instead — this removes the
+        now-invalid rule on the pack itself so the phantom BOM can be
+        created; a NEW reordering rule should be configured on the base
+        cell product(s) if automatic replenishment is still wanted.
+
+        Must run BEFORE the phantom BOM <record> tags in battery_kit_data.xml
+        (see the <function> call placed just above them there). Runs on
+        every upgrade; idempotent — a no-op once the rules are already gone.
+        """
+        refs = [
+            'elegomotors_setup.prod_battery_lead_acid_60v32ah',
+            'elegomotors_setup.prod_battery_lead_acid_72v32ah',
+        ]
+        products = self.env['product.template']
+        for ref in refs:
+            tmpl = self.env.ref(ref, raise_if_not_found=False)
+            if tmpl:
+                products |= tmpl
+        if not products:
+            return
+        orderpoints = self.env['stock.warehouse.orderpoint'].sudo().search([
+            ('product_id.product_tmpl_id', 'in', products.ids),
+        ])
+        if orderpoints:
+            _logger.warning(
+                'ElegoMotors: removing %d pre-existing reordering rule(s) on '
+                '%s — required so their kit BOM (pack -> base cells) can be '
+                'created. Set up a new reordering rule on the base cell '
+                'product(s) instead if automatic replenishment is still needed.',
+                len(orderpoints), ', '.join(products.mapped('name')),
+            )
+            orderpoints.unlink()
+
+    @api.model
     def _ensure_bike_gst_5_percent(self):
         """Bike units are always taxed at 5% GST (CGST 2.5% + SGST 2.5%,
         remapped to IGST 5% for inter-state customers by the existing fiscal
