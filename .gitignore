@@ -65,4 +65,7 @@ docker-compose.override.yml
 
 # System Files
 .DS_Store
-Thumbs.db 
+Thumbs.db
+
+# Local-only internal docs (not for the repo — kept on this machine only)
+/docs/internal/ 
