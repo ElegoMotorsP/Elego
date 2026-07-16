@@ -1,6 +1,6 @@
 {
     'name': 'ElegoMotors Workflow Setup',
-    'version': '18.0.35.0.0',
+    'version': '18.0.63.0.0',
     'category': 'Manufacturing',
     'summary': 'ElegoMotors EV 2-wheeler end-to-end manufacturing workflow configuration',
     'description': """
@@ -61,7 +61,10 @@
         'data/purchase_ok_fix_bike_models.xml', # Enable purchase_ok for Kit Purchase mode
         'data/qc_required_components_data.xml', # Flag all bike BOM components as QC-required
         'data/gst_tax_data.xml',          # GST 5%/18% taxes + fiscal positions (MH intra/other inter)
+        'data/bike_gst_fix.xml',          # Force 5% GST as the bike templates' default tax
         'data/sale_products_data.xml',    # Battery Pack + Side Guard accessory sale products
+        'data/battery_kit_data.xml',      # Base battery cells + chargers + pack kit (phantom) BOMs
+        'data/combo_price_data.xml',      # Bike combo dealer prices (July-2026 list)
         'data/users_data.xml',            # department users (loaded after groups)
         'data/quality_data.xml',         # QC control points: gate entry + FG receipt
         'data/qc_check_sheets_data.xml', # Charger + Battery QC check sheet templates
@@ -80,10 +83,17 @@
         'views/stock_picking_qc_wizard_views.xml',  # QC routing wizard form + action
         'views/batch_mo_wizard_views.xml',          # Batch MO creation wizard + menu entry; Req 2
         'views/bulk_barcode_wizard_views.xml',      # Bulk barcode scan wizard for multi-unit MO
-        'views/invoice_bike_scan_wizard_views.xml', # Bike serial scan wizard for invoice assignment
+        'views/invoice_bike_scan_wizard_views.xml', # Bike serial scan wizard for invoice assignment (admin fallback)
+        'views/delivery_bike_scan_wizard_views.xml', # Store scans shipped bike serials on OUT delivery
         'views/bike_traceability_views.xml',        # Bike Traceability search window + menu
         'views/generate_pi_wizard_views.xml',       # Generate Daily PI wizard + menu entry
+        'views/report_bike_serial_label.xml',       # 75x50mm bike serial label (TSC TTP-244 Pro)
+        'views/global_scan_wizard_views.xml',       # Global Production Scan wizard + menu (FIFO MO closing)
         'views/report_invoice.xml',                 # ElegoMotors custom TAX INVOICE QWeb report
+        'views/report_saleorder.xml',               # Quotation PDF (inherited base template): Sr.No/HSN columns
+        'views/report_elegomotors_quotation.xml',   # Fully custom Quotation PDF — bike combo "same box" merging;
+                                                     # redirects the default Preview/Send/Print to this template
+        'views/combo_price_views.xml',              # Bike Combo Prices config + Add Bike Combo wizard
     ],
     'assets': {
         'web.assets_backend': [

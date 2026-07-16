@@ -1,0 +1,131 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+    <!--
+        Battery pack KIT decomposition + charger sale products.
+
+        Only the LEAD-ACID packs are built from smaller cells and decompose
+        on the outgoing delivery/PI (phantom BOM):
+          Lead Acid 60V32Ah = 5 × Battery Cell Lead 12V32AH
+          Lead Acid 72V32Ah = 6 × Battery Cell Lead 12V32AH
+        So an SO for "Battery Pack — Lead Acid 60V32Ah" produces a PI OUT line
+        "Battery Cell — Lead 12V32AH × 5" and deducts cells from the store.
+        The multipliers are ordinary kit BOMs — adjustable in Manufacturing →
+        Products → Bills of Materials without code changes.
+
+        The LITHIUM packs (60V30Ah, 60V39Ah) are sealed units, not built from
+        smaller cells — they are stocked and sold as themselves, no
+        decomposition. (An earlier version of this file incorrectly assumed
+        fake "Li 12V30AH"/"Li 12V39AH" sub-cells; that has been removed —
+        see res_company._cleanup_lithium_fake_cells for the upgrade fix that
+        retracts it from any database where it was already deployed.)
+
+        Standalone GST: all batteries and chargers default to 18%
+        (CGST 9 + SGST 9); in a bike combo the wizard zeroes price and tax.
+    -->
+    <data noupdate="1">
+
+        <!-- ── Base battery cells (stocked + purchased), following the
+                comp_* product.product pattern used by the bike BOMs ── -->
+        <record id="prod_cell_lead_12v32ah" model="product.product">
+            <field name="name">Battery Cell — Lead 12V32AH</field>
+            <field name="is_storable" eval="True"/>
+            <field name="sale_ok" eval="False"/>
+            <field name="purchase_ok" eval="True"/>
+            <field name="categ_id" ref="product.product_category_all"/>
+            <field name="uom_id" ref="uom.product_uom_unit"/>
+            <field name="uom_po_id" ref="uom.product_uom_unit"/>
+            <field name="standard_price">2700.0</field>
+        </record>
+
+        <!-- ── Charger sale products (July-2026 dealer list, ex-GST) ── -->
+        <record id="prod_charger_lead_60v3a" model="product.template">
+            <field name="name">Lead Charger 60V3Ah</field>
+            <field name="is_storable" eval="True"/>
+            <field name="sale_ok" eval="True"/>
+            <field name="purchase_ok" eval="True"/>
+            <field name="categ_id" ref="product.product_category_all"/>
+            <field name="uom_id" ref="uom.product_uom_unit"/>
+            <field name="uom_po_id" ref="uom.product_uom_unit"/>
+            <field name="list_price">1200.0</field>
+            <field name="taxes_id" eval="[(6, 0, [
+                ref('elegomotors_setup.tax_cgst_9'),
+                ref('elegomotors_setup.tax_sgst_9'),
+            ])]"/>
+        </record>
+
+        <record id="prod_charger_lead_72v3a" model="product.template">
+            <field name="name">Lead Charger 72V3Ah</field>
+            <field name="is_storable" eval="True"/>
+            <field name="sale_ok" eval="True"/>
+            <field name="purchase_ok" eval="True"/>
+            <field name="categ_id" ref="product.product_category_all"/>
+            <field name="uom_id" ref="uom.product_uom_unit"/>
+            <field name="uom_po_id" ref="uom.product_uom_unit"/>
+            <field name="list_price">1300.0</field>
+            <field name="taxes_id" eval="[(6, 0, [
+                ref('elegomotors_setup.tax_cgst_9'),
+                ref('elegomotors_setup.tax_sgst_9'),
+            ])]"/>
+        </record>
+
+        <record id="prod_charger_li_60v6a" model="product.template">
+            <field name="name">Li-Battery Charger 60V6AH</field>
+            <field name="is_storable" eval="True"/>
+            <field name="sale_ok" eval="True"/>
+            <field name="purchase_ok" eval="True"/>
+            <field name="categ_id" ref="product.product_category_all"/>
+            <field name="uom_id" ref="uom.product_uom_unit"/>
+            <field name="uom_po_id" ref="uom.product_uom_unit"/>
+            <field name="list_price">3047.62</field>
+            <field name="taxes_id" eval="[(6, 0, [
+                ref('elegomotors_setup.tax_cgst_9'),
+                ref('elegomotors_setup.tax_sgst_9'),
+            ])]"/>
+        </record>
+
+        <record id="prod_charger_li_30" model="product.template">
+            <field name="name">Li-Battery Charger 3.0</field>
+            <field name="is_storable" eval="True"/>
+            <field name="sale_ok" eval="True"/>
+            <field name="purchase_ok" eval="True"/>
+            <field name="categ_id" ref="product.product_category_all"/>
+            <field name="uom_id" ref="uom.product_uom_unit"/>
+            <field name="uom_po_id" ref="uom.product_uom_unit"/>
+            <field name="list_price">5142.86</field>
+            <field name="taxes_id" eval="[(6, 0, [
+                ref('elegomotors_setup.tax_cgst_9'),
+                ref('elegomotors_setup.tax_sgst_9'),
+            ])]"/>
+        </record>
+
+        <!-- ── Phantom (kit) BOMs: packs explode into base cells on the PI ── -->
+        <record id="bom_kit_battery_lead_60v32ah" model="mrp.bom">
+            <field name="product_tmpl_id" ref="prod_battery_lead_acid_60v32ah"/>
+            <field name="product_qty">1</field>
+            <field name="type">phantom</field>
+        </record>
+        <record id="bom_kit_line_lead_60v32ah" model="mrp.bom.line">
+            <field name="bom_id" ref="bom_kit_battery_lead_60v32ah"/>
+            <field name="product_id" ref="prod_cell_lead_12v32ah"/>
+            <field name="product_qty">5.0</field>
+            <field name="product_uom_id" ref="uom.product_uom_unit"/>
+        </record>
+
+        <record id="bom_kit_battery_lead_72v32ah" model="mrp.bom">
+            <field name="product_tmpl_id" ref="prod_battery_lead_acid_72v32ah"/>
+            <field name="product_qty">1</field>
+            <field name="type">phantom</field>
+        </record>
+        <record id="bom_kit_line_lead_72v32ah" model="mrp.bom.line">
+            <field name="bom_id" ref="bom_kit_battery_lead_72v32ah"/>
+            <field name="product_id" ref="prod_cell_lead_12v32ah"/>
+            <field name="product_qty">6.0</field>
+            <field name="product_uom_id" ref="uom.product_uom_unit"/>
+        </record>
+
+        <!-- Lithium packs (60V30Ah, 60V39Ah) are sealed units — no kit BOM,
+             no decomposition. They are stocked and sold as themselves
+             (prod_battery_lithium_60v30ah / _60v39ah in sale_products_data.xml). -->
+
+    </data>
+</odoo>

@@ -17,3 +17,11 @@ access_purchase_bom_wizard_line_all,purchase.bom.wizard.line.all,model_elegomoto
 access_purchase_bom_wizard_color_line_all,purchase.bom.wizard.color.line.all,model_elegomotors_purchase_bom_wizard_color_line,base.group_user,1,1,1,1
 access_sale_order_reject_wizard_all,sale.order.reject.wizard.all,model_sale_order_reject_wizard,base.group_user,1,1,1,1
 access_mrp_production_stock_manager,mrp.production.stock.manager,model_mrp_production,stock.group_stock_manager,1,0,0,0
+access_global_scan_wizard_all,global.scan.wizard.all,model_elegomotors_global_scan_wizard,base.group_user,1,1,1,1
+access_global_scan_wizard_line_all,global.scan.wizard.line.all,model_elegomotors_global_scan_wizard_line,base.group_user,1,1,1,1
+access_delivery_bike_scan_wizard_all,delivery.bike.scan.wizard.all,model_elegomotors_delivery_bike_scan_wizard,base.group_user,1,1,1,1
+access_delivery_bike_scan_wizard_line_all,delivery.bike.scan.wizard.line.all,model_elegomotors_delivery_bike_scan_wizard_line,base.group_user,1,1,1,1
+access_combo_price_user,combo.price.user,model_elegomotors_combo_price,base.group_user,1,0,0,0
+access_combo_price_sale_manager,combo.price.sale.manager,model_elegomotors_combo_price,sales_team.group_sale_manager,1,1,1,1
+access_combo_price_admin,combo.price.admin,model_elegomotors_combo_price,base.group_erp_manager,1,1,1,1
+access_bike_combo_wizard_all,bike.combo.wizard.all,model_elegomotors_bike_combo_wizard,base.group_user,1,1,1,1

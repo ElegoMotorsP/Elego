@@ -323,16 +323,23 @@ class MrpProduction(models.Model):
         # auto-creates one Picking Slip per MO confirmation linked via
         # production.picking_ids.  Pratik must wait for Amit to validate the
         # picking (EGO/Store → EGO/Production WIP) before producing.
-        for production in self:
-            pending = production.picking_ids.filtered(
-                lambda p: p.state not in ('done', 'cancel')
-            )
-            if pending:
-                names = ', '.join(pending.mapped('name'))
-                raise UserError(
-                    f'Please complete the Picking Slip (Raw Material) before finalising '
-                    f'{production.name}.\nPending transfer(s): {names}'
+        # Skipped under superuser (module installs, demo data, tests) —
+        # matches Guards 1 and 3 below. Without this bypass, enabling any
+        # Enterprise app whose demo data marks its own unrelated MOs done
+        # (e.g. purchase_mrp_workorder_quality) fails at install time,
+        # since this guard applied to every mrp.production, not just
+        # ElegoMotors bike orders.
+        if not self.env.su:
+            for production in self:
+                pending = production.picking_ids.filtered(
+                    lambda p: p.state not in ('done', 'cancel')
                 )
+                if pending:
+                    names = ', '.join(pending.mapped('name'))
+                    raise UserError(
+                        f'Please complete the Picking Slip (Raw Material) before finalising '
+                        f'{production.name}.\nPending transfer(s): {names}'
+                    )
 
         # Guard 3: ElegoMotors bike templates require component serials scanned before
         # marking done. Intercepts any path that skips the barcode wizard.
@@ -560,20 +567,37 @@ class MrpBarcodeWizard(models.TransientModel):
         self._compute_scan_progress()
 
     def _get_next_lot_serial(self, production):
-        """Return the next auto-generated serial name for this bike template."""
-        seq_map = [
-            ('elegomotors_setup.tmpl_ego_scooter', 'elegomotors_setup.seq_ego_s1_serial'),
-            ('elegomotors_setup.tmpl_elego_11',    'elegomotors_setup.seq_elego_11_serial'),
-            ('elegomotors_setup.tmpl_elego_12',    'elegomotors_setup.seq_elego_12_serial'),
-            ('elegomotors_setup.tmpl_elego_20p',   'elegomotors_setup.seq_elego_20p_serial'),
-            ('elegomotors_setup.tmpl_elego_30',    'elegomotors_setup.seq_elego_30_serial'),
+        """Return the next auto-generated serial name for this bike template.
+
+        Format: <model prefix>-<YYMM>-<global counter>, where the counter is
+        SHARED across all bike models/variants and never resets — the trailing
+        number of the newest serial in Bike Traceability therefore always
+        equals the total number of units the company has produced.
+        e.g. EL11-2607-0001, then an Elego 1.2 produced next gets
+        EL12-2607-0002. (The old per-model monthly sequences are retained
+        only for serials issued before this change.)
+        """
+        prefix_map = [
+            ('elegomotors_setup.tmpl_ego_scooter', 'EGO-S1'),
+            ('elegomotors_setup.tmpl_elego_11',    'EL11'),
+            ('elegomotors_setup.tmpl_elego_12',    'EL12'),
+            ('elegomotors_setup.tmpl_elego_20p',   'EL20P'),
+            ('elegomotors_setup.tmpl_elego_30',    'EL30'),
         ]
         tmpl = production.product_id.product_tmpl_id
-        for tmpl_ref, seq_ref in seq_map:
+        for tmpl_ref, prefix in prefix_map:
             t = self.env.ref(tmpl_ref, raise_if_not_found=False)
-            seq = self.env.ref(seq_ref, raise_if_not_found=False)
-            if t and seq and tmpl == t:
-                return seq.next_by_id()
+            if t and tmpl == t:
+                number = self.env['ir.sequence'].sudo().next_by_code(
+                    'elego.global.serial'
+                )
+                if not number:
+                    raise UserError(
+                        'Global bike serial counter (elego.global.serial) is '
+                        'missing. Contact your administrator.'
+                    )
+                yymm = fields.Datetime.now().strftime('%y%m')
+                return f'{prefix}-{yymm}-{number}'
         raise UserError(
             f'No serial number sequence configured for product "{production.product_id.name}". '
             f'Contact your administrator.'

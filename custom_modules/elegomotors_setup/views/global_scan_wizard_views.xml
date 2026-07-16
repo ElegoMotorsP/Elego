@@ -1,0 +1,134 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+    <!--
+        ElegoMotors — Global Production Scan (FIFO MO closing)
+
+        Opened from Manufacturing → Operations → Global Production Scan.
+        Operator scans Model → Colour → Chassis No. → Motor Number → Motor
+        Controller for each bike (cursor auto-advances per scan). On the last
+        scan the wizard confirms itself: a bike serial is generated, one unit
+        is deducted from the OLDEST open MO of that model + colour (materials
+        must be issued), and the label prints (auto-print toggle, default ON).
+
+        CONTINUOUS MODE: the window never closes on its own — after each
+        successful batch it resets to fresh empty rows (cursor back on Model)
+        so the next bike can be scanned immediately. The operator closes the
+        window manually when finished. QC then proceeds via Pratik as before.
+    -->
+
+    <record id="view_global_scan_wizard_form" model="ir.ui.view">
+        <field name="name">elegomotors.global.scan.wizard.form</field>
+        <field name="model">elegomotors.global.scan.wizard</field>
+        <field name="arch" type="xml">
+            <form string="Global Production Scan">
+                <field name="all_complete" invisible="1"/>
+                <field name="generated_serials_display" invisible="1"/>
+                <sheet>
+                    <div class="d-flex justify-content-between align-items-start mb-3 gap-3">
+                        <div class="alert alert-info mb-0 flex-grow-1" role="alert">
+                            <strong>Global Production Scan</strong> — scan
+                            <strong>Model → Colour → Chassis → Motor → Controller</strong>
+                            for each bike. The unit is deducted from the oldest
+                            open MO of that model + colour (FIFO), the serial
+                            label prints, and this window resets for the next
+                            bike automatically.
+                        </div>
+                        <!-- Top-right options: units to scan + toggles -->
+                        <div class="d-flex gap-4 text-nowrap">
+                            <div class="d-flex flex-column align-items-center gap-1">
+                                <span class="text-muted small fw-semibold">Units to Scan</span>
+                                <field name="x_scan_qty" nolabel="1" style="width: 60px; text-align: center;"/>
+                            </div>
+                            <div class="d-flex flex-column align-items-center gap-1">
+                                <span class="text-muted small fw-semibold">Auto-Print</span>
+                                <field name="x_auto_print" widget="boolean_toggle" nolabel="1"/>
+                            </div>
+                            <div class="d-flex flex-column align-items-center gap-1">
+                                <span class="text-muted small fw-semibold">Auto-Advance</span>
+                                <field name="x_auto_scan" widget="boolean_toggle" nolabel="1"/>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Last processed batch banner — persists until window closed -->
+                    <div class="alert alert-success mb-3" role="alert"
+                         invisible="not generated_serials_display">
+                        <strong>Last recorded:</strong>
+                        <field name="generated_serials_display" readonly="1" nolabel="1" class="fw-bold"/>
+                        <span class="small">
+                            — deducted FIFO, Pratik notified for QC. Scan the next bike below,
+                            or use <strong>Print Barcode</strong> to reprint.
+                        </span>
+                    </div>
+
+                    <div class="d-flex align-items-center gap-3 mb-3">
+                        <field name="progress_display" readonly="1" nolabel="1"
+                               class="badge bg-success text-white fs-6"
+                               invisible="not all_complete"/>
+                        <field name="progress_display" readonly="1" nolabel="1"
+                               class="badge bg-secondary text-white fs-6"
+                               invisible="all_complete"/>
+                    </div>
+
+                    <field name="line_ids" nolabel="1">
+                        <list editable="bottom"
+                              decoration-success="all_scanned"
+                              decoration-muted="not all_scanned">
+                            <field name="sequence" string="#" readonly="1" width="40px"/>
+                            <field name="x_model_code"
+                                   string="Model"
+                                   placeholder="Scan model code…"/>
+                            <field name="x_color_code"
+                                   string="Colour"
+                                   placeholder="Scan colour code…"/>
+                            <field name="x_chassis_serial"
+                                   string="Chassis No."
+                                   placeholder="Scan frame plate…"/>
+                            <field name="x_motor_serial"
+                                   string="Motor Number"
+                                   placeholder="Scan motor barcode…"/>
+                            <field name="x_controller_serial"
+                                   string="Motor Controller"
+                                   placeholder="Scan controller barcode…"/>
+                            <field name="x_resolved_display" string="Detected" readonly="1"/>
+                            <field name="all_scanned" string="Done?" readonly="1" widget="boolean"/>
+                        </list>
+                    </field>
+                </sheet>
+                <footer>
+                    <button name="action_confirm"
+                            string="Confirm &amp; Record Production"
+                            type="object"
+                            class="btn-primary"/>
+                    <button name="action_print_labels"
+                            string="Print Barcode"
+                            type="object"
+                            class="btn-secondary"
+                            invisible="not generated_serials_display"/>
+                    <button name="action_download_tspl"
+                            string="Download TSPL (.prn)"
+                            type="object"
+                            class="btn-secondary"
+                            invisible="not generated_serials_display"/>
+                    <button string="Close" special="cancel" class="btn-secondary"/>
+                </footer>
+            </form>
+        </field>
+    </record>
+
+    <record id="action_global_scan_wizard" model="ir.actions.act_window">
+        <field name="name">Global Production Scan</field>
+        <field name="res_model">elegomotors.global.scan.wizard</field>
+        <field name="view_mode">form</field>
+        <field name="target">new</field>
+    </record>
+
+    <!-- Manufacturing → Operations → Global Production Scan -->
+    <menuitem id="menu_global_scan_wizard"
+              name="Global Production Scan"
+              parent="mrp.menu_mrp_manufacturing"
+              action="action_global_scan_wizard"
+              sequence="6"
+              groups="elegomotors_setup.group_manufacturing_operator,base.group_erp_manager"/>
+
+</odoo>

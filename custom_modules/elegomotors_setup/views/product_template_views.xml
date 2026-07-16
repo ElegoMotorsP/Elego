@@ -14,6 +14,13 @@
                 <xpath expr="//page[@name='general_information']" position="inside">
                     <group string="Quality Control">
                         <field name="x_qc_required"/>
+                        <!-- Admin-only: how much of a bulk receipt actually gets
+                             inspected. Hidden from non-admins entirely, not just
+                             readonly, since this is a Manohar-only setting. -->
+                        <field name="x_qc_sample_percent"
+                               string="QC Sample %"
+                               invisible="not x_qc_required"
+                               groups="base.group_erp_manager"/>
                     </group>
                     <group string="QC Inspection Parameters" invisible="not x_qc_required"
                            colspan="2">

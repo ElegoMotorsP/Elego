@@ -78,6 +78,28 @@
         <field name="model">stock.picking</field>
         <field name="inherit_id" ref="stock.view_picking_form"/>
         <field name="arch" type="xml">
+            <!-- Source PO dropdown: only active POs of the selected vendor.
+                 The company auto-locks confirmed POs (po_lock='lock'), so a normal
+                 approved PO sits in state 'done' (Locked) — both 'purchase' and
+                 'done' therefore count as active; draft/sent/to-approve/cancelled
+                 are excluded, and x_receipt_complete drops POs already fully
+                 received ("closed" for receiving). Selecting a PO auto-fills the
+                 operation lines with the remaining quantities
+                 (see _onchange_x_source_po_id in stock_picking.py). -->
+            <xpath expr="//field[@name='origin']" position="before">
+                <field name="x_source_po_id"
+                       invisible="picking_type_code != 'incoming'"
+                       readonly="state != 'draft'"
+                       domain="[('state', 'in', ('purchase', 'done')), ('x_receipt_complete', '=', False), ('partner_id', '=?', partner_id)]"
+                       options="{'no_create': True}"/>
+            </xpath>
+            <!-- Hide Source Document on incoming receipts: the Purchase Order
+                 dropdown above replaces it there (and still fills origin in the
+                 background for traceability). Other transfer types keep it —
+                 deliveries show the SO reference through it. -->
+            <xpath expr="//field[@name='origin']" position="attributes">
+                <attribute name="invisible">picking_type_code == 'incoming'</attribute>
+            </xpath>
             <xpath expr="//field[@name='origin']" position="after">
                 <field name="x_vendor_invoice_number"
                        invisible="picking_type_code != 'incoming'"
@@ -168,6 +190,22 @@
                 <attribute name="column_invisible">parent.picking_type_code == 'incoming' and parent.x_gate_entry_state not in ('in_qc',)</attribute>
             </xpath>
 
+        </field>
+    </record>
+
+    <!-- ================================================================
+         Kit decomposition: "Part of Pack" column on transfer move lines —
+         shows the battery pack a base-cell line came from (e.g. cell ×5
+         belongs to "Battery Pack — Lead Acid 60V32Ah") on the PI OUT.
+         ================================================================ -->
+    <record id="stock_picking_form_kit_pack_column" model="ir.ui.view">
+        <field name="name">stock.picking.form.kit.pack.column</field>
+        <field name="model">stock.picking</field>
+        <field name="inherit_id" ref="stock.view_picking_form"/>
+        <field name="arch" type="xml">
+            <xpath expr="//field[@name='move_ids_without_package']//list//field[@name='product_id']" position="after">
+                <field name="x_kit_pack_name" string="Part of Pack" optional="show"/>
+            </xpath>
         </field>
     </record>
 

@@ -1,6 +1,7 @@
 # -*- coding: utf-8 -*-
+import math
 from markupsafe import Markup
-from odoo import api, fields, models
+from odoo import Command, api, fields, models
 from odoo.exceptions import AccessError, UserError
 
 
@@ -18,6 +19,53 @@ class StockPicking(models.Model):
         copy=False,
         help='Date on the supplier invoice captured during receipt.',
     )
+
+    # --- Gate Entry: pick an active PO for the selected vendor and auto-fill lines ---
+    x_source_po_id = fields.Many2one(
+        'purchase.order',
+        string='Purchase Order',
+        copy=False,
+        help='Select an open Purchase Order of the vendor above — the operation '
+             'lines are filled automatically with the remaining (not yet received) '
+             'quantities of that PO. Fully received or closed POs are not listed.',
+    )
+
+    @api.onchange('partner_id')
+    def _onchange_partner_clear_source_po(self):
+        # Vendor changed — a PO of the old vendor no longer applies
+        if self.x_source_po_id and self.x_source_po_id.partner_id != self.partner_id:
+            self.x_source_po_id = False
+
+    @api.onchange('x_source_po_id')
+    def _onchange_x_source_po_id(self):
+        po = self.x_source_po_id
+        if not po:
+            return
+        if not self.partner_id:
+            self.partner_id = po.partner_id
+        self.origin = po.name
+        moves = [Command.clear()]
+        for line in po.order_line:
+            if line.display_type or line.product_id.type == 'service':
+                continue
+            qty_remaining = line.product_qty - line.qty_received
+            if qty_remaining <= 0:
+                continue
+            # purchase_line_id links the move back to the PO so qty_received
+            # updates on validation and picking.purchase_id resolves for the
+            # auto vendor-bill logic in button_validate (Issue 4).
+            moves.append(Command.create({
+                'name': line.product_id.display_name,
+                'product_id': line.product_id.id,
+                'product_uom': line.product_uom.id,
+                'product_uom_qty': qty_remaining,
+                'purchase_line_id': line.id,
+                'location_id': self.location_id.id,
+                'location_dest_id': self.location_dest_id.id,
+                'picking_type_id': self.picking_type_id.id,
+                'company_id': self.company_id.id,
+            }))
+        self.move_ids_without_package = moves
 
     # --- Issue 5/6: Gate Entry QC workflow state ---
     x_gate_entry_state = fields.Selection([
@@ -49,6 +97,15 @@ class StockPicking(models.Model):
         string='Is Gate Entry',
         compute='_compute_is_gate_entry',
         store=False,
+    )
+
+    # OUT deliveries: True once Amit has assigned the bike serials via the
+    # Scan Bike Serials wizard. Bike deliveries cannot be validated without
+    # it — serials must come from scanning, never from auto-reservation.
+    x_bike_serials_scanned = fields.Boolean(
+        string='Bike Serials Scanned',
+        default=False,
+        copy=False,
     )
 
     # Serial numbers picked on outgoing deliveries — traceability for SO → invoice flow
@@ -84,10 +141,18 @@ class StockPicking(models.Model):
         for picking in self:
             picking.x_is_gate_entry = bool(gate_ref and picking.picking_type_id == gate_ref)
 
-    @api.depends('move_line_ids', 'move_line_ids.lot_id', 'state', 'picking_type_code')
+    @api.depends('move_line_ids', 'move_line_ids.lot_id', 'state',
+                 'picking_type_code', 'x_bike_serials_scanned')
     def _compute_picked_serial_nos(self):
         for picking in self:
             if picking.picking_type_code == 'outgoing':
+                # Only show serials that were actually scanned by the Store
+                # (or on already-validated legacy transfers) — never Odoo's
+                # auto-reserved lots, which do not represent the physical
+                # bikes picked.
+                if not picking.x_bike_serials_scanned and picking.state != 'done':
+                    picking.x_picked_serial_nos = ''
+                    continue
                 lots = picking.move_line_ids.filtered(
                     lambda ml: ml.lot_id and ml.qty_done > 0
                 ).mapped('lot_id.name')
@@ -122,19 +187,30 @@ class StockPicking(models.Model):
 
     def _create_qc_check_results(self):
         """Auto-create elegomotors.qc.check.result rows for every QC-required
-        product move in this picking. Creates one row per parameter per unit
-        received (unit_index 1..N). Idempotent — skips (parameter, unit) pairs
-        that already have a result record (safe to call multiple times)."""
+        product move in this picking. Creates one row per parameter per
+        SAMPLED unit (unit_index 1..sample_count) — sample_count is derived
+        from the product's x_qc_sample_percent (Manohar/Admin-only setting,
+        default 100%), so a bulk receipt doesn't force Pratik to fill a
+        checklist for every single unit. At least 1 unit is always sampled
+        unless the percentage is explicitly set to 0. Idempotent — skips
+        (parameter, unit) pairs that already have a result record (safe to
+        call multiple times)."""
         CheckResult = self.env['elegomotors.qc.check.result'].sudo()
         for picking in self:
             for move in picking.move_ids.filtered(lambda m: m.product_id.x_qc_required):
-                params = move.product_id.product_tmpl_id.x_qc_parameter_ids
+                tmpl = move.product_id.product_tmpl_id
+                params = tmpl.x_qc_parameter_ids
                 unit_count = max(1, int(move.x_qty_received or move.product_uom_qty))
+                sample_pct = min(100.0, max(0.0, tmpl.x_qc_sample_percent))
+                if sample_pct <= 0:
+                    sample_count = 0
+                else:
+                    sample_count = min(unit_count, max(1, math.ceil(unit_count * sample_pct / 100.0)))
                 existing = picking.x_qc_check_result_ids.filtered(
                     lambda r: r.move_id == move
                 )
                 existing_pairs = {(r.parameter_id.id, r.unit_index) for r in existing}
-                for unit_idx in range(1, unit_count + 1):
+                for unit_idx in range(1, sample_count + 1):
                     for param in params:
                         if (param.id, unit_idx) not in existing_pairs:
                             CheckResult.create({
@@ -249,6 +325,14 @@ class StockPicking(models.Model):
                     if r.result == 'fail':
                         lot_pass[lid] = False
 
+                # Sampling safety net: a lot already reserved on this move
+                # but with NO check-result rows (skipped by QC Sample %)
+                # was never inspected — treat it as passed rather than
+                # silently dropping it when move lines are rebuilt below.
+                for ml in move.move_line_ids:
+                    if ml.lot_id and ml.lot_id.id not in lot_pass:
+                        lot_pass[ml.lot_id.id] = True
+
                 # Rebuild move lines: 1 line per lot, qty_done=1 if pass, 0 if fail
                 move.move_line_ids.unlink()
                 passed_qty = 0
@@ -338,6 +422,54 @@ class StockPicking(models.Model):
                         f'You are not authorised to validate '
                         f'"{picking.picking_type_id.name}" transfers. '
                         f'Contact Manohar (Admin) if you need access.'
+                    )
+
+            # --- SO approval gate: outgoing deliveries of a confirmed but not
+            #     yet approved Sales Order cannot be validated (shipped) ---
+            for picking in self:
+                if picking.picking_type_code == 'outgoing':
+                    sale = getattr(picking, 'sale_id', False)
+                    if sale and sale.pending_approval:
+                        raise UserError(
+                            f'{picking.name}: Sales Order {sale.name} is still '
+                            f'awaiting approval from Rajshri (Accounts) or '
+                            f'Manohar (MD). The delivery cannot be validated '
+                            f'until the SO is approved.'
+                        )
+
+            # --- Blacklist gate: a QC-failed bike serial can never ship ---
+            for picking in self:
+                if picking.picking_type_code == 'outgoing':
+                    bad = picking.move_line_ids.filtered(
+                        lambda ml: ml.lot_id and ml.lot_id.x_blacklisted
+                    )
+                    if bad:
+                        names = ', '.join(bad.mapped('lot_id.name'))
+                        raise UserError(
+                            f'{picking.name}: serial(s) {names} are blacklisted '
+                            f'(QC failed) and cannot be shipped. Use "Scan Bike '
+                            f'Serials" to pick different unit(s).'
+                        )
+
+            # --- Scan gate: bike serials must be assigned by scanning, never
+            #     by Odoo's automatic reservation. Amit (Store) must run the
+            #     Scan Bike Serials wizard before the delivery can validate. ---
+            bike_tmpls = self.env['mrp.production']._get_ego_templates()
+            for picking in self:
+                if (
+                    picking.picking_type_code == 'outgoing'
+                    and not picking.x_bike_serials_scanned
+                    and bike_tmpls
+                    and any(
+                        m.product_id.product_tmpl_id in bike_tmpls
+                        for m in picking.move_ids
+                        if m.state not in ('done', 'cancel')
+                    )
+                ):
+                    raise UserError(
+                        f'{picking.name}: bike serial numbers must be assigned '
+                        f'by scanning the physical units. Click "Scan Bike '
+                        f'Serials" and scan each bike before validating.'
                     )
 
             # --- Issue 5/6 + QC-required products: smart QC routing ---
@@ -532,4 +664,28 @@ class StockPicking(models.Model):
             lambda inv: inv.move_type in ('out_invoice', 'out_refund')
         )
         for invoice in invoices:
-            invoice.action_refresh_ego_serials()
+            # Preferred: pull the store-scanned serials into x_assigned_lot_ids
+            # (renders as Page 2 of the Tax Invoice). Legacy name-block
+            # injection only when no delivery lots were found.
+            if not invoice._sync_assigned_lots_from_deliveries():
+                invoice.action_refresh_ego_serials()
+
+    def action_open_delivery_bike_scan_wizard(self):
+        """Amit scans the exact bikes being shipped on this delivery."""
+        self.ensure_one()
+        wizard = self.env['elegomotors.delivery.bike.scan.wizard'].create({
+            'picking_id': self.id,
+        })
+        if not wizard.line_ids:
+            raise UserError(
+                'This delivery has no bike units to scan '
+                '(no ElegoMotors bike products on it).'
+            )
+        return {
+            'type': 'ir.actions.act_window',
+            'name': 'Scan Bike Serials — Outgoing Delivery',
+            'res_model': 'elegomotors.delivery.bike.scan.wizard',
+            'res_id': wizard.id,
+            'view_mode': 'form',
+            'target': 'new',
+        }

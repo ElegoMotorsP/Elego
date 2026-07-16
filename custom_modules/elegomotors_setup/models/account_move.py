@@ -28,6 +28,53 @@ class AccountMove(models.Model):
         compute='_compute_so_delivery_info',
         store=False,
     )
+
+    def _ego_gst_breakdown(self):
+        """GST summary rows for the Tax Invoice report, grouped by GST rate.
+
+        Returns a list of dicts: taxable value per rate with the CGST /
+        SGST(UTGST) / IGST split (rates and amounts), plus a 'total' entry.
+        Handles both the module's individual CGST/SGST/IGST percent taxes
+        and l10n_in group taxes (flattened to their children).
+        """
+        self.ensure_one()
+        groups = {}
+        for line in self.invoice_line_ids:
+            if line.display_type in ('line_section', 'line_note'):
+                continue
+            taxes = line.tax_ids
+            if hasattr(taxes, 'flatten_taxes_hierarchy'):
+                taxes = taxes.flatten_taxes_hierarchy()
+            cgst = sgst = igst = other = 0.0
+            for tax in taxes:
+                if tax.amount_type != 'percent':
+                    continue
+                name = (tax.name or '').upper()
+                if 'CGST' in name:
+                    cgst += tax.amount
+                elif 'SGST' in name or 'UTGST' in name:
+                    sgst += tax.amount
+                elif 'IGST' in name:
+                    igst += tax.amount
+                else:
+                    other += tax.amount  # unnamed generic GST → IGST column
+            igst += other
+            rate = round(cgst + sgst + igst, 4)
+            group = groups.setdefault(rate, {
+                'rate': rate,
+                'cgst_rate': cgst, 'sgst_rate': sgst, 'igst_rate': igst,
+                'taxable': 0.0,
+            })
+            group['taxable'] += line.price_subtotal
+        rows = []
+        for rate in sorted(groups):
+            g = groups[rate]
+            g['cgst_amount'] = g['taxable'] * g['cgst_rate'] / 100.0
+            g['sgst_amount'] = g['taxable'] * g['sgst_rate'] / 100.0
+            g['igst_amount'] = g['taxable'] * g['igst_rate'] / 100.0
+            g['total_tax'] = g['cgst_amount'] + g['sgst_amount'] + g['igst_amount']
+            rows.append(g)
+        return rows
     x_delivery_ref = fields.Char(
         string='Delivery Ref',
         compute='_compute_so_delivery_info',
@@ -113,13 +160,57 @@ class AccountMove(models.Model):
         result = super().action_post()
         for move in self:
             if move.move_type in ('out_invoice', 'out_refund'):
+                # Preferred path: serials scanned by the Store on the delivery.
+                # The legacy name-block injection below no-ops when lots were
+                # synced (it skips when x_assigned_lot_ids is set).
+                move._sync_assigned_lots_from_deliveries()
                 move._append_ego_serial_to_lines()
         return result
+
+    def _sync_assigned_lots_from_deliveries(self):
+        """Pull the bike serials scanned by the Store on the SO's validated
+        deliveries into x_assigned_lot_ids (rendered as Page 2 of the Tax
+        Invoice). This replaces the manual invoice-side scanning by Accounts.
+        Returns True when at least one invoice received lots."""
+        synced = False
+        for move in self:
+            if move.move_type not in ('out_invoice', 'out_refund'):
+                continue
+            bike_tmpls = move._get_bike_templates()
+            if not bike_tmpls:
+                continue
+            sales = self.env['sale.order']
+            if 'sale_line_ids' in move.invoice_line_ids._fields:
+                sales = move.invoice_line_ids.sale_line_ids.order_id
+            if not sales and move.invoice_origin:
+                sales = self.env['sale.order'].search(
+                    [('name', '=', move.invoice_origin)], limit=1
+                )
+            if not sales:
+                continue
+            lots = sales.picking_ids.filtered(
+                lambda p: p.state == 'done' and p.picking_type_code == 'outgoing'
+            ).move_line_ids.filtered(
+                lambda ml: ml.lot_id
+                and ml.product_id.product_tmpl_id in bike_tmpls
+                and ml.qty_done > 0
+            ).lot_id
+            if lots:
+                move.x_assigned_lot_ids = [(6, 0, lots.ids)]
+                move._refresh_serial_blocks_from_lots()
+                synced = True
+        return synced
 
     def action_refresh_ego_serials(self):
         """Manual refresh button — re-injects serial block on already-posted invoices."""
         for move in self:
             if move.move_type not in ('out_invoice', 'out_refund'):
+                continue
+            # Serials already assigned from the delivery scan (or wizard):
+            # details live on Page 2 of the report — keep line names clean
+            # instead of injecting the serial text block.
+            if move.x_assigned_lot_ids:
+                move._refresh_serial_blocks_from_lots()
                 continue
             bike_tmpls = move._get_bike_templates()
             if not bike_tmpls:
@@ -267,10 +358,15 @@ class AccountMove(models.Model):
     def _format_ego_serial_block(self, lot, number=None):
         """Build the serial annotation block appended to the invoice line name.
 
-        Format: [N : ]Chassis No : X, Motor No : Y, Controller : Z[, Battery No : B][, Charger No : C]
+        Format: [N : ]Serial No. : S, Chassis No : X, Motor No : Y, Controller : Z[, Battery No : B][, Charger No : C]
         Second line: Variant: Color: Red  |  Battery: Lithium 60V30Ah
         """
         parts = []
+        # Bike serial first — the primary traceability key.
+        # Spelled "Serial No." to match the strip markers used when
+        # rebuilding/removing the block, keeping the injection idempotent.
+        if lot.name:
+            parts.append(f'Serial No. : {lot.name}')
         if lot.x_chassis_serial:
             parts.append(f'Chassis No : {lot.x_chassis_serial}')
         if lot.x_motor_serial:

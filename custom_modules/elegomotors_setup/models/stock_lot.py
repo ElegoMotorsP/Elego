@@ -1,5 +1,5 @@
 # -*- coding: utf-8 -*-
-from odoo import models, fields
+from odoo import api, models, fields
 
 
 class StockLot(models.Model):
@@ -36,6 +36,27 @@ class StockLot(models.Model):
         index=True,
         help='Set to True when this serial/lot has failed QC. Prevents sale or store transfer.',
     )
+
+    @api.model
+    def _init_global_serial_counter(self):
+        """Seed the global bike unit counter from the units already produced,
+        so numbering continues from the true total. Called from
+        company_config_data.xml on every upgrade; no-ops once the counter
+        has advanced past 1 (i.e. after the first global serial was issued).
+        """
+        seq = self.env.ref(
+            'elegomotors_setup.seq_elego_global_serial', raise_if_not_found=False
+        )
+        if not seq or seq.number_next_actual > 1:
+            return
+        bike_tmpls = self.env['mrp.production']._get_ego_templates()
+        if not bike_tmpls:
+            return
+        count = self.search_count([
+            ('product_id.product_tmpl_id', 'in', bike_tmpls.ids),
+        ])
+        if count:
+            seq.sudo().number_next_actual = count + 1
 
     def action_view_manufacturing_orders(self):
         self.ensure_one()

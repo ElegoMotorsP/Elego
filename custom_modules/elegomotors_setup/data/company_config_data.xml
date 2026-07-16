@@ -92,6 +92,19 @@
             <field name="company_id" ref="base.main_company"/>
         </record>
 
+        <!-- GLOBAL bike unit counter — shared by ALL bike models/variants and
+             NEVER reset. Serial = <model prefix>-<YYMM>-<this counter>, so the
+             trailing number of the newest serial always equals the company's
+             total units produced (see _get_next_lot_serial). The per-model
+             sequences below are retained for historical serials only. -->
+        <record id="seq_elego_global_serial" model="ir.sequence">
+            <field name="name">ElegoMotors Global Bike Unit Counter</field>
+            <field name="code">elego.global.serial</field>
+            <field name="prefix"></field>
+            <field name="padding">4</field>
+            <field name="company_id" eval="False"/>
+        </record>
+
         <!-- Sequence: Elego 1.1 Serial Numbers — EL11-YYMM-NNNN, resets monthly. -->
         <record id="seq_elego_11_serial" model="ir.sequence">
             <field name="name">Elego 1.1 Serial Number</field>
@@ -139,8 +152,9 @@
             <field name="active" eval="True"/>
         </record>
 
-        <!-- Attempt to set INR as company currency. Silently no-ops when
-             journal entries already exist (caught in Python try/except). -->
+        <!-- Force INR everywhere: company currency (SQL fallback when journal
+             entries block the ORM write — relabel only, no conversion), all
+             pricelists repointed to INR, USD deactivated. Runs every upgrade. -->
         <function model="res.company" name="_try_set_inr_currency"/>
 
         <!-- Re-prefix the Quotation Number sequence to EGO-QUO- so it's
@@ -157,6 +171,26 @@
              assigned. Idempotent — only touches orders still missing a
              number, so safe to re-run on every upgrade. -->
         <function model="sale.order" name="_backfill_sale_order_numbers"/>
+
+        <!-- Backfill: confirmed orders from the earlier version of this
+             feature that only recorded sale_order_number without actually
+             renaming the record — brings their name/breadcrumb/origin refs
+             in line with the SO number, same as new confirmations. -->
+        <function model="sale.order" name="_backfill_rename_confirmed_orders"/>
+
+        <!-- Backfill: quotations marked 'Quotation Accepted' before acceptance
+             started arming the approval gate get pending_approval set, so the
+             Approve buttons appear for Rajshri/Manohar. Idempotent. -->
+        <function model="sale.order" name="_backfill_accepted_pending_approval"/>
+
+        <!-- Initialise the global bike counter from the units already produced,
+             so numbering continues from the true total (e.g. 3 existing bikes →
+             next serial ends in 0004). No-ops once the counter has advanced. -->
+        <function model="stock.lot" name="_init_global_serial_counter"/>
+
+        <!-- Retract the earlier mistaken lithium-pack cell decomposition —
+             see res_company._cleanup_lithium_fake_cells docstring. -->
+        <function model="res.company" name="_cleanup_lithium_fake_cells"/>
 
         <!-- 2-step manufacturing: when Prashant confirms an MO, Odoo auto-creates a
              Picking Slip (Raw Material) linked to the MO via production.picking_ids.

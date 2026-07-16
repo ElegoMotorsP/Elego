@@ -1,0 +1,54 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+    <!--
+        Bike Serial Barcode Label — 75 x 50 mm
+        Target printer: TSC TTP-244 Pro (203 dpi) via its Windows driver.
+        Auto-printed from the Global Production Scan wizard (toggle, default ON)
+        or on demand via the Print Barcode button / stock.lot Print menu.
+        For raw TSPL2 direct transfer, the wizard also offers a .prn download.
+    -->
+
+    <record id="paperformat_bike_label" model="report.paperformat">
+        <field name="name">ElegoMotors Bike Label 75x50mm</field>
+        <field name="format">custom</field>
+        <field name="page_width">75</field>
+        <field name="page_height">50</field>
+        <field name="orientation">Portrait</field>
+        <field name="margin_top">2</field>
+        <field name="margin_bottom">2</field>
+        <field name="margin_left">3</field>
+        <field name="margin_right">3</field>
+        <field name="header_line" eval="False"/>
+        <field name="header_spacing">0</field>
+        <field name="dpi">96</field>
+    </record>
+
+    <template id="report_bike_serial_label">
+        <t t-call="web.basic_layout">
+            <t t-foreach="docs" t-as="o">
+                <div class="page" style="page-break-after: always; text-align: center; font-family: sans-serif;">
+                    <div style="font-size: 13px; font-weight: bold; margin-bottom: 2px;">
+                        <span t-esc="o.product_id.product_tmpl_id.name"/>
+                        <span t-if="o.x_color" t-esc="' — ' + o.x_color.capitalize()"/>
+                    </div>
+                    <img t-att-src="'/report/barcode/?barcode_type=Code128&amp;value=%s&amp;width=550&amp;height=110&amp;humanreadable=0' % o.name"
+                         style="width: 95%; height: 32px;"/>
+                    <div style="font-size: 12px; font-weight: bold; letter-spacing: 1px;" t-esc="o.name"/>
+                </div>
+            </t>
+        </t>
+    </template>
+
+    <record id="action_report_bike_serial_label" model="ir.actions.report">
+        <field name="name">Bike Serial Label</field>
+        <field name="model">stock.lot</field>
+        <field name="report_type">qweb-pdf</field>
+        <field name="report_name">elegomotors_setup.report_bike_serial_label</field>
+        <field name="report_file">elegomotors_setup.report_bike_serial_label</field>
+        <field name="print_report_name">'Bike Label - %s' % (object.name)</field>
+        <field name="paperformat_id" ref="paperformat_bike_label"/>
+        <field name="binding_model_id" ref="stock.model_stock_lot"/>
+        <field name="binding_type">report</field>
+    </record>
+
+</odoo>

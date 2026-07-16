@@ -1,0 +1,212 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+
+    <!-- ════════════════════════════════════════════════════════════════════
+         ElegoMotors Custom Quotation / Sales Order Report
+
+         A fully custom template (not inherited from Odoo's base
+         sale.report_saleorder_document) so bike-combo battery/charger lines
+         can be safely folded into their parent bike's row ("same box"),
+         exactly like the Tax Invoice — inheriting the base template and
+         hiding/merging its rows via xpath is NOT safe here: that base
+         template's row markup isn't under our control or fully known, and
+         a wrong guess at its structure breaks the entire module install
+         (confirmed the hard way — see report_saleorder.xml's history).
+    ════════════════════════════════════════════════════════════════════ -->
+
+    <template id="report_elegomotors_quotation">
+        <t t-call="web.html_container">
+            <t t-foreach="docs" t-as="o">
+                <div class="article" style="padding:10mm 12mm; font-family:Arial,sans-serif; font-size:9pt; color:#111;">
+                    <t t-call="elegomotors_setup.report_elegomotors_quotation_document"
+                       t-lang="o.partner_id.lang"/>
+                </div>
+            </t>
+        </t>
+    </template>
+
+    <template id="report_elegomotors_quotation_document">
+
+        <t t-set="salesperson_label" t-value="dict(o._fields['x_actual_salesperson'].selection).get(o.x_actual_salesperson) if o.x_actual_salesperson else (o.user_id.name or '')"/>
+        <t t-set="doc_title" t-value="'Sales Order' if o.state == 'sale' else 'Quotation'"/>
+        <t t-set="doc_number" t-value="o.sale_order_number if (o.state == 'sale' and o.sale_order_number) else o.name"/>
+
+        <!-- Header -->
+        <table style="width:100%; border-collapse:collapse; margin-bottom:4px;">
+            <tr>
+                <td style="vertical-align:middle;">
+                    <div style="font-size:13pt; font-weight:bold;">
+                        <t t-esc="o.company_id.name"/>
+                    </div>
+                </td>
+                <td style="text-align:right; vertical-align:middle;">
+                    <t t-if="o.company_id.logo">
+                        <img t-att-src="image_data_uri(o.company_id.logo)" style="max-height:50px;"/>
+                    </t>
+                </td>
+            </tr>
+        </table>
+
+        <div style="font-size:18pt; font-weight:bold; margin:4px 0 8px 0;">
+            <t t-esc="doc_title"/> # <t t-esc="doc_number"/>
+        </div>
+
+        <table style="width:100%; border-collapse:collapse; margin-bottom:10px; font-size:9pt;">
+            <tr>
+                <td style="width:33%; vertical-align:top;">
+                    <strong><t t-esc="doc_title"/> Date</strong><br/>
+                    <t t-esc="o.date_order.strftime('%d/%m/%Y') if o.date_order else ''"/>
+                </td>
+                <td style="width:34%; vertical-align:top;">
+                    <strong>Expiration</strong><br/>
+                    <t t-set="ego_expiration" t-value="(o._fields.get('validity_date') and o.validity_date) or None"/>
+                    <t t-if="ego_expiration"><t t-esc="ego_expiration.strftime('%d/%m/%Y')"/></t>
+                </td>
+                <td style="width:33%; vertical-align:top;">
+                    <strong>Salesperson</strong><br/>
+                    <t t-esc="salesperson_label"/>
+                </td>
+            </tr>
+            <tr>
+                <td style="vertical-align:top; padding-top:6px;" colspan="3">
+                    <strong>Customer</strong><br/>
+                    <t t-esc="o.partner_id.name or ''"/>
+                    <t t-if="o.partner_id.street">, <t t-esc="o.partner_id.street"/></t>
+                    <t t-if="o.partner_id.city">, <t t-esc="o.partner_id.city"/></t>
+                </td>
+            </tr>
+        </table>
+
+        <!-- Line items -->
+        <table style="width:100%; border:1px solid #000; border-collapse:collapse; font-size:8pt;">
+            <thead>
+                <tr style="background:#f0f0f0; text-align:center; vertical-align:middle; font-weight:bold;">
+                    <th style="border:1px solid #000; padding:3px; width:4%;">Sr.<br/>No.</th>
+                    <th style="border:1px solid #000; padding:3px; width:36%;">Description</th>
+                    <th style="border:1px solid #000; padding:3px; width:10%;">HSN<br/>Code</th>
+                    <th style="border:1px solid #000; padding:3px; width:8%;">Quantity</th>
+                    <th style="border:1px solid #000; padding:3px; width:14%;">Rate</th>
+                    <th style="border:1px solid #000; padding:3px; width:8%;">Disc<br/>(%)</th>
+                    <th style="border:1px solid #000; padding:3px; width:6%;">GST<br/>(%)</th>
+                    <th style="border:1px solid #000; padding:3px; width:14%; text-align:right;">Amount</th>
+                </tr>
+            </thead>
+            <tbody>
+                <!-- sr = top-level bike/product number. A bike combo's
+                     battery/charger lines (x_is_combo_item=True) are NOT
+                     given their own row/number — they're folded into their
+                     parent bike's row inside the same Description cell
+                     ("same box"), exactly like the Tax Invoice. -->
+                <t t-set="sr" t-value="0"/>
+                <t t-foreach="o.order_line" t-as="line">
+
+                    <t t-if="line.display_type == 'line_section'">
+                        <tr>
+                            <td colspan="8" style="border:1px solid #000; padding:3px 6px; font-weight:bold; background:#fafafa;">
+                                <t t-esc="line.name"/>
+                            </td>
+                        </tr>
+                    </t>
+
+                    <t t-elif="line.display_type == 'line_note'">
+                        <tr>
+                            <td colspan="8" style="border:1px solid #000; padding:3px 6px; font-style:italic;">
+                                <t t-esc="line.name"/>
+                            </td>
+                        </tr>
+                    </t>
+
+                    <!-- Combo-included battery/charger line: no separate row —
+                         already rendered inside its parent bike's row below. -->
+                    <t t-elif="line.x_is_combo_item"/>
+
+                    <t t-else="">
+                        <t t-set="sr" t-value="sr + 1"/>
+                        <t t-set="line_desc" t-value="(line.name or '').split('\n', 1)[0].strip()"/>
+                        <t t-set="gst_pct" t-value="int(round(sum(tax.amount for tax in line.tax_id)))"/>
+                        <t t-set="hsn" t-value="(line.product_id._fields.get('l10n_in_hsn_code') and line.product_id.l10n_in_hsn_code) or ''"/>
+
+                        <!-- Combo children: consecutive x_is_combo_item lines
+                             immediately following this one. -->
+                        <t t-set="ego_rest" t-value="o.order_line[line_index + 1:]"/>
+                        <t t-set="ego_boundary_positions" t-value="[i for i, l in enumerate(ego_rest) if not l.x_is_combo_item or l.display_type]"/>
+                        <t t-set="ego_boundary" t-value="ego_boundary_positions[0] if ego_boundary_positions else len(ego_rest)"/>
+                        <t t-set="combo_children" t-value="ego_rest[:ego_boundary]"/>
+
+                        <tr style="vertical-align:top;">
+                            <td style="border:1px solid #000; padding:3px; text-align:center;"><t t-esc="sr"/></td>
+                            <td style="border:1px solid #000; padding:3px;">
+                                <t t-esc="line_desc"/>
+                                <t t-foreach="combo_children" t-as="child">
+                                    <div style="padding-left:14px; font-size:7.5pt; font-style:italic; color:#444;">
+                                        + <t t-esc="child.product_id.display_name or (child.name or '').split('\n', 1)[0].strip()"/> (Included)
+                                    </div>
+                                </t>
+                            </td>
+                            <td style="border:1px solid #000; padding:3px; text-align:center;"><t t-esc="hsn"/></td>
+                            <td style="border:1px solid #000; padding:3px; text-align:center;"><t t-esc="'%.2f' % line.product_uom_qty"/> Units</td>
+                            <td style="border:1px solid #000; padding:3px; text-align:right;"><t t-esc="'%.2f' % line.price_unit"/></td>
+                            <td style="border:1px solid #000; padding:3px; text-align:center;"><t t-esc="'%.2f' % (line.discount or 0.0)"/></td>
+                            <td style="border:1px solid #000; padding:3px; text-align:center;"><t t-esc="gst_pct"/></td>
+                            <td style="border:1px solid #000; padding:3px; text-align:right;"><t t-esc="'%.2f' % line.price_subtotal"/></td>
+                        </tr>
+                    </t>
+                </t>
+            </tbody>
+        </table>
+
+        <!-- Totals -->
+        <table style="width:60%; margin-left:auto; border-collapse:collapse; margin-top:6px; font-size:9pt;">
+            <tr>
+                <td style="padding:3px 8px;">Untaxed Amount</td>
+                <td style="padding:3px 8px; text-align:right;"><t t-esc="'%.2f' % o.amount_untaxed"/></td>
+            </tr>
+            <t t-if="o._fields.get('tax_totals') and o.tax_totals">
+                <t t-foreach="o.tax_totals.get('groups_by_subtotal', {}).values()" t-as="tg_list">
+                    <t t-foreach="tg_list" t-as="tg">
+                        <tr>
+                            <td style="padding:3px 8px;"><t t-esc="tg.get('tax_group_name', '')"/></td>
+                            <td style="padding:3px 8px; text-align:right;"><t t-esc="'%.2f' % (tg.get('tax_group_amount') or 0.0)"/></td>
+                        </tr>
+                    </t>
+                </t>
+            </t>
+            <t t-elif="o.amount_tax">
+                <tr>
+                    <td style="padding:3px 8px;">Tax</td>
+                    <td style="padding:3px 8px; text-align:right;"><t t-esc="'%.2f' % o.amount_tax"/></td>
+                </tr>
+            </t>
+            <tr style="font-weight:bold; border-top:1px solid #000;">
+                <td style="padding:4px 8px;">Total</td>
+                <td style="padding:4px 8px; text-align:right;"><t t-esc="'%.2f' % o.amount_total"/></td>
+            </tr>
+        </table>
+
+    </template>
+
+    <!-- Report action bound to sale.order — shows as a Print option, and
+         (via the redirect below) becomes the default used by Preview /
+         Send by Email / Print. -->
+    <record id="action_report_elegomotors_quotation" model="ir.actions.report">
+        <field name="name">ElegoMotors Quotation</field>
+        <field name="model">sale.order</field>
+        <field name="report_type">qweb-pdf</field>
+        <field name="report_name">elegomotors_setup.report_elegomotors_quotation</field>
+        <field name="report_file">elegomotors_setup.report_elegomotors_quotation</field>
+        <field name="print_report_name">(object.state == 'sale' and 'Sales Order - ' or 'Quotation - ') + (object.name or '')</field>
+        <field name="binding_model_id" ref="sale.model_sale_order"/>
+        <field name="binding_type">report</field>
+    </record>
+
+    <!-- Redirect the STANDARD Preview / Send by Email / Print quotation PDF
+         to this template. Data-driven search (not an xmlid ref()) — if
+         Odoo's report_name convention for the base quotation report ever
+         differs from 'sale.report_saleorder', this simply finds nothing
+         and no-ops; it can never break module install. Runs on every
+         upgrade (noupdate="0"). -->
+    <data noupdate="0">
+        <function model="sale.order" name="_redirect_default_quotation_report"/>
+    </data>
+
+</odoo>

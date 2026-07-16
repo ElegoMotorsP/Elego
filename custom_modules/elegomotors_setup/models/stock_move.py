@@ -36,6 +36,24 @@ class StockMove(models.Model):
         help='Final accepted quantity that goes to store (= QC Passed).',
     )
 
+    # Kit decomposition visibility: when a battery pack (phantom BOM) explodes
+    # into base cells on the PI OUT, this shows which pack the cells belong to
+    # — e.g. product "Battery Cell — Lead 12V32AH ×5", Part of Pack
+    # "Battery Pack — Lead Acid 60V32Ah".
+    x_kit_pack_name = fields.Char(
+        string='Part of Pack',
+        compute='_compute_kit_pack_name',
+    )
+
+    @api.depends('bom_line_id')
+    def _compute_kit_pack_name(self):
+        for move in self:
+            bom = move.bom_line_id.bom_id
+            move.x_kit_pack_name = (
+                bom.product_tmpl_id.display_name
+                if bom and bom.type == 'phantom' else ''
+            )
+
     @api.depends('x_qty_received', 'x_qty_qc_passed', 'picking_id.x_gate_entry_state')
     def _compute_qc_failed(self):
         for move in self:
