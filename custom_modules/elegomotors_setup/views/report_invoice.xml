@@ -301,9 +301,15 @@
                         <t t-set="hsn" t-value="(line._fields.get('l10n_in_hsn_code') and line.l10n_in_hsn_code) or (line.product_id._fields.get('l10n_in_hsn_code') and line.product_id.l10n_in_hsn_code) or ''"/>
 
                         <!-- Combo children: consecutive x_is_combo_item lines
-                             immediately following this one. -->
+                             immediately following this one. Boundary is "not
+                             a combo item" OR "a section/note" — NOT just any
+                             truthy display_type, since account.move.line
+                             (unlike sale.order.line) sets display_type to
+                             the string 'product' on ordinary lines too,
+                             which used to make every line look like a
+                             boundary and silently drop all combo children. -->
                         <t t-set="ego_rest" t-value="o.invoice_line_ids[line_index + 1:]"/>
-                        <t t-set="ego_boundary_positions" t-value="[i for i, l in enumerate(ego_rest) if not l.x_is_combo_item or l.display_type]"/>
+                        <t t-set="ego_boundary_positions" t-value="[i for i, l in enumerate(ego_rest) if not l.x_is_combo_item or l.display_type in ('line_section', 'line_note')]"/>
                         <t t-set="ego_boundary" t-value="ego_boundary_positions[0] if ego_boundary_positions else len(ego_rest)"/>
                         <t t-set="combo_children" t-value="ego_rest[:ego_boundary]"/>
 
@@ -592,7 +598,7 @@
                                     <t t-esc="(lot.x_color or '').capitalize() or '-'"/>
                                 </td>
                                 <td style="border:1px solid #000; padding:3px; font-size:7.5pt;">
-                                    <t t-esc="lot.x_battery_type or '-'"/>
+                                    <t t-esc="o._ego_battery_type_display(lot)"/>
                                 </td>
                             </tr>
                         </t>

@@ -127,9 +127,14 @@
                         <t t-set="hsn" t-value="(line.product_id._fields.get('l10n_in_hsn_code') and line.product_id.l10n_in_hsn_code) or ''"/>
 
                         <!-- Combo children: consecutive x_is_combo_item lines
-                             immediately following this one. -->
+                             immediately following this one. Boundary is "not
+                             a combo item" OR "a section/note" — matches the
+                             same fix in report_invoice.xml (see its comment):
+                             a bare truthy display_type check is unreliable
+                             since some line types set it to a non-empty
+                             string even for ordinary product lines. -->
                         <t t-set="ego_rest" t-value="o.order_line[line_index + 1:]"/>
-                        <t t-set="ego_boundary_positions" t-value="[i for i, l in enumerate(ego_rest) if not l.x_is_combo_item or l.display_type]"/>
+                        <t t-set="ego_boundary_positions" t-value="[i for i, l in enumerate(ego_rest) if not l.x_is_combo_item or l.display_type in ('line_section', 'line_note')]"/>
                         <t t-set="ego_boundary" t-value="ego_boundary_positions[0] if ego_boundary_positions else len(ego_rest)"/>
                         <t t-set="combo_children" t-value="ego_rest[:ego_boundary]"/>
 
