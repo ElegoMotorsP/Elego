@@ -176,6 +176,25 @@ class SaleOrder(models.Model):
             order.name = new_name
             order._rename_linked_origin_refs(old_name, new_name)
 
+    def _ensure_quotation_sequence_prefix(self):
+        """Defensively force the Quotation Number sequence's prefix to
+        EGO-QUO- right before a new quotation draws its number.
+
+        company_config_data.xml already does this via a noupdate="0"
+        <record> write on every module upgrade — but that only takes
+        effect once that specific upgrade has actually run on a given
+        database. New quotations kept drawing the old EGO-SO- prefix on
+        deployments where it hadn't (yet). Checking/fixing it here, right
+        at creation time, makes the correct prefix guaranteed rather than
+        dependent on upgrade timing — cheap (one read, at most one write)
+        and a no-op once the prefix is already correct.
+        """
+        seq = self.env.ref(
+            'elegomotors_setup.seq_elegomotors_sale', raise_if_not_found=False
+        )
+        if seq and seq.sudo().prefix != 'EGO-QUO-':
+            seq.sudo().prefix = 'EGO-QUO-'
+
     @api.model_create_multi
     def create(self, vals_list):
         # group_sale_viewer holders (Amit) can read SOs/Quotations but not
@@ -200,6 +219,7 @@ class SaleOrder(models.Model):
                 'Sales approvers cannot create new Sales Orders or Quotations. '
                 'Ask Priyanka (Sales) or Manohar (Admin) to raise the order.'
             )
+        self._ensure_quotation_sequence_prefix()
         return super().create(vals_list)
 
     def _ensure_actual_salesperson(self):
