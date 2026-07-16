@@ -183,6 +183,12 @@
              Approve buttons appear for Rajshri/Manohar. Idempotent. -->
         <function model="sale.order" name="_backfill_accepted_pending_approval"/>
 
+        <!-- Backfill: quotations marked 'Quotation Accepted' before acceptance
+             started assigning the SO number get one now, instead of only on
+             approval — so they show their final EGO-SO-… number throughout
+             the approval window like new acceptances do. Idempotent. -->
+        <function model="sale.order" name="_backfill_accepted_sale_order_numbers"/>
+
         <!-- Initialise the global bike counter from the units already produced,
              so numbering continues from the true total (e.g. 3 existing bikes →
              next serial ends in 0004). No-ops once the counter has advanced. -->
