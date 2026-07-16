@@ -104,30 +104,12 @@
              this feature existed. See product_template.py for details. -->
         <function model="product.template" name="_remove_reorder_rules_for_kit_battery_packs"/>
 
-        <!-- ── Phantom (kit) BOMs: packs explode into base cells on the PI ── -->
-        <record id="bom_kit_battery_lead_60v32ah" model="mrp.bom">
-            <field name="product_tmpl_id" ref="prod_battery_lead_acid_60v32ah"/>
-            <field name="product_qty">1</field>
-            <field name="type">phantom</field>
-        </record>
-        <record id="bom_kit_line_lead_60v32ah" model="mrp.bom.line">
-            <field name="bom_id" ref="bom_kit_battery_lead_60v32ah"/>
-            <field name="product_id" ref="prod_cell_lead_12v32ah"/>
-            <field name="product_qty">5.0</field>
-            <field name="product_uom_id" ref="uom.product_uom_unit"/>
-        </record>
-
-        <record id="bom_kit_battery_lead_72v32ah" model="mrp.bom">
-            <field name="product_tmpl_id" ref="prod_battery_lead_acid_72v32ah"/>
-            <field name="product_qty">1</field>
-            <field name="type">phantom</field>
-        </record>
-        <record id="bom_kit_line_lead_72v32ah" model="mrp.bom.line">
-            <field name="bom_id" ref="bom_kit_battery_lead_72v32ah"/>
-            <field name="product_id" ref="prod_cell_lead_12v32ah"/>
-            <field name="product_qty">6.0</field>
-            <field name="product_uom_id" ref="uom.product_uom_unit"/>
-        </record>
+        <!-- ── Phantom (kit) BOMs: packs explode into base cells on the PI ──
+             Created via function (product_template.py) rather than <record>
+             tags: it's idempotent and, unlike a <record>, won't crash the
+             whole module registry load if the kit-BOM constraint fires
+             again for a reason not cleared by the function call above. -->
+        <function model="product.template" name="_ensure_kit_boms_for_battery_packs"/>
 
         <!-- Lithium packs (60V30Ah, 60V39Ah) are sealed units — no kit BOM,
              no decomposition. They are stocked and sold as themselves
