@@ -1096,6 +1096,61 @@ class ProductTemplate(models.Model):
             orderpoints.unlink()
 
     @api.model
+    def _ensure_kit_boms_for_battery_packs(self):
+        """Create the lead-acid battery pack -> base cell phantom (kit) BOMs.
+
+        Previously these were plain <record> tags in battery_kit_data.xml,
+        which crashed the ENTIRE module registry load if Odoo's kit-BOM
+        constraint ("You can not create a kit-type bill of materials for
+        products that have at least one reordering rule.") fired for any
+        reason — including a reordering rule recreated on prod after
+        _remove_reorder_rules_for_kit_battery_packs last ran, or a rule on
+        a pack not covered by that method. Idempotent (skips a pack that
+        already has a phantom BOM) and resilient: a pack that still can't
+        become a kit is logged and skipped instead of blocking every other
+        module from loading — matching how BOM (re)creation is already
+        handled for the bike color variants above.
+        """
+        Bom = self.env['mrp.bom']
+        BomLine = self.env['mrp.bom.line']
+        uom_unit = self.env.ref('uom.product_uom_unit')
+        cell = self.env.ref(
+            'elegomotors_setup.prod_cell_lead_12v32ah', raise_if_not_found=False
+        )
+        if not cell:
+            return
+        kits = [
+            ('elegomotors_setup.prod_battery_lead_acid_60v32ah', 5.0),
+            ('elegomotors_setup.prod_battery_lead_acid_72v32ah', 6.0),
+        ]
+        for ref, qty in kits:
+            tmpl = self.env.ref(ref, raise_if_not_found=False)
+            if not tmpl:
+                continue
+            if Bom.search_count([
+                ('product_tmpl_id', '=', tmpl.id), ('type', '=', 'phantom'),
+            ]):
+                continue
+            try:
+                bom = Bom.sudo().create({
+                    'product_tmpl_id': tmpl.id,
+                    'product_qty': 1.0,
+                    'type': 'phantom',
+                })
+                BomLine.sudo().create({
+                    'bom_id': bom.id,
+                    'product_id': cell.id,
+                    'product_qty': qty,
+                    'product_uom_id': uom_unit.id,
+                })
+            except UserError:
+                _logger.warning(
+                    'Kit BOM for battery pack %s could not be created '
+                    '(reordering rule still present?) — skipping.',
+                    tmpl.display_name,
+                )
+
+    @api.model
     def _ensure_bike_gst_5_percent(self):
         """Bike units are always taxed at 5% GST (CGST 2.5% + SGST 2.5%,
         remapped to IGST 5% for inter-state customers by the existing fiscal
