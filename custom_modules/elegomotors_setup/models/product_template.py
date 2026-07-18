@@ -770,46 +770,64 @@ class ProductTemplate(models.Model):
             if not variant.active:
                 variant.write({'active': True})
 
-            existing = Bom.search([
+            bom = Bom.search([
                 ('product_tmpl_id', '=', tmpl.id),
                 ('product_id', '=', variant.id),
             ], limit=1)
-            if existing:
-                try:
-                    existing.sudo().unlink()
-                except UserError:
-                    _logger.warning(
-                        'BOM for variant %s has running MOs — skipping recreation.',
-                        variant.display_name,
-                    )
-                    continue
+            if not bom:
+                bom = Bom.sudo().create({
+                    'product_tmpl_id': tmpl.id,
+                    'product_id': variant.id,
+                    'product_qty': 1.0,
+                    'product_uom_id': uom_unit.id,
+                    'type': 'normal',
+                })
 
-            bom = Bom.sudo().create({
-                'product_tmpl_id': tmpl.id,
-                'product_id': variant.id,
-                'product_qty': 1.0,
-                'product_uom_id': uom_unit.id,
-                'type': 'normal',
-            })
-
-            seq = 10
-            lines_added = 0
+            # Sync bom_line_ids in place rather than deleting and recreating the
+            # mrp.bom record — Odoo blocks unlinking a BOM that any MO (including
+            # a finished one) has ever referenced, which silently no-ops the whole
+            # rebuild on any database with manufacturing history. Editing lines has
+            # no such restriction.
+            desired = []
             for name, qty, old_name in lines:
                 comp = self._get_or_rename_bom_component(name, old_name)
                 if comp:
+                    desired.append((comp, float(qty)))
+
+            existing_lines_by_product = {}
+            obsolete_lines = self.env['mrp.bom.line']
+            for line in bom.bom_line_ids:
+                if line.product_id.id in existing_lines_by_product:
+                    obsolete_lines |= line  # duplicate line for the same product
+                else:
+                    existing_lines_by_product[line.product_id.id] = line
+
+            seq = 10
+            lines_added = 0
+            for comp, qty in desired:
+                line = existing_lines_by_product.pop(comp.id, None)
+                if line:
+                    if line.product_qty != qty or line.sequence != seq:
+                        line.sudo().write({'product_qty': qty, 'sequence': seq})
+                else:
                     BomLine.sudo().create({
                         'bom_id': bom.id,
                         'product_id': comp.id,
-                        'product_qty': float(qty),
+                        'product_qty': qty,
                         'product_uom_id': uom_unit.id,
                         'sequence': seq,
                     })
-                    seq += 10
-                    lines_added += 1
+                lines_added += 1
+                seq += 10
+
+            for line in existing_lines_by_product.values():
+                obsolete_lines |= line
+            if obsolete_lines:
+                obsolete_lines.sudo().unlink()
 
             _logger.info(
-                'Elego 1.1 BOM (%s): created with %d component lines.',
-                color_name, lines_added,
+                'Elego 1.1 BOM (%s): synced to %d component lines (%d removed).',
+                color_name, lines_added, len(obsolete_lines),
             )
 
     @api.model
@@ -1359,46 +1377,64 @@ class ProductTemplate(models.Model):
             if not variant.active:
                 variant.write({'active': True})
 
-            existing = Bom.search([
+            bom = Bom.search([
                 ('product_tmpl_id', '=', tmpl.id),
                 ('product_id', '=', variant.id),
             ], limit=1)
-            if existing:
-                try:
-                    existing.sudo().unlink()
-                except UserError:
-                    _logger.warning(
-                        'BOM for variant %s has running MOs — skipping recreation.',
-                        variant.display_name,
-                    )
-                    continue
+            if not bom:
+                bom = Bom.sudo().create({
+                    'product_tmpl_id': tmpl.id,
+                    'product_id': variant.id,
+                    'product_qty': 1.0,
+                    'product_uom_id': uom_unit.id,
+                    'type': 'normal',
+                })
 
-            bom = Bom.sudo().create({
-                'product_tmpl_id': tmpl.id,
-                'product_id': variant.id,
-                'product_qty': 1.0,
-                'product_uom_id': uom_unit.id,
-                'type': 'normal',
-            })
-
-            seq = 10
-            lines_added = 0
+            # Sync bom_line_ids in place rather than deleting and recreating the
+            # mrp.bom record — Odoo blocks unlinking a BOM that any MO (including
+            # a finished one) has ever referenced, which silently no-ops the whole
+            # rebuild on any database with manufacturing history. Editing lines has
+            # no such restriction.
+            desired = []
             for name, qty, old_name in lines:
                 comp = self._get_or_rename_bom_component(name, old_name)
                 if comp:
+                    desired.append((comp, float(qty)))
+
+            existing_lines_by_product = {}
+            obsolete_lines = self.env['mrp.bom.line']
+            for line in bom.bom_line_ids:
+                if line.product_id.id in existing_lines_by_product:
+                    obsolete_lines |= line  # duplicate line for the same product
+                else:
+                    existing_lines_by_product[line.product_id.id] = line
+
+            seq = 10
+            lines_added = 0
+            for comp, qty in desired:
+                line = existing_lines_by_product.pop(comp.id, None)
+                if line:
+                    if line.product_qty != qty or line.sequence != seq:
+                        line.sudo().write({'product_qty': qty, 'sequence': seq})
+                else:
                     BomLine.sudo().create({
                         'bom_id': bom.id,
                         'product_id': comp.id,
-                        'product_qty': float(qty),
+                        'product_qty': qty,
                         'product_uom_id': uom_unit.id,
                         'sequence': seq,
                     })
-                    seq += 10
-                    lines_added += 1
+                lines_added += 1
+                seq += 10
+
+            for line in existing_lines_by_product.values():
+                obsolete_lines |= line
+            if obsolete_lines:
+                obsolete_lines.sudo().unlink()
 
             _logger.info(
-                'Elego 1.2 BOM (%s): created with %d component lines.',
-                color_name, lines_added,
+                'Elego 1.2 BOM (%s): synced to %d component lines (%d removed).',
+                color_name, lines_added, len(obsolete_lines),
             )
 
     @api.model
