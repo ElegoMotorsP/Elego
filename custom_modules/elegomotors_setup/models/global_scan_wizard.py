@@ -228,7 +228,7 @@ class GlobalScanWizard(models.TransientModel):
         if incomplete:
             raise UserError(
                 'Rows %s are missing scans. Each bike needs Model, Colour, '
-                'Chassis No., Motor Number and Motor Controller.' % ', '.join(
+                'Chassis No., Motor Number and Controller.' % ', '.join(
                     str(l.sequence) for l in incomplete
                 )
             )
@@ -261,7 +261,7 @@ class GlobalScanWizard(models.TransientModel):
             for field_name, label in [
                 ('x_chassis_serial',    'Chassis'),
                 ('x_motor_serial',      'Hub Motor'),
-                ('x_controller_serial', 'Motor Controller'),
+                ('x_controller_serial', 'Controller'),
             ]:
                 val = getattr(line, field_name)
                 existing = Lot.search([(field_name, '=', val)], limit=1)
@@ -426,7 +426,7 @@ class GlobalScanWizardLine(models.TransientModel):
     x_color_code        = fields.Char(string='Colour')
     x_chassis_serial    = fields.Char(string='Chassis No.')
     x_motor_serial      = fields.Char(string='Motor Number')
-    x_controller_serial = fields.Char(string='Motor Controller')
+    x_controller_serial = fields.Char(string='Controller')
 
     x_resolved_display = fields.Char(
         string='Detected', compute='_compute_resolved_display',

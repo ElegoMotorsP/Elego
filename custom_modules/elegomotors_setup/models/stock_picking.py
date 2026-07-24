@@ -546,12 +546,65 @@ class StockPicking(models.Model):
                         f'Current QC status: {state_label}'
                     )
 
+        # --- Kit/accessory completion: once bike serials are scanned, the
+        #     battery-pack kit components exploded onto the same delivery
+        #     (Battery Cell, Charger — plain quantity-tracked, no lot) are
+        #     otherwise left however Odoo's own reservation left them. The
+        #     Scan Bike Serials wizard only ever touches the bike's own move
+        #     line, so these sibling moves can validate at qty_done=0 even
+        #     though the physical units ship with the bike, and on-hand stock
+        #     for them never actually decreases. Force them to their full
+        #     demand here. Serial/lot-tracked components are left alone —
+        #     none exist among today's battery/charger kit parts, and forcing
+        #     a lot choice isn't safe to guess.
+        bike_tmpls_for_kit = self.env['mrp.production']._get_ego_templates()
+        MoveLine = self.env['stock.move.line']
+        for picking in self:
+            if picking.picking_type_code != 'outgoing' or not picking.x_bike_serials_scanned:
+                continue
+            for move in picking.move_ids.filtered(
+                lambda m: m.state not in ('done', 'cancel')
+                and m.product_id.product_tmpl_id not in bike_tmpls_for_kit
+                and m.product_id.tracking == 'none'
+            ):
+                remaining = move.product_uom_qty - sum(move.move_line_ids.mapped('qty_done'))
+                if remaining <= 0.0001:
+                    continue
+                if move.move_line_ids:
+                    move.move_line_ids[0].qty_done += remaining
+                else:
+                    MoveLine.create({
+                        'move_id': move.id,
+                        'picking_id': picking.id,
+                        'product_id': move.product_id.id,
+                        'product_uom_id': move.product_uom.id,
+                        'qty_done': remaining,
+                        'location_id': move.location_id.id,
+                        'location_dest_id': move.location_dest_id.id,
+                    })
+
         result = super().button_validate()
 
         # Post-validation hooks — run only for records that are now 'done'
         for picking in self:
             if picking.state != 'done':
                 continue
+
+            # --- Consolidated/urgent Issue to Production: the picking's own
+            #     stock moves are hand-built by consolidated_pi_generator.py —
+            #     aggregated quantities across many MOs — with no push/pull
+            #     link back to any MO's own move_raw_ids (unlike Odoo's normal
+            #     auto-generated PBM picking, which action_confirm() on
+            #     mrp.production cancels in favour of this one). Validating it
+            #     correctly moves stock Store -> Production WIP, but nothing
+            #     else ever re-triggers reservation on the linked MOs' raw
+            #     moves, so they consume nothing on Mark Done and the issued
+            #     stock just accumulates in Production WIP. Re-assign them now
+            #     that the components are actually available there.
+            if picking.x_consolidated_mo_ids:
+                picking.x_consolidated_mo_ids.mapped('move_raw_ids').filtered(
+                    lambda m: m.state not in ('done', 'cancel')
+                )._action_assign()
 
             # --- Issue 4: auto-create vendor bill for validated Gate Entry receipts ---
             if (

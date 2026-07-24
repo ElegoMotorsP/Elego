@@ -467,6 +467,46 @@ class SaleOrder(models.Model):
                     f"awaiting approval from Rajshri (Accounts) or Manohar (MD). "
                     f"Invoicing is blocked until the approval is recorded."
                 )
+
+            # Same restriction as action_create_invoice() below, enforced here
+            # too: the standard "Create Invoice" button on a Sales Order opens
+            # Odoo's own sale.advance.payment.inv wizard, which calls this
+            # method directly and never goes through action_create_invoice() —
+            # so that check alone doesn't actually stop a salesperson from
+            # creating a faulty invoice this way.
+            if not self.env.user.has_group('account.group_account_invoice'):
+                raise AccessError(
+                    'Only accounting users (Amit / Rajshri / Manohar) can create '
+                    'invoices from Sales Orders.'
+                )
+
+            # Delivery + serial gate: a Sales Order carrying a bike unit must
+            # have its outgoing delivery validated, with serials scanned via
+            # "Scan Bike Serials", before it can be invoiced — otherwise the
+            # invoice describes stock that was never actually confirmed shipped.
+            bike_tmpls = self.env['mrp.production']._get_ego_templates()
+            if bike_tmpls:
+                for order in self:
+                    has_bike = any(
+                        line.product_id.product_tmpl_id in bike_tmpls
+                        for line in order.order_line
+                    )
+                    if not has_bike:
+                        continue
+                    deliveries = order.picking_ids.filtered(
+                        lambda p: p.picking_type_code == 'outgoing' and p.state != 'cancel'
+                    )
+                    if not deliveries or any(p.state != 'done' for p in deliveries):
+                        raise UserError(
+                            f'{order.name}: the outgoing delivery must be validated '
+                            f'before an invoice can be created.'
+                        )
+                    if any(not p.x_bike_serials_scanned for p in deliveries):
+                        raise UserError(
+                            f'{order.name}: bike serial numbers must be scanned on '
+                            f'the delivery ("Scan Bike Serials") before an invoice '
+                            f'can be created.'
+                        )
         return super()._create_invoices(grouped=grouped, final=final, date=date)
 
     def _do_reject(self, reason):

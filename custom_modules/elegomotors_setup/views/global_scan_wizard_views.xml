@@ -88,7 +88,7 @@
                                    string="Motor Number"
                                    placeholder="Scan motor barcode…"/>
                             <field name="x_controller_serial"
-                                   string="Motor Controller"
+                                   string="Controller"
                                    placeholder="Scan controller barcode…"/>
                             <field name="x_resolved_display" string="Detected" readonly="1"/>
                             <field name="all_scanned" string="Done?" readonly="1" widget="boolean"/>
