@@ -423,19 +423,48 @@ class MrpProduction(models.Model):
                                 }
                             # All EGO-S1 MOs already have lots — fall through to super()
 
-        # Re-assign raw material moves right before consumption. Necessary in
-        # particular for units produced via Global Production Scan: FIFO
-        # closing splits the MO with _split_productions() *after* the
-        # Issue to Production picking (and its own reservation re-assign —
-        # see stock_picking.button_validate()) already ran, and the split
-        # creates this MO's own move_raw_ids fresh, unreserved. Without this
-        # they stay at qty_done=0 and consume nothing on Mark Done even
-        # though the components are physically sitting in Production WIP —
-        # by this point Guard 1 above has already confirmed the user has
-        # manufacturing access (or we're running as su), so no sudo() needed.
-        self.move_raw_ids.filtered(
+        # Re-assign raw material moves right before consumption (helps correct
+        # location/lot selection where relevant). Necessary in particular for
+        # units produced via Global Production Scan: FIFO closing splits the
+        # MO with _split_productions() *after* the Issue to Production
+        # picking already ran, and the split creates this MO's own
+        # move_raw_ids fresh, unreserved.
+        raw_to_consume = self.move_raw_ids.filtered(
             lambda m: m.state not in ('done', 'cancel')
-        )._action_assign()
+        )
+        raw_to_consume._action_assign()
+
+        # Force-complete raw material consumption directly rather than
+        # relying on Odoo's automatic BOM-demand-vs-actual matching during
+        # button_mark_done(): confirmed live (via the MO's own "Product
+        # Moves" list and the component's Moves History) that even once
+        # reserved and even once the MO's overall state reaches Done, the
+        # raw moves were staying permanently unconsumed — Quantity 0.00,
+        # never picked — while the physical components sat available in
+        # Production WIP the whole time. Rather than keep chasing exactly
+        # which part of Odoo's internal consumption-matching (interacting
+        # with the skip_consumption context below) isn't completing them,
+        # write the consumption directly — the same proven pattern already
+        # used for kit components on delivery (stock_picking.py) and for
+        # the finished-goods transfer (_auto_move_fg_to_store below).
+        MoveLine = self.env['stock.move.line']
+        for move in raw_to_consume:
+            demand = move.product_uom_qty
+            done_qty = sum(move.move_line_ids.mapped('qty_done'))
+            remaining = demand - done_qty
+            if remaining <= 0.0001:
+                continue
+            if move.move_line_ids:
+                move.move_line_ids[0].qty_done += remaining
+            else:
+                MoveLine.create({
+                    'move_id': move.id,
+                    'product_id': move.product_id.id,
+                    'product_uom_id': move.product_uom.id,
+                    'qty_done': remaining,
+                    'location_id': move.location_id.id,
+                    'location_dest_id': move.location_dest_id.id,
+                })
 
         # Skip Odoo's native "Consumption Warning" wizard: EGO bike component
         # traceability is handled via chassis/motor/controller serial scanning,
