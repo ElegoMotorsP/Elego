@@ -62,8 +62,14 @@ class StockMove(models.Model):
     def _compute_battery_cell_hint(self):
         for move in self:
             name = move.product_id.name or ''
+            name_lower = name.lower()
             move.x_battery_cell_hint = ''
-            if 'lead' not in name.lower():
+            # Only the Battery Pack line itself, not its exploded-out
+            # "Battery Cell" components (already individual cells — a
+            # 12V32AH cell matching "12V" would wrongly compute "12V x 1")
+            # nor the Charger line (matches "lead" via "Lead Charger" and
+            # its own voltage, but isn't a battery at all).
+            if 'battery pack' not in name_lower or 'lead' not in name_lower:
                 continue
             match = re.search(r'(\d+)\s*V', name, re.IGNORECASE)
             if match:

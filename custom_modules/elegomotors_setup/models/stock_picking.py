@@ -8,6 +8,24 @@ from odoo.exceptions import AccessError, UserError
 class StockPicking(models.Model):
     _inherit = 'stock.picking'
 
+    @api.model_create_multi
+    def create(self, vals_list):
+        records = super().create(vals_list)
+        # Show the Quotation Number as Source Document on customer deliveries,
+        # not the Sales Order number: sale_stock sets origin = sale_order.name
+        # at creation time, and by then the order has already been renamed to
+        # its SO number (EGO-SO-…) — see sale_order.py's
+        # _assign_sale_order_number(). x_quotation_number preserves the
+        # original EGO-QUO-… number specifically for this kind of
+        # traceability. Safe to override outright (not just a display tweak):
+        # nothing else in this codebase matches sale.order by picking.origin
+        # except the guarded fallback in _update_invoice_serials_on_delivery()
+        # below, which already prefers the real sale_id link first.
+        for picking in records:
+            if picking.sale_id and picking.sale_id.x_quotation_number:
+                picking.origin = picking.sale_id.x_quotation_number
+        return records
+
     # --- existing fields (d93d856) ---
     x_vendor_invoice_number = fields.Char(
         string='Vendor Invoice Number',
