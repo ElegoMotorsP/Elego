@@ -148,6 +148,13 @@ class ElegomotorsBulkBarcodeWizard(models.TransientModel):
                         f'got {len(split_result)}. Contact your administrator.'
                     )
                 new_copies = (split_result - mo).sorted('id')
+                # x_consolidated_picking_id is copy=False, so each new split
+                # copy loses the link to its real Issue to Production
+                # picking, which would let button_mark_done()'s Guard 2b
+                # wrongly treat it as already issued (see global_scan_wizard.py
+                # for the full explanation). Re-propagate the link.
+                if new_copies:
+                    new_copies.x_consolidated_picking_id = mo.x_consolidated_picking_id
                 productions = new_copies + mo  # [unit1_mo, unit2_mo, ..., unitN_mo]
             else:
                 productions = mo

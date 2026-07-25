@@ -293,7 +293,19 @@ class GlobalScanWizard(models.TransientModel):
                 # _split_productions keeps `mo` as the first split (qty 1);
                 # the new backorder holds the rest and keeps its FIFO slot
                 # (same schedule date, later id).
-                mo._split_productions({mo: [1.0, float(remaining - 1)]})
+                split_result = mo._split_productions({mo: [1.0, float(remaining - 1)]})
+                # x_consolidated_picking_id is copy=False, so the new
+                # backorder record loses the link to its real Issue to
+                # Production picking. _compute_issue_picking_done() then
+                # falls back to "no picking linked -> treat as done" (a rule
+                # written for the pre-consolidated-PI flow), which wrongly
+                # makes an unissued backorder eligible for FIFO closing on a
+                # later scan — producing a unit whose components were never
+                # actually received/reserved. Re-propagate the link so the
+                # gate still works correctly on the split-off piece.
+                backorder = split_result - mo
+                if backorder:
+                    backorder.x_consolidated_picking_id = mo.x_consolidated_picking_id
                 # _split_productions keeps `mo` itself as the first amount
                 # (qty 1); the new backorder holds the remainder and keeps
                 # its FIFO slot (same schedule date, later id).
