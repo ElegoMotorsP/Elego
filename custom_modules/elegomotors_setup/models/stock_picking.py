@@ -572,6 +572,33 @@ class StockPicking(models.Model):
                         f'Current QC status: {state_label}'
                     )
 
+        # --- Non-bike delivery lines default to sourcing from EGO/Finished
+        #     Goods (the outgoing picking type's own default location) —
+        #     correct for bikes, which are properly staged there after QC
+        #     pass, but wrong for standalone battery/charger/accessory items:
+        #     they live in EGO/Store and are never moved to FG. Left
+        #     uncorrected, a validated delivery for e.g. a battery-only order
+        #     (or the battery/charger lines of a bike combo) silently
+        #     decrements — goes negative on — Finished Goods instead of the
+        #     Store stock that's actually there, and the real on-hand
+        #     quantity never moves. Runs for every outgoing delivery, not
+        #     just bike-serial-scanned ones, since a pure accessory order has
+        #     nothing to scan at all.
+        store_loc = self.env.ref('elegomotors_setup.location_ego_store', raise_if_not_found=False)
+        fg_loc = self.env.ref('elegomotors_setup.location_ego_fg', raise_if_not_found=False)
+        bike_tmpls_for_location = self.env['mrp.production']._get_ego_templates()
+        if store_loc and fg_loc:
+            for picking in self:
+                if picking.picking_type_code != 'outgoing':
+                    continue
+                for move in picking.move_ids.filtered(
+                    lambda m: m.state not in ('done', 'cancel')
+                    and m.product_id.product_tmpl_id not in bike_tmpls_for_location
+                    and m.location_id == fg_loc
+                ):
+                    move.location_id = store_loc.id
+                    move.move_line_ids.write({'location_id': store_loc.id})
+
         # --- Kit/accessory completion: once bike serials are scanned, the
         #     battery-pack kit components exploded onto the same delivery
         #     (Battery Cell, Charger — plain quantity-tracked, no lot) are
