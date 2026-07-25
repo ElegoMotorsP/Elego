@@ -49,29 +49,37 @@ class StockMove(models.Model):
 
     # Lead Acid battery packs are physically built from 12V cells — e.g. a
     # 60V32Ah pack is 5 cells, a 72V32Ah pack is 6 (see battery_kit_data.xml's
-    # phantom BOMs). Shown on the Battery Pack line itself (whether or not it
-    # was exploded into individual cell lines here) so Store knows the cell
-    # count at a glance, matching the same hint already shown on the invoice's
-    # Vehicle Serial Details table (account_move.py _ego_battery_type_display).
+    # phantom BOMs). Shown on the exploded "Battery Cell" line (its own
+    # product name, e.g. "Battery Cell — Lead 12V32AH", only carries the
+    # cell's own 12V rating, not the pack's total voltage — the count is
+    # derived from the pack it belongs to via x_kit_pack_name instead), or
+    # on the Battery Pack line itself when not exploded into cells here.
+    # Matches the same hint already shown on the invoice's Vehicle Serial
+    # Details table (account_move.py _ego_battery_type_display).
     x_battery_cell_hint = fields.Char(
         string='Cells',
         compute='_compute_battery_cell_hint',
     )
 
-    @api.depends('product_id')
+    @api.depends('product_id', 'x_kit_pack_name')
     def _compute_battery_cell_hint(self):
         for move in self:
-            name = move.product_id.name or ''
-            name_lower = name.lower()
             move.x_battery_cell_hint = ''
-            # Only the Battery Pack line itself, not its exploded-out
-            # "Battery Cell" components (already individual cells — a
-            # 12V32AH cell matching "12V" would wrongly compute "12V x 1")
-            # nor the Charger line (matches "lead" via "Lead Charger" and
-            # its own voltage, but isn't a battery at all).
-            if 'battery pack' not in name_lower or 'lead' not in name_lower:
+            name = (move.product_id.name or '').lower()
+            if 'battery cell' in name:
+                # Derive the count from the pack this cell belongs to, not
+                # from the cell's own (always-12V) name.
+                source_name = move.x_kit_pack_name or ''
+            elif 'battery pack' in name:
+                source_name = move.product_id.name or ''
+            else:
+                # Chargers, and anything else, never get a cell count —
+                # even "Lead Charger" matches "lead" and has its own
+                # voltage in its name, but isn't a battery at all.
                 continue
-            match = re.search(r'(\d+)\s*V', name, re.IGNORECASE)
+            if 'lead' not in source_name.lower():
+                continue
+            match = re.search(r'(\d+)\s*V', source_name, re.IGNORECASE)
             if match:
                 cells = int(match.group(1)) // 12
                 if cells:
