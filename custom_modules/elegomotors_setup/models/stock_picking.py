@@ -10,21 +10,29 @@ class StockPicking(models.Model):
 
     @api.model_create_multi
     def create(self, vals_list):
-        records = super().create(vals_list)
         # Show the Quotation Number as Source Document on customer deliveries,
         # not the Sales Order number: sale_stock sets origin = sale_order.name
-        # at creation time, and by then the order has already been renamed to
-        # its SO number (EGO-SO-…) — see sale_order.py's
-        # _assign_sale_order_number(). x_quotation_number preserves the
-        # original EGO-QUO-… number specifically for this kind of
-        # traceability. Safe to override outright (not just a display tweak):
-        # nothing else in this codebase matches sale.order by picking.origin
-        # except the guarded fallback in _update_invoice_serials_on_delivery()
-        # below, which already prefers the real sale_id link first.
-        for picking in records:
-            if picking.sale_id and picking.sale_id.x_quotation_number:
-                picking.origin = picking.sale_id.x_quotation_number
-        return records
+        # directly in the creation vals (the order has already been renamed
+        # to its SO number, EGO-SO-…, by then — see sale_order.py's
+        # _assign_sale_order_number()). Matched here directly on the vals'
+        # origin string, BEFORE creation: rewriting picking.sale_id after
+        # super().create() doesn't reliably work, because sale_id is
+        # computed from move_ids, and the procurement rule can create the
+        # picking shell before its moves are attached — so sale_id isn't
+        # guaranteed to resolve yet at that point. Matching on origin avoids
+        # that timing dependency entirely, the same way the existing
+        # fallback in _update_invoice_serials_on_delivery() below already
+        # matches sale.order by name. Safe to override outright: nothing
+        # else in this codebase matches sale.order by picking.origin except
+        # that one fallback, which already prefers the real sale_id link first.
+        for vals in vals_list:
+            origin = vals.get('origin')
+            if not origin:
+                continue
+            sale = self.env['sale.order'].search([('name', '=', origin)], limit=1)
+            if sale and sale.x_quotation_number:
+                vals['origin'] = sale.x_quotation_number
+        return super().create(vals_list)
 
     # --- existing fields (d93d856) ---
     x_vendor_invoice_number = fields.Char(
