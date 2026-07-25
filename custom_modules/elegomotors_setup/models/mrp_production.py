@@ -100,10 +100,24 @@ class MrpProduction(models.Model):
             if prod.product_id.product_tmpl_id not in bike_templates:
                 continue
 
-            # Cancel the Odoo-auto-created individual PI — we manage our own PI flow
+            # Cancel the Odoo-auto-created individual PI — we manage our own PI flow.
+            # Its moves are the upstream supply for this MO's own move_raw_ids in the
+            # Pick-Before-Manufacture chain (Store -> WIP -> consumed by MO), linked
+            # via move_dest_ids. Cancelling a move cascades the cancellation to any
+            # move still waiting on it via that link by default — so a plain
+            # action_cancel() here silently cancelled the MO's own raw moves too,
+            # leaving it with NOTHING to consume on Mark Done regardless of whether
+            # the consolidated PI later delivered the real components to Production
+            # WIP (confirmed live: "Product Moves" on a completed MO showed only the
+            # finished-goods move, zero raw moves). Detach the link first so the
+            # cancellation can't cascade — the MO's own raw moves then survive,
+            # still sourced from Production WIP per the pbm route, ready to be
+            # reserved via _action_assign() in button_mark_done() once the
+            # consolidated PI actually delivers stock there.
             auto_pickings = prod.picking_ids.filtered(
                 lambda p: p.picking_type_id == issue_type and p.state not in ('done', 'cancel')
             )
+            auto_pickings.move_ids.write({'move_dest_ids': [(5, 0, 0)]})
             auto_pickings.with_context(skip_immediate=True, skip_backorder=True).action_cancel()
 
             if prod.x_pi_urgent:
