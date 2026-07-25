@@ -409,6 +409,20 @@ class MrpProduction(models.Model):
                                 }
                             # All EGO-S1 MOs already have lots — fall through to super()
 
+        # Re-assign raw material moves right before consumption. Necessary in
+        # particular for units produced via Global Production Scan: FIFO
+        # closing splits the MO with _split_productions() *after* the
+        # Issue to Production picking (and its own reservation re-assign —
+        # see stock_picking.button_validate()) already ran, and the split
+        # creates this MO's own move_raw_ids fresh, unreserved. Without this
+        # they stay at qty_done=0 and consume nothing on Mark Done even
+        # though the components are physically sitting in Production WIP —
+        # by this point Guard 1 above has already confirmed the user has
+        # manufacturing access (or we're running as su), so no sudo() needed.
+        self.move_raw_ids.filtered(
+            lambda m: m.state not in ('done', 'cancel')
+        )._action_assign()
+
         # Skip Odoo's native "Consumption Warning" wizard: EGO bike component
         # traceability is handled via chassis/motor/controller serial scanning,
         # not per-component consumption matching against BOM demand, and this

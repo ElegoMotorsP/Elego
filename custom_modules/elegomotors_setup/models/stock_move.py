@@ -1,4 +1,6 @@
 # -*- coding: utf-8 -*-
+import re
+
 from odoo import api, fields, models
 
 
@@ -44,6 +46,30 @@ class StockMove(models.Model):
         string='Part of Pack',
         compute='_compute_kit_pack_name',
     )
+
+    # Lead Acid battery packs are physically built from 12V cells — e.g. a
+    # 60V32Ah pack is 5 cells, a 72V32Ah pack is 6 (see battery_kit_data.xml's
+    # phantom BOMs). Shown on the Battery Pack line itself (whether or not it
+    # was exploded into individual cell lines here) so Store knows the cell
+    # count at a glance, matching the same hint already shown on the invoice's
+    # Vehicle Serial Details table (account_move.py _ego_battery_type_display).
+    x_battery_cell_hint = fields.Char(
+        string='Cells',
+        compute='_compute_battery_cell_hint',
+    )
+
+    @api.depends('product_id')
+    def _compute_battery_cell_hint(self):
+        for move in self:
+            name = move.product_id.name or ''
+            move.x_battery_cell_hint = ''
+            if 'lead' not in name.lower():
+                continue
+            match = re.search(r'(\d+)\s*V', name, re.IGNORECASE)
+            if match:
+                cells = int(match.group(1)) // 12
+                if cells:
+                    move.x_battery_cell_hint = f'12V x {cells}'
 
     @api.depends('bom_line_id')
     def _compute_kit_pack_name(self):

@@ -359,11 +359,17 @@ class AccountMove(models.Model):
 
     def _ego_battery_type_display(self, lot):
         """Descriptive Battery Type text for the Vehicle Serial Details
-        table. Prefers the manufacturing-recorded type on the lot itself;
-        falls back to the combo Battery Pack product sold on this invoice
-        (the x_is_combo_item line whose product name contains "battery")
-        when the lot has none — otherwise the column just printed '-' for
-        any bike produced without a battery type explicitly recorded.
+        table. Prefers the combo Battery Pack product actually sold on this
+        invoice (the x_is_combo_item line whose product name contains
+        "battery") — that reflects what this specific customer/order really
+        got. Falls back to the manufacturing-recorded type on the lot only
+        when the invoice has no combo battery line: production is
+        produce-to-stock and FIFO-allocated to orders only at delivery/scan
+        time (see global_scan_wizard.py), so a given bike's lot may carry
+        whatever battery type the production planner entered when the MO
+        was created — which can differ from what this particular order
+        combo actually included. Otherwise the column just prints '-' for
+        any bike with neither a combo line nor a battery type recorded.
         For Lead Acid packs only, appends a "(12V x N)" cell-count hint
         parsed from the battery's voltage (e.g. 60V -> 5, 72V -> 6) — these
         packs are physically built from that many 12V cells (see
@@ -372,14 +378,15 @@ class AccountMove(models.Model):
         12V sub-cells, so no cell count is shown for them.
         """
         self.ensure_one()
-        text = lot.x_battery_type
+        text = ''
+        battery_line = self.invoice_line_ids.filtered(
+            lambda l: l.x_is_combo_item
+            and 'battery' in (l.product_id.name or '').lower()
+        )[:1]
+        if battery_line:
+            text = battery_line.product_id.display_name
         if not text:
-            battery_line = self.invoice_line_ids.filtered(
-                lambda l: l.x_is_combo_item
-                and 'battery' in (l.product_id.name or '').lower()
-            )[:1]
-            if battery_line:
-                text = battery_line.product_id.display_name
+            text = lot.x_battery_type
         if not text:
             return '-'
         if 'lead' not in text.lower():
