@@ -600,9 +600,14 @@ class StockPicking(models.Model):
             #     else ever re-triggers reservation on the linked MOs' raw
             #     moves, so they consume nothing on Mark Done and the issued
             #     stock just accumulates in Production WIP. Re-assign them now
-            #     that the components are actually available there.
+            #     that the components are actually available there. sudo():
+            #     this is system bookkeeping on the MO, not something the
+            #     validating user (e.g. Amit, Store — no manufacturing access)
+            #     needs rights for; without sudo() this reservation call hits
+            #     mrp.workorder's ACL (touched internally by MRP's own
+            #     reservation-state recompute) and raises an AccessError.
             if picking.x_consolidated_mo_ids:
-                picking.x_consolidated_mo_ids.mapped('move_raw_ids').filtered(
+                picking.sudo().x_consolidated_mo_ids.mapped('move_raw_ids').filtered(
                     lambda m: m.state not in ('done', 'cancel')
                 )._action_assign()
 
