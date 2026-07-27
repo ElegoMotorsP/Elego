@@ -433,8 +433,19 @@ class AccountMove(models.Model):
             for ptav in lot.product_id.product_template_attribute_value_ids:
                 if ptav.attribute_id.name == 'Color':
                     variant_parts.append(f'Color: {ptav.name}')
-        if lot.x_battery_type:
-            variant_parts.append(f'Battery: {lot.x_battery_type}')
+        # Same priority as _ego_battery_type_display(): prefer the combo
+        # Battery Pack actually sold on this invoice over the lot's own
+        # recorded x_battery_type, which reflects whatever the production
+        # planner picked when the MO was created — not necessarily what
+        # this specific order's combo included (production is
+        # produce-to-stock, FIFO-allocated to orders only at scan time).
+        battery_line = self.invoice_line_ids.filtered(
+            lambda l: l.x_is_combo_item
+            and 'battery' in (l.product_id.name or '').lower()
+        )[:1]
+        battery_text = battery_line.product_id.display_name if battery_line else lot.x_battery_type
+        if battery_text:
+            variant_parts.append(f'Battery: {battery_text}')
         if variant_parts:
             return serial_line + '\nVariant: ' + '  |  '.join(variant_parts)
         return serial_line

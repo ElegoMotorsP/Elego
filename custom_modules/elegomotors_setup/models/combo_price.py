@@ -11,6 +11,8 @@ The combo dealer prices (INCLUDING 5% GST, exactly as printed on the price
 list) live in Sales → Configuration → Bike Combo Prices, editable by Sales
 Managers / Admin — no code change needed when the price list is revised.
 """
+import re
+
 from odoo import api, fields, models
 from odoo.exceptions import UserError
 
@@ -235,3 +237,28 @@ class AccountMoveLineCombo(models.Model):
     x_is_combo_item = fields.Boolean(
         string='Included In Combo', default=False, copy=False,
     )
+
+    # Lead Acid battery packs are physically built from 12V cells — e.g. a
+    # 60V32Ah pack is 5 cells, a 72V32Ah pack is 6 (see battery_kit_data.xml's
+    # phantom BOMs). Shown on the invoice's own combo Battery Pack line so
+    # Store/Accounts see the cell count at a glance, matching the same hint
+    # already shown on the delivery (stock_move.py) and on the invoice's
+    # Vehicle Serial Details table (_ego_battery_type_display below).
+    x_battery_cell_hint = fields.Char(
+        string='Cells',
+        compute='_compute_battery_cell_hint',
+    )
+
+    @api.depends('product_id')
+    def _compute_battery_cell_hint(self):
+        for line in self:
+            line.x_battery_cell_hint = ''
+            name = line.product_id.name or ''
+            name_lower = name.lower()
+            if 'battery pack' not in name_lower or 'lead' not in name_lower:
+                continue
+            match = re.search(r'(\d+)\s*V', name, re.IGNORECASE)
+            if match:
+                cells = int(match.group(1)) // 12
+                if cells:
+                    line.x_battery_cell_hint = f'12V x {cells}'
