@@ -97,14 +97,14 @@
                             <td style="padding:1px 0;"><strong>Cust PO No. &amp; Date</strong></td>
                             <td style="padding:1px 0;">: <t t-esc="o.payment_reference or ''"/></td>
                         </tr>
+                        <t t-set="_so" t-value="env['sale.order'].sudo().search([('name', '=', o.invoice_origin)], limit=1) if o.invoice_origin else None"/>
                         <tr>
-                            <td style="padding:1px 0;"><strong>SO No.</strong></td>
-                            <td style="padding:1px 0;">: <t t-esc="o.invoice_origin or ''"/></td>
+                            <td style="padding:1px 0;"><strong>Quotation No.</strong></td>
+                            <td style="padding:1px 0;">: <t t-esc="(_so.x_quotation_number if _so and _so.x_quotation_number else o.invoice_origin) or ''"/></td>
                         </tr>
                         <tr>
-                            <td style="padding:1px 0;"><strong>SO Date</strong></td>
+                            <td style="padding:1px 0;"><strong>Quotation Date</strong></td>
                             <td style="padding:1px 0;">:
-                                <t t-set="_so" t-value="env['sale.order'].sudo().search([('name', '=', o.invoice_origin)], limit=1) if o.invoice_origin else None"/>
                                 <t t-if="_so and _so.date_order">
                                     <t t-esc="_so.date_order.strftime('%d-%b-%Y')"/>
                                 </t>
