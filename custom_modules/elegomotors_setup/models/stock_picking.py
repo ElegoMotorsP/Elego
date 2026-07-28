@@ -142,6 +142,54 @@ class StockPicking(models.Model):
         help='Serial/lot numbers of bike units picked in this outgoing delivery.',
     )
 
+    # Battery/charger combined totals — a multi-bike delivery lists one
+    # exploded "Battery Cell" / charger row per bike combo line (traceability
+    # to each bike stays intact), which makes the real total hard to read at
+    # a glance. This rolls them up into one summary table, mirroring the
+    # "Hand Over With Bike(s): Battery: X  Charger: Y" line already shown
+    # on the printed invoice (report_invoice.xml), but broken out per
+    # battery/charger type with its cell count.
+    x_battery_summary = fields.Html(
+        string='Battery/Charger Totals',
+        compute='_compute_battery_summary',
+    )
+
+    @api.depends('move_ids.product_id', 'move_ids.product_uom_qty',
+                 'move_ids.state', 'move_ids.x_kit_pack_name',
+                 'move_ids.x_battery_cell_hint')
+    def _compute_battery_summary(self):
+        for picking in self:
+            if picking.picking_type_code != 'outgoing':
+                picking.x_battery_summary = False
+                continue
+            totals = {}
+            order = []
+            for move in picking.move_ids.filtered(lambda m: m.state != 'cancel'):
+                name_lower = (move.product_id.name or '').lower()
+                if 'battery cell' in name_lower:
+                    key = move.x_kit_pack_name or move.product_id.name
+                elif 'charger' in name_lower or 'battery pack' in name_lower:
+                    key = move.product_id.name
+                else:
+                    continue
+                if key not in totals:
+                    totals[key] = {'qty': 0.0, 'cells': move.x_battery_cell_hint or ''}
+                    order.append(key)
+                totals[key]['qty'] += move.product_uom_qty
+            if not totals:
+                picking.x_battery_summary = False
+                continue
+            rows = ''.join(
+                '<tr><td>%s</td><td>%s</td><td style="text-align:right;">%s</td></tr>'
+                % (key, totals[key]['cells'], '%g' % totals[key]['qty'])
+                for key in order
+            )
+            picking.x_battery_summary = Markup(
+                '<table class="table table-sm table-bordered" style="max-width:500px;">'
+                '<thead><tr><th>Item</th><th>Cells</th><th>Total Qty</th></tr></thead>'
+                '<tbody>%s</tbody></table>' % rows
+            )
+
     # Consolidated Daily PI fields
     x_consolidated_mo_ids = fields.Many2many(
         'mrp.production',

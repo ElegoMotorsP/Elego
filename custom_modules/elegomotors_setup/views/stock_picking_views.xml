@@ -212,6 +212,24 @@
     </record>
 
     <!-- ================================================================
+         Battery/Charger Totals — combined summary table below the
+         Operations list on outgoing deliveries, so a multi-bike delivery's
+         per-bike battery/charger rows also have a readable grand total by
+         type (mirrors the invoice's "Hand Over With Bike(s)" line).
+         ================================================================ -->
+    <record id="stock_picking_form_battery_summary" model="ir.ui.view">
+        <field name="name">stock.picking.form.battery.summary</field>
+        <field name="model">stock.picking</field>
+        <field name="inherit_id" ref="stock.view_picking_form"/>
+        <field name="arch" type="xml">
+            <xpath expr="//field[@name='move_ids_without_package']" position="after">
+                <field name="x_battery_summary" widget="html" nolabel="1"
+                       invisible="not x_battery_summary"/>
+            </xpath>
+        </field>
+    </record>
+
+    <!-- ================================================================
          QC Inspection tab — parameter checklist filled by Pratik
          Visible only when the picking has check result rows (i.e. after
          state → in_qc and product has parameters defined).

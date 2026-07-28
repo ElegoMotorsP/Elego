@@ -1861,6 +1861,46 @@ class ProductTemplate(models.Model):
                 )
 
     @api.model
+    def _ensure_battery_pack_names(self):
+        """Force the canonical name/sale_ok/active back onto the lead-acid
+        battery pack templates.
+
+        Confirmed live: "Battery Pack — Lead Acid 60V32Ah" doesn't appear at
+        all in the "Add Bike Combo" wizard's Battery Pack picker, even though
+        an oddly-named "Battery Pack-lead acid 60v32ah kit" with working
+        stock and a working kit BOM does — almost certainly the exact same
+        underlying record (elegomotors_setup.prod_battery_lead_acid_60v32ah),
+        just with its name field manually edited in production at some point.
+        noupdate="1" (the block sale_products_data.xml's <record> lives in)
+        means the module's declared name is never reapplied to an existing
+        record — so without this, the rename is permanent regardless of how
+        many times the module is upgraded. Called from a noupdate="0" block
+        so it actually retries every upgrade, matching
+        _ensure_kit_boms_for_battery_packs() above.
+        """
+        fixes = [
+            ('elegomotors_setup.prod_battery_lead_acid_60v32ah', 'Battery Pack — Lead Acid 60V32Ah'),
+            ('elegomotors_setup.prod_battery_lead_acid_72v32ah', 'Battery Pack — Lead Acid 72V32Ah'),
+        ]
+        for ref, canonical_name in fixes:
+            tmpl = self.env.ref(ref, raise_if_not_found=False)
+            if not tmpl:
+                continue
+            vals = {}
+            if tmpl.name != canonical_name:
+                vals['name'] = canonical_name
+            if not tmpl.sale_ok:
+                vals['sale_ok'] = True
+            if not tmpl.active:
+                vals['active'] = True
+            if vals:
+                _logger.warning(
+                    'ElegoMotors: correcting battery pack %r -> %s',
+                    tmpl.name, vals,
+                )
+                tmpl.sudo().write(vals)
+
+    @api.model
     def _ensure_bike_gst_5_percent(self):
         """Bike units are always taxed at 5% GST (CGST 2.5% + SGST 2.5%,
         remapped to IGST 5% for inter-state customers by the existing fiscal
