@@ -1826,6 +1826,21 @@ class ProductTemplate(models.Model):
                 ('product_tmpl_id', '=', tmpl.id), ('type', '=', 'phantom'),
             ]):
                 continue
+            # Re-check right here, not just via the earlier batch call: a
+            # reordering rule can reappear on this specific pack after that
+            # ran (recreated by replenishment config, a later data upgrade,
+            # etc.) — retry the removal at the actual point of failure
+            # instead of silently giving up via the except below.
+            stale_orderpoints = self.env['stock.warehouse.orderpoint'].sudo().search([
+                ('product_id.product_tmpl_id', '=', tmpl.id),
+            ])
+            if stale_orderpoints:
+                _logger.warning(
+                    'ElegoMotors: removing %d reordering rule(s) on %s found '
+                    'again right before kit BOM creation.',
+                    len(stale_orderpoints), tmpl.display_name,
+                )
+                stale_orderpoints.unlink()
             try:
                 bom = Bom.sudo().create({
                     'product_tmpl_id': tmpl.id,

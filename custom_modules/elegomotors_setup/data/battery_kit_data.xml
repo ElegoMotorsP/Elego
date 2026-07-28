@@ -98,22 +98,24 @@
             ])]"/>
         </record>
 
-        <!-- Remove any pre-existing reordering rule on these two products
-             first — Odoo refuses to create a kit-type BOM for a product
-             that still has one. Production had these configured before
-             this feature existed. See product_template.py for details. -->
-        <function model="product.template" name="_remove_reorder_rules_for_kit_battery_packs"/>
-
-        <!-- ── Phantom (kit) BOMs: packs explode into base cells on the PI ──
-             Created via function (product_template.py) rather than <record>
-             tags: it's idempotent and, unlike a <record>, won't crash the
-             whole module registry load if the kit-BOM constraint fires
-             again for a reason not cleared by the function call above. -->
-        <function model="product.template" name="_ensure_kit_boms_for_battery_packs"/>
-
         <!-- Lithium packs (60V30Ah, 60V39Ah) are sealed units — no kit BOM,
              no decomposition. They are stocked and sold as themselves
              (prod_battery_lithium_60v30ah / _60v39ah in sale_products_data.xml). -->
 
+    </data>
+
+    <!-- noupdate="0": both functions below are explicitly self-healing —
+         their own docstrings say "runs on every upgrade" — but a <function>
+         call inside a noupdate="1" block (like the rest of this file) only
+         actually executes on the module's FIRST install; Odoo skips it on
+         every subsequent upgrade. That meant a pack whose kit BOM failed to
+         create once (e.g. blocked by a reordering rule still present on
+         production before this feature shipped — confirmed live: the
+         72V32Ah pack never got its kit BOM while 60V32Ah did) could never
+         self-heal no matter how many times the module was upgraded
+         afterward. This block guarantees they actually retry every time. -->
+    <data noupdate="0">
+        <function model="product.template" name="_remove_reorder_rules_for_kit_battery_packs"/>
+        <function model="product.template" name="_ensure_kit_boms_for_battery_packs"/>
     </data>
 </odoo>
