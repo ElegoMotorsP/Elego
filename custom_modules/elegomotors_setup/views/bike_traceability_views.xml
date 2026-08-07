@@ -36,6 +36,8 @@
             <list string="Bike Traceability" create="false"
                   default_order="create_date asc, name asc"
                   decoration-danger="x_blacklisted">
+                <field name="x_mo_id"             string="MO No."              optional="show"/>
+                <field name="x_mo_date"           string="MO Date"             optional="hide"/>
                 <field name="name"                string="Serial No."          optional="show"/>
                 <field name="create_date"         string="Produced On"         optional="show"/>
                 <field name="product_id"          string="Variant"             optional="show"/>
@@ -48,6 +50,15 @@
                 <field name="x_battery_type"      string="Battery Type"        optional="show"/>
                 <field name="x_cluster_serial"    string="Cluster Serial"      optional="hide"/>
                 <field name="x_frame_serial"      string="Frame Serial"        optional="hide"/>
+                <field name="x_qc_status"         string="QC Status"           optional="show"/>
+                <field name="x_qc_no"             string="QC No."              optional="hide"/>
+                <field name="x_so_id"              string="SO No."              optional="show"/>
+                <field name="x_delivery_id"        string="Delivery Out No."    optional="show"/>
+                <field name="x_delivery_date"      string="Delivery Out Date"   optional="hide"/>
+                <field name="x_invoice_id"         string="Invoice No."         optional="show"/>
+                <field name="x_invoice_date"       string="Invoice Date"        optional="hide"/>
+                <field name="x_dealer_id"          string="Dealer Name"         optional="show"/>
+                <field name="x_dealer_address"     string="Dealer Delivery Address" optional="hide"/>
                 <field name="x_blacklisted"       string="Blacklisted"         optional="show"
                        widget="boolean"/>
             </list>
@@ -120,6 +131,7 @@
             ref('elegomotors_setup.tmpl_elego_11'),
             ref('elegomotors_setup.tmpl_elego_12'),
             ref('elegomotors_setup.tmpl_elego_20p'),
+            ref('elegomotors_setup.tmpl_elego_30'),
         ])]"/>
         <field name="context">{'create': False}</field>
         <field name="view_ids" eval="[(5, 0, 0),
@@ -134,6 +146,18 @@
                 or any other component serial number.
             </p>
         </field>
+    </record>
+
+    <!-- ── Export: Master Traceability Report (xlsx) ─────────────────────
+         Shows up under the list view's Action (gear) menu. Runs on the
+         selected rows, or on every bike in scope when nothing is selected. -->
+    <record id="action_export_bike_master_report" model="ir.actions.server">
+        <field name="name">Export Master Report (XLSX)</field>
+        <field name="model_id" ref="stock.model_stock_lot"/>
+        <field name="binding_model_id" ref="stock.model_stock_lot"/>
+        <field name="binding_view_types">list</field>
+        <field name="state">code</field>
+        <field name="code">action = records.action_export_master_report()</field>
     </record>
 
     <!-- ── Menu: Inventory > Bike Traceability ─────────────────────────
