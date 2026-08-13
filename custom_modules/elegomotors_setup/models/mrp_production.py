@@ -502,6 +502,8 @@ class MrpProduction(models.Model):
             'elegomotors_setup.tmpl_elego_12',
             'elegomotors_setup.tmpl_elego_20p',
             'elegomotors_setup.tmpl_elego_30',
+            'elegomotors_setup.tmpl_elego_11_42ah',
+            'elegomotors_setup.tmpl_elego_12_42ah',
         ]
         result = self.env['product.template']
         for ref in refs:
@@ -652,11 +654,13 @@ class MrpBarcodeWizard(models.TransientModel):
         only for serials issued before this change.)
         """
         prefix_map = [
-            ('elegomotors_setup.tmpl_ego_scooter', 'EGO-S1'),
-            ('elegomotors_setup.tmpl_elego_11',    'EL11'),
-            ('elegomotors_setup.tmpl_elego_12',    'EL12'),
-            ('elegomotors_setup.tmpl_elego_20p',   'EL20P'),
-            ('elegomotors_setup.tmpl_elego_30',    'EL30'),
+            ('elegomotors_setup.tmpl_ego_scooter',   'EGO-S1'),
+            ('elegomotors_setup.tmpl_elego_11',      'EL11'),
+            ('elegomotors_setup.tmpl_elego_12',      'EL12'),
+            ('elegomotors_setup.tmpl_elego_20p',     'EL20P'),
+            ('elegomotors_setup.tmpl_elego_30',      'EL30'),
+            ('elegomotors_setup.tmpl_elego_11_42ah', 'EL1142'),
+            ('elegomotors_setup.tmpl_elego_12_42ah', 'EL1242'),
         ]
         tmpl = production.product_id.product_tmpl_id
         for tmpl_ref, prefix in prefix_map:

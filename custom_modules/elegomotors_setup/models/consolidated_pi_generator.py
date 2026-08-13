@@ -63,6 +63,18 @@ class ConsolidatedPiGenerator(models.AbstractModel):
                 'label': 'Elego 3.0',
                 'uses_color_boms': False,
             },
+            {
+                'tmpl_ref': 'elegomotors_setup.tmpl_elego_11_42ah',
+                'model_key': 'elego_11_42ah',
+                'label': 'Elego 1.1 42Ah',
+                'uses_color_boms': True,
+            },
+            {
+                'tmpl_ref': 'elegomotors_setup.tmpl_elego_12_42ah',
+                'model_key': 'elego_12_42ah',
+                'label': 'Elego 1.2 42Ah',
+                'uses_color_boms': True,
+            },
         ]
 
     # ------------------------------------------------------------------

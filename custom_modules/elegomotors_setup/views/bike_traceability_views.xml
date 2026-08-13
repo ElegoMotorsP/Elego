@@ -132,6 +132,8 @@
             ref('elegomotors_setup.tmpl_elego_12'),
             ref('elegomotors_setup.tmpl_elego_20p'),
             ref('elegomotors_setup.tmpl_elego_30'),
+            ref('elegomotors_setup.tmpl_elego_11_42ah'),
+            ref('elegomotors_setup.tmpl_elego_12_42ah'),
         ])]"/>
         <field name="context">{'create': False}</field>
         <field name="view_ids" eval="[(5, 0, 0),

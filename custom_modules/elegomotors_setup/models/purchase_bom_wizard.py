@@ -5,6 +5,8 @@ _MODEL_REFS = {
     'elego_11': 'elegomotors_setup.tmpl_elego_11',
     'elego_12': 'elegomotors_setup.tmpl_elego_12',
     'elego_20p': 'elegomotors_setup.tmpl_elego_20p',
+    'elego_11_42ah': 'elegomotors_setup.tmpl_elego_11_42ah',
+    'elego_12_42ah': 'elegomotors_setup.tmpl_elego_12_42ah',
 }
 
 _COLORS = ['Red', 'White', 'Gray', 'Black']
@@ -54,6 +56,8 @@ class ElegoMotorsPurchaseBomWizard(models.TransientModel):
         ('elego_11', 'Elego 1.1'),
         ('elego_12', 'Elego 1.2'),
         ('elego_20p', 'Elego 2.0+'),
+        ('elego_11_42ah', 'Elego 1.1 42Ah'),
+        ('elego_12_42ah', 'Elego 1.2 42Ah'),
     ], string='Model', required=True)
     purchase_mode = fields.Selection([
         ('components', 'Components'),

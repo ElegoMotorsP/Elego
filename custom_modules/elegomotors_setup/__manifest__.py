@@ -58,6 +58,9 @@
         'data/bom_data_elego_20p_by_color.xml', # Color-specific BOMs for Elego 2.0+ (Red/White/Gray/Black)
         'data/pi_utils_data.xml',          # PI Section Header placeholder product
         'data/product_elego_30_data.xml',  # Elego 3.0 product template + serial sequence
+        'data/product_elego_11_12_42ah_data.xml', # Elego 1.1 42Ah / Elego 1.2 42Ah product templates
+        'data/bom_data_elego_11_42ah_by_color.xml', # Color-specific BOMs for Elego 1.1 42Ah
+        'data/bom_data_elego_12_42ah_by_color.xml', # Color-specific BOMs for Elego 1.2 42Ah
         'data/purchase_ok_fix_bike_models.xml', # Enable purchase_ok for Kit Purchase mode
         'data/qc_required_components_data.xml', # Flag all bike BOM components as QC-required
         'data/gst_tax_data.xml',          # GST 5%/18% taxes + fiscal positions (MH intra/other inter)

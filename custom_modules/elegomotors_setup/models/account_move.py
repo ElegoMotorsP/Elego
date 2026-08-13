@@ -276,6 +276,8 @@ class AccountMove(models.Model):
             'elegomotors_setup.tmpl_elego_12',
             'elegomotors_setup.tmpl_elego_20p',
             'elegomotors_setup.tmpl_elego_30',
+            'elegomotors_setup.tmpl_elego_11_42ah',
+            'elegomotors_setup.tmpl_elego_12_42ah',
         ]
         result = self.env['product.template']
         for ref in refs:

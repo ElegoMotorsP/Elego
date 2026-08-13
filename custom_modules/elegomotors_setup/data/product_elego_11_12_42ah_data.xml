@@ -1,0 +1,65 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+    <!--
+        ElegoMotors — Elego 1.1 42Ah / Elego 1.2 42Ah Product Templates
+
+        Independent bike models, parallel to Elego 1.1 / 1.2 / 2.0+ / 3.0 in
+        every respect (own Colour variants, own BOMs, own serial prefix —
+        see mrp_production.py's _get_ego_templates() / _get_next_lot_serial()).
+
+        A line-by-line diff of the client's 2026-08 BOM workbooks
+        (Elego-Issues/BOM/New/ELEGO 1.1 42AH, ELEGO 1.2 42AH) against the
+        base Elego 1.1 / Elego 1.2 BOMs confirmed the only difference is one
+        component: a bigger-tray chassis to fit a higher-capacity battery.
+        See _ensure_elego_11_42ah_color_boms / _ensure_elego_12_42ah_color_boms
+        in models/product_template.py.
+
+        Prices are placeholders (mirrors the base model's price) — update via
+        Odoo UI once confirmed by client, same approach as Elego 3.0
+        (see product_elego_30_data.xml).
+
+        Product templates are noupdate="1" so UI price/description edits are
+        preserved. The attribute setup function is noupdate="0" and runs on
+        every upgrade.
+    -->
+
+    <data noupdate="1">
+
+        <!-- ── Elego 1.1 42Ah ────────────────────────────────────────────── -->
+        <record id="tmpl_elego_11_42ah" model="product.template">
+            <field name="name">Elego 1.1 42Ah</field>
+            <field name="is_storable" eval="True"/>
+            <field name="sale_ok" eval="True"/>
+            <field name="purchase_ok" eval="True"/>
+            <field name="categ_id" ref="product.product_category_all"/>
+            <field name="uom_id" ref="uom.product_uom_unit"/>
+            <field name="uom_po_id" ref="uom.product_uom_unit"/>
+            <field name="list_price">65000.0</field>
+            <field name="standard_price">45000.0</field>
+            <field name="route_ids" eval="[(4, ref('mrp.route_warehouse0_manufacture'))]"/>
+        </record>
+
+        <!-- ── Elego 1.2 42Ah ────────────────────────────────────────────── -->
+        <record id="tmpl_elego_12_42ah" model="product.template">
+            <field name="name">Elego 1.2 42Ah</field>
+            <field name="is_storable" eval="True"/>
+            <field name="sale_ok" eval="True"/>
+            <field name="purchase_ok" eval="True"/>
+            <field name="categ_id" ref="product.product_category_all"/>
+            <field name="uom_id" ref="uom.product_uom_unit"/>
+            <field name="uom_po_id" ref="uom.product_uom_unit"/>
+            <field name="list_price">70000.0</field>
+            <field name="standard_price">48000.0</field>
+            <field name="route_ids" eval="[(4, ref('mrp.route_warehouse0_manufacture'))]"/>
+        </record>
+
+    </data>
+
+    <!-- Colour attribute setup runs on every upgrade (noupdate="0").
+         Adds Red/Gray/Black/White variants via the same
+         _ensure_new_model_attributes() function used for other models. -->
+    <data noupdate="0">
+        <function model="product.template" name="_ensure_new_model_attributes"/>
+    </data>
+
+</odoo>

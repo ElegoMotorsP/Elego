@@ -1,0 +1,21 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+    <!--
+        ElegoMotors — Elego 1.1 42Ah Color-Specific Bills of Materials
+
+        Same component list as the base Elego 1.1 BOM (see
+        _elego_11_bom_color_components in models/product_template.py), with
+        the chassis swapped for the bigger-tray "1.1 42AH CHASSIS" — see
+        _ensure_elego_11_42ah_color_boms for the full rationale.
+
+        noupdate="0" — runs on every module upgrade so component list changes
+        in code are always reflected in the database.
+
+        Must load AFTER product_elego_11_12_42ah_data.xml (tmpl_elego_11_42ah
+        must exist) and AFTER product_models_data.xml (attr_ego_color values
+        already created there).
+    -->
+    <data noupdate="0">
+        <function model="product.template" name="_ensure_elego_11_42ah_color_boms"/>
+    </data>
+</odoo>

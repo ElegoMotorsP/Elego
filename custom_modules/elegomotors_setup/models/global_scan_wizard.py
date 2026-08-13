@@ -39,6 +39,10 @@ MODEL_CODE_MAP = {
     'EL20P':      'elegomotors_setup.tmpl_elego_20p',
     'ELEGO30':    'elegomotors_setup.tmpl_elego_30',
     'EL30':       'elegomotors_setup.tmpl_elego_30',
+    'ELEGO1142':  'elegomotors_setup.tmpl_elego_11_42ah',
+    'EL1142':     'elegomotors_setup.tmpl_elego_11_42ah',
+    'ELEGO1242':  'elegomotors_setup.tmpl_elego_12_42ah',
+    'EL1242':     'elegomotors_setup.tmpl_elego_12_42ah',
 }
 
 COLOR_CODE_MAP = {

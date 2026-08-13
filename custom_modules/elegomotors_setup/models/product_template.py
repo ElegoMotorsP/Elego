@@ -160,6 +160,8 @@ class ProductTemplate(models.Model):
             'elegomotors_setup.tmpl_elego_12',
             'elegomotors_setup.tmpl_elego_20p',
             'elegomotors_setup.tmpl_elego_30',
+            'elegomotors_setup.tmpl_elego_11_42ah',
+            'elegomotors_setup.tmpl_elego_12_42ah',
         ]:
             tmpl = self.env.ref(tmpl_ref, raise_if_not_found=False)
             if not tmpl:
@@ -224,46 +226,13 @@ class ProductTemplate(models.Model):
         return new_tmpl.product_variant_ids[:1]
 
     @api.model
-    def _ensure_elego_11_color_boms(self):
-        """Create variant-specific BOMs for Elego 1.1 (Red, White, Gray, Black).
-
-        119 parts per variant, sourced from the client's 2026-07 BOM refresh
-        (BOM_ELEGO_1_1_ODO_ALL_VARIANTS.xlsx, matching the per-colour
-        "1.1 Bill of Material <COLOR> ODO 1.xlsx" files it was built from).
-        Component names follow that sheet exactly, including its "1.1/1.2 "
-        prefix on parts shared with the other 1.x model. Existing products
-        are renamed in place (see _get_or_rename_bom_component) rather than
-        replaced, so stock/valuation/purchase history carries over under the
-        new name; components with no old-name match are created fresh.
-
-        Runs on every upgrade (noupdate="0"). Deletes and recreates all variant BOMs
-        so component list changes in code are always reflected.
-
-        Also removes any template-level BOM (product_id=False) for Elego 1.1 — having
-        both a template BOM and variant BOMs causes Odoo's MO auto-select to pick
-        whichever has the lower database ID, instead of the correct color-specific one.
+    def _elego_11_bom_color_components(self):
+        """Component list (name, qty, old_name) per colour for Elego 1.1's
+        color-specific BOMs. Shared by _ensure_elego_11_color_boms and the
+        Elego 1.1 42Ah variant's BOM builder (_ensure_elego_11_42ah_color_boms),
+        which overrides only the chassis line — see that method for why.
         """
-        tmpl = self.env.ref('elegomotors_setup.tmpl_elego_11', raise_if_not_found=False)
-        color_attr = self.env.ref('elegomotors_setup.attr_ego_color', raise_if_not_found=False)
-        if not tmpl or not color_attr:
-            _logger.warning('Elego 1.1 BOM: tmpl_elego_11 or attr_ego_color not found — skipping.')
-            return
-
-        Bom = self.env['mrp.bom']
-        BomLine = self.env['mrp.bom.line']
-        uom_unit = self.env.ref('uom.product_uom_unit')
-
-        # Remove template-level BOMs (product_id=False). The variant BOMs below are
-        # the sole authoritative source; coexistence causes non-deterministic MO BOM selection.
-        template_boms = Bom.search([('product_tmpl_id', '=', tmpl.id), ('product_id', '=', False)])
-        if template_boms:
-            _logger.info(
-                'Elego 1.1 BOM: removing %d template-level BOM(s) — variant BOMs are authoritative.',
-                len(template_boms),
-            )
-            template_boms.sudo().unlink()
-
-        color_components = {
+        return {
             'Red': [
                 ('1.1/1.2 FRONT FENDER RED', 1, 'ELEGO 1.1 FRONT FENDER RED'),
                 ('1.1 FRONT PANEL RED', 1, 'ELEGO 1.1 FRONT PANEL RED'),
@@ -750,6 +719,48 @@ class ProductTemplate(models.Model):
             ],
         }
 
+    @api.model
+    def _ensure_elego_11_color_boms(self):
+        """Create variant-specific BOMs for Elego 1.1 (Red, White, Gray, Black).
+
+        119 parts per variant, sourced from the client's 2026-07 BOM refresh
+        (BOM_ELEGO_1_1_ODO_ALL_VARIANTS.xlsx, matching the per-colour
+        "1.1 Bill of Material <COLOR> ODO 1.xlsx" files it was built from).
+        Component names follow that sheet exactly, including its "1.1/1.2 "
+        prefix on parts shared with the other 1.x model. Existing products
+        are renamed in place (see _get_or_rename_bom_component) rather than
+        replaced, so stock/valuation/purchase history carries over under the
+        new name; components with no old-name match are created fresh.
+
+        Runs on every upgrade (noupdate="0"). Deletes and recreates all variant BOMs
+        so component list changes in code are always reflected.
+
+        Also removes any template-level BOM (product_id=False) for Elego 1.1 — having
+        both a template BOM and variant BOMs causes Odoo's MO auto-select to pick
+        whichever has the lower database ID, instead of the correct color-specific one.
+        """
+        tmpl = self.env.ref('elegomotors_setup.tmpl_elego_11', raise_if_not_found=False)
+        color_attr = self.env.ref('elegomotors_setup.attr_ego_color', raise_if_not_found=False)
+        if not tmpl or not color_attr:
+            _logger.warning('Elego 1.1 BOM: tmpl_elego_11 or attr_ego_color not found — skipping.')
+            return
+
+        Bom = self.env['mrp.bom']
+        BomLine = self.env['mrp.bom.line']
+        uom_unit = self.env.ref('uom.product_uom_unit')
+
+        # Remove template-level BOMs (product_id=False). The variant BOMs below are
+        # the sole authoritative source; coexistence causes non-deterministic MO BOM selection.
+        template_boms = Bom.search([('product_tmpl_id', '=', tmpl.id), ('product_id', '=', False)])
+        if template_boms:
+            _logger.info(
+                'Elego 1.1 BOM: removing %d template-level BOM(s) — variant BOMs are authoritative.',
+                len(template_boms),
+            )
+            template_boms.sudo().unlink()
+
+        color_components = self._elego_11_bom_color_components()
+
         for color_name, lines in color_components.items():
             color_val = self.env['product.attribute.value'].search([
                 ('attribute_id', '=', color_attr.id),
@@ -831,46 +842,13 @@ class ProductTemplate(models.Model):
             )
 
     @api.model
-    def _ensure_elego_12_color_boms(self):
-        """Create variant-specific BOMs for Elego 1.2 (Red, White, Gray, Black).
-
-        119 parts per variant, sourced from the client's 2026-07 BOM refresh
-        (BOM_ELEGO_1_2_ODO_ALL_VARIANTS.xlsx, matching the per-colour
-        "1.2 Bill of Material <COLOR> ODO 1.xlsx" files it was built from).
-        Component names follow that sheet exactly, including its "1.1/1.2 "
-        prefix on parts shared with the other 1.x model. Existing products
-        are renamed in place (see _get_or_rename_bom_component) rather than
-        replaced, so stock/valuation/purchase history carries over under the
-        new name; components with no old-name match are created fresh.
-
-        Runs on every upgrade (noupdate="0"). Deletes and recreates all variant BOMs
-        so component list changes in code are always reflected.
-
-        Also removes any template-level BOM (product_id=False) for Elego 1.2 — having
-        both a template BOM and variant BOMs causes Odoo's MO auto-select to pick
-        whichever has the lower database ID, instead of the correct color-specific one.
+    def _elego_12_bom_color_components(self):
+        """Component list (name, qty, old_name) per colour for Elego 1.2's
+        color-specific BOMs. Shared by _ensure_elego_12_color_boms and the
+        Elego 1.2 42Ah variant's BOM builder (_ensure_elego_12_42ah_color_boms),
+        which overrides only the chassis line — see that method for why.
         """
-        tmpl = self.env.ref('elegomotors_setup.tmpl_elego_12', raise_if_not_found=False)
-        color_attr = self.env.ref('elegomotors_setup.attr_ego_color', raise_if_not_found=False)
-        if not tmpl or not color_attr:
-            _logger.warning('Elego 1.2 BOM: tmpl_elego_12 or attr_ego_color not found — skipping.')
-            return
-
-        Bom = self.env['mrp.bom']
-        BomLine = self.env['mrp.bom.line']
-        uom_unit = self.env.ref('uom.product_uom_unit')
-
-        # Remove template-level BOMs (product_id=False). The variant BOMs below are
-        # the sole authoritative source; coexistence causes non-deterministic MO BOM selection.
-        template_boms = Bom.search([('product_tmpl_id', '=', tmpl.id), ('product_id', '=', False)])
-        if template_boms:
-            _logger.info(
-                'Elego 1.2 BOM: removing %d template-level BOM(s) — variant BOMs are authoritative.',
-                len(template_boms),
-            )
-            template_boms.sudo().unlink()
-
-        color_components = {
+        return {
             'Red': [
                 ('1.1/1.2 FRONT FENDER RED', 1, 'ELEGO 1.2 FRONT FENDER RED'),
                 ('1.2 FRONT PANEL RED', 1, 'ELEGO 1.2 FRONT PANEL RED'),
@@ -1357,6 +1335,48 @@ class ProductTemplate(models.Model):
             ],
         }
 
+    @api.model
+    def _ensure_elego_12_color_boms(self):
+        """Create variant-specific BOMs for Elego 1.2 (Red, White, Gray, Black).
+
+        119 parts per variant, sourced from the client's 2026-07 BOM refresh
+        (BOM_ELEGO_1_2_ODO_ALL_VARIANTS.xlsx, matching the per-colour
+        "1.2 Bill of Material <COLOR> ODO 1.xlsx" files it was built from).
+        Component names follow that sheet exactly, including its "1.1/1.2 "
+        prefix on parts shared with the other 1.x model. Existing products
+        are renamed in place (see _get_or_rename_bom_component) rather than
+        replaced, so stock/valuation/purchase history carries over under the
+        new name; components with no old-name match are created fresh.
+
+        Runs on every upgrade (noupdate="0"). Deletes and recreates all variant BOMs
+        so component list changes in code are always reflected.
+
+        Also removes any template-level BOM (product_id=False) for Elego 1.2 — having
+        both a template BOM and variant BOMs causes Odoo's MO auto-select to pick
+        whichever has the lower database ID, instead of the correct color-specific one.
+        """
+        tmpl = self.env.ref('elegomotors_setup.tmpl_elego_12', raise_if_not_found=False)
+        color_attr = self.env.ref('elegomotors_setup.attr_ego_color', raise_if_not_found=False)
+        if not tmpl or not color_attr:
+            _logger.warning('Elego 1.2 BOM: tmpl_elego_12 or attr_ego_color not found — skipping.')
+            return
+
+        Bom = self.env['mrp.bom']
+        BomLine = self.env['mrp.bom.line']
+        uom_unit = self.env.ref('uom.product_uom_unit')
+
+        # Remove template-level BOMs (product_id=False). The variant BOMs below are
+        # the sole authoritative source; coexistence causes non-deterministic MO BOM selection.
+        template_boms = Bom.search([('product_tmpl_id', '=', tmpl.id), ('product_id', '=', False)])
+        if template_boms:
+            _logger.info(
+                'Elego 1.2 BOM: removing %d template-level BOM(s) — variant BOMs are authoritative.',
+                len(template_boms),
+            )
+            template_boms.sudo().unlink()
+
+        color_components = self._elego_12_bom_color_components()
+
         for color_name, lines in color_components.items():
             color_val = self.env['product.attribute.value'].search([
                 ('attribute_id', '=', color_attr.id),
@@ -1434,6 +1454,234 @@ class ProductTemplate(models.Model):
 
             _logger.info(
                 'Elego 1.2 BOM (%s): synced to %d component lines (%d removed).',
+                color_name, lines_added, len(obsolete_lines),
+            )
+
+    @api.model
+    def _ensure_elego_11_42ah_color_boms(self):
+        """Create variant-specific BOMs for Elego 1.1 42Ah (Red, White, Gray, Black).
+
+        Identical component list to the base Elego 1.1 (see _elego_11_bom_color_components)
+        except the chassis, swapped for the bigger-tray "1.1 42AH CHASSIS" needed to
+        fit the higher-capacity battery — confirmed by a line-by-line diff of the
+        client's 2026-08 42Ah BOM workbooks against the base Elego 1.1 BOM
+        across all 4 colours: every other part and quantity is identical.
+
+        Runs on every upgrade (noupdate="0"). Deletes and recreates all variant BOMs
+        so component list changes in code are always reflected.
+        """
+        tmpl = self.env.ref('elegomotors_setup.tmpl_elego_11_42ah', raise_if_not_found=False)
+        color_attr = self.env.ref('elegomotors_setup.attr_ego_color', raise_if_not_found=False)
+        if not tmpl or not color_attr:
+            _logger.warning('Elego 1.1 42Ah BOM: template or attr_ego_color not found — skipping.')
+            return
+
+        Bom = self.env['mrp.bom']
+        BomLine = self.env['mrp.bom.line']
+        uom_unit = self.env.ref('uom.product_uom_unit')
+
+        template_boms = Bom.search([('product_tmpl_id', '=', tmpl.id), ('product_id', '=', False)])
+        if template_boms:
+            _logger.info(
+                'Elego 1.1 42Ah BOM: removing %d template-level BOM(s) — variant BOMs are authoritative.',
+                len(template_boms),
+            )
+            template_boms.sudo().unlink()
+
+        color_components = {
+            color_name: [
+                ('1.1 42AH CHASSIS', qty, None) if name == '1.1 CHASSIS' else (name, qty, old_name)
+                for name, qty, old_name in comp_lines
+            ]
+            for color_name, comp_lines in self._elego_11_bom_color_components().items()
+        }
+
+        for color_name, lines in color_components.items():
+            color_val = self.env['product.attribute.value'].search([
+                ('attribute_id', '=', color_attr.id),
+                ('name', '=', color_name),
+            ], limit=1)
+            if not color_val:
+                _logger.warning('Elego 1.1 42Ah BOM: color attribute value "%s" not found — skipping.', color_name)
+                continue
+
+            variant = tmpl.with_context(active_test=False).product_variant_ids.filtered(
+                lambda v, cv=color_val: cv in v.product_template_attribute_value_ids.mapped(
+                    'product_attribute_value_id'
+                )
+            )[:1]
+            if not variant:
+                _logger.warning('Elego 1.1 42Ah BOM: no variant found for color "%s" — skipping.', color_name)
+                continue
+            if not variant.active:
+                variant.write({'active': True})
+
+            bom = Bom.search([
+                ('product_tmpl_id', '=', tmpl.id),
+                ('product_id', '=', variant.id),
+            ], limit=1)
+            if not bom:
+                bom = Bom.sudo().create({
+                    'product_tmpl_id': tmpl.id,
+                    'product_id': variant.id,
+                    'product_qty': 1.0,
+                    'product_uom_id': uom_unit.id,
+                    'type': 'normal',
+                })
+
+            desired = []
+            for name, qty, old_name in lines:
+                comp = self._get_or_rename_bom_component(name, old_name)
+                if comp:
+                    desired.append((comp, float(qty)))
+
+            existing_lines_by_product = {}
+            obsolete_lines = self.env['mrp.bom.line']
+            for line in bom.bom_line_ids:
+                if line.product_id.id in existing_lines_by_product:
+                    obsolete_lines |= line
+                else:
+                    existing_lines_by_product[line.product_id.id] = line
+
+            seq = 10
+            lines_added = 0
+            for comp, qty in desired:
+                line = existing_lines_by_product.pop(comp.id, None)
+                if line:
+                    if line.product_qty != qty or line.sequence != seq:
+                        line.sudo().write({'product_qty': qty, 'sequence': seq})
+                else:
+                    BomLine.sudo().create({
+                        'bom_id': bom.id,
+                        'product_id': comp.id,
+                        'product_qty': qty,
+                        'product_uom_id': uom_unit.id,
+                        'sequence': seq,
+                    })
+                lines_added += 1
+                seq += 10
+
+            for line in existing_lines_by_product.values():
+                obsolete_lines |= line
+            if obsolete_lines:
+                obsolete_lines.sudo().unlink()
+
+            _logger.info(
+                'Elego 1.1 42Ah BOM (%s): synced to %d component lines (%d removed).',
+                color_name, lines_added, len(obsolete_lines),
+            )
+
+    @api.model
+    def _ensure_elego_12_42ah_color_boms(self):
+        """Create variant-specific BOMs for Elego 1.2 42Ah (Red, White, Gray, Black).
+
+        Identical component list to the base Elego 1.2 (see _elego_12_bom_color_components)
+        except the chassis, swapped for the bigger-tray "1.2 42AH CHASSIS" needed to
+        fit the higher-capacity battery — confirmed by a line-by-line diff of the
+        client's 2026-08 42Ah BOM workbooks against the base Elego 1.2 BOM
+        across all 4 colours: every other part and quantity is identical.
+
+        Runs on every upgrade (noupdate="0"). Deletes and recreates all variant BOMs
+        so component list changes in code are always reflected.
+        """
+        tmpl = self.env.ref('elegomotors_setup.tmpl_elego_12_42ah', raise_if_not_found=False)
+        color_attr = self.env.ref('elegomotors_setup.attr_ego_color', raise_if_not_found=False)
+        if not tmpl or not color_attr:
+            _logger.warning('Elego 1.2 42Ah BOM: template or attr_ego_color not found — skipping.')
+            return
+
+        Bom = self.env['mrp.bom']
+        BomLine = self.env['mrp.bom.line']
+        uom_unit = self.env.ref('uom.product_uom_unit')
+
+        template_boms = Bom.search([('product_tmpl_id', '=', tmpl.id), ('product_id', '=', False)])
+        if template_boms:
+            _logger.info(
+                'Elego 1.2 42Ah BOM: removing %d template-level BOM(s) — variant BOMs are authoritative.',
+                len(template_boms),
+            )
+            template_boms.sudo().unlink()
+
+        color_components = {
+            color_name: [
+                ('1.2 42AH CHASSIS', qty, None) if name == '1.2 CHASSIS' else (name, qty, old_name)
+                for name, qty, old_name in comp_lines
+            ]
+            for color_name, comp_lines in self._elego_12_bom_color_components().items()
+        }
+
+        for color_name, lines in color_components.items():
+            color_val = self.env['product.attribute.value'].search([
+                ('attribute_id', '=', color_attr.id),
+                ('name', '=', color_name),
+            ], limit=1)
+            if not color_val:
+                _logger.warning('Elego 1.2 42Ah BOM: color attribute value "%s" not found — skipping.', color_name)
+                continue
+
+            variant = tmpl.with_context(active_test=False).product_variant_ids.filtered(
+                lambda v, cv=color_val: cv in v.product_template_attribute_value_ids.mapped(
+                    'product_attribute_value_id'
+                )
+            )[:1]
+            if not variant:
+                _logger.warning('Elego 1.2 42Ah BOM: no variant found for color "%s" — skipping.', color_name)
+                continue
+            if not variant.active:
+                variant.write({'active': True})
+
+            bom = Bom.search([
+                ('product_tmpl_id', '=', tmpl.id),
+                ('product_id', '=', variant.id),
+            ], limit=1)
+            if not bom:
+                bom = Bom.sudo().create({
+                    'product_tmpl_id': tmpl.id,
+                    'product_id': variant.id,
+                    'product_qty': 1.0,
+                    'product_uom_id': uom_unit.id,
+                    'type': 'normal',
+                })
+
+            desired = []
+            for name, qty, old_name in lines:
+                comp = self._get_or_rename_bom_component(name, old_name)
+                if comp:
+                    desired.append((comp, float(qty)))
+
+            existing_lines_by_product = {}
+            obsolete_lines = self.env['mrp.bom.line']
+            for line in bom.bom_line_ids:
+                if line.product_id.id in existing_lines_by_product:
+                    obsolete_lines |= line
+                else:
+                    existing_lines_by_product[line.product_id.id] = line
+
+            seq = 10
+            lines_added = 0
+            for comp, qty in desired:
+                line = existing_lines_by_product.pop(comp.id, None)
+                if line:
+                    if line.product_qty != qty or line.sequence != seq:
+                        line.sudo().write({'product_qty': qty, 'sequence': seq})
+                else:
+                    BomLine.sudo().create({
+                        'bom_id': bom.id,
+                        'product_id': comp.id,
+                        'product_qty': qty,
+                        'product_uom_id': uom_unit.id,
+                        'sequence': seq,
+                    })
+                lines_added += 1
+                seq += 10
+
+            for line in existing_lines_by_product.values():
+                obsolete_lines |= line
+            if obsolete_lines:
+                obsolete_lines.sudo().unlink()
+
+            _logger.info(
+                'Elego 1.2 42Ah BOM (%s): synced to %d component lines (%d removed).',
                 color_name, lines_added, len(obsolete_lines),
             )
 
@@ -1729,6 +1977,8 @@ class ProductTemplate(models.Model):
             'elegomotors_setup.tmpl_elego_12',
             'elegomotors_setup.tmpl_elego_20p',
             'elegomotors_setup.tmpl_elego_30',
+            'elegomotors_setup.tmpl_elego_11_42ah',
+            'elegomotors_setup.tmpl_elego_12_42ah',
         ]
         bike_tmpls = self.env['product.template']
         for ref in refs:
@@ -1920,6 +2170,8 @@ class ProductTemplate(models.Model):
             'elegomotors_setup.tmpl_elego_12',
             'elegomotors_setup.tmpl_elego_20p',
             'elegomotors_setup.tmpl_elego_30',
+            'elegomotors_setup.tmpl_elego_11_42ah',
+            'elegomotors_setup.tmpl_elego_12_42ah',
         ]
         bike_tmpls = self.env['product.template']
         for ref in refs:
