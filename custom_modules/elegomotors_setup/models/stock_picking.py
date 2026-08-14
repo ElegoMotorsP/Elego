@@ -897,7 +897,10 @@ class StockPicking(models.Model):
         if self:
             domain = [('id', 'in', self.ids)]
         else:
-            domain = [('x_is_gate_entry', '=', True)]
+            gate_ref = self.env.ref(
+                'elegomotors_setup.picking_type_gate_entry', raise_if_not_found=False
+            )
+            domain = [('picking_type_id', '=', gate_ref.id)] if gate_ref else [('id', '=', False)]
         return {
             'type': 'ir.actions.act_url',
             'url': '/elegomotors/qc_report/inward/xlsx?domain=%s' % quote(json.dumps(domain)),

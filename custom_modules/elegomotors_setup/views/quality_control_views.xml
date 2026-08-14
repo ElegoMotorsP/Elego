@@ -45,7 +45,8 @@
                 <field name="name" string="Gate Entry No."/>
                 <field name="partner_id" string="Vendor"/>
                 <field name="x_source_po_id" string="PO No."/>
-                <field name="x_qc_serial_nos" string="Serial No."/>
+                <!-- x_qc_serial_nos is a non-stored compute field (unsearchable) —
+                     shown as a list column only; not searchable here. -->
                 <filter name="filter_pending_qc" string="Pending QC"
                         domain="[('x_gate_entry_state', '=', 'pending_qc')]"/>
                 <filter name="filter_in_qc" string="In QC"
@@ -66,7 +67,9 @@
         <field name="name">Inward Material QC</field>
         <field name="res_model">stock.picking</field>
         <field name="view_mode">list,form</field>
-        <field name="domain">[('x_is_gate_entry', '=', True)]</field>
+        <!-- x_is_gate_entry is a non-stored compute field and can't be used in a
+             domain — filter on the real stored picking_type_id it derives from. -->
+        <field name="domain" eval="[('picking_type_id', '=', ref('elegomotors_setup.picking_type_gate_entry'))]"/>
         <field name="context">{'search_default_filter_pending_qc': 1, 'search_default_filter_in_qc': 1}</field>
         <field name="view_ids" eval="[(5, 0, 0),
             (0, 0, {'view_mode': 'list', 'view_id': ref('view_qc_inward_list')})]"/>
@@ -111,7 +114,9 @@
         <field name="model">mrp.production</field>
         <field name="arch" type="xml">
             <search string="FG QC">
-                <field name="x_finished_serial" string="Serial No."/>
+                <!-- x_finished_serial is a non-stored compute field (unsearchable) —
+                     search on lot_producing_id instead, the real stored field it mirrors. -->
+                <field name="lot_producing_id" string="Serial No."/>
                 <field name="name" string="MO No."/>
                 <field name="product_id" string="Bike Model"/>
                 <filter name="filter_pending" string="Pending QC"
@@ -134,6 +139,10 @@
         <field name="name">FG QC</field>
         <field name="res_model">mrp.production</field>
         <field name="view_mode">list,form</field>
+        <!-- mo_flow_state is a non-stored compute field and can't be used in a
+             domain — replicate 'mo_flow_state != False' with the stored fields
+             it derives from: state == 'done', or (state in progress/to_close
+             and qty_producing > 0). -->
         <field name="domain" eval="[
             ('product_id.product_tmpl_id', 'in', [
                 ref('elegomotors_setup.tmpl_ego_scooter'),
@@ -144,7 +153,8 @@
                 ref('elegomotors_setup.tmpl_elego_11_42ah'),
                 ref('elegomotors_setup.tmpl_elego_12_42ah'),
             ]),
-            ('mo_flow_state', '!=', False),
+            '|', ('state', '=', 'done'),
+            '&amp;', ('state', 'in', ['progress', 'to_close']), ('qty_producing', '&gt;', 0),
         ]"/>
         <field name="context">{'search_default_filter_pending': 1}</field>
         <field name="view_ids" eval="[(5, 0, 0),
@@ -256,13 +266,10 @@
             <search string="QC Report (Full)">
                 <field name="name" string="Serial No."/>
                 <field name="product_id" string="Bike Model"/>
-                <filter name="filter_fg_pending" string="FG QC Pending"
-                        domain="[('x_qc_status', '=', 'Pending QC')]"/>
-                <filter name="filter_fg_passed" string="FG QC Passed"
-                        domain="[('x_qc_status', '=', 'QC Passed')]"/>
-                <filter name="filter_fg_failed" string="FG QC Failed"
-                        domain="[('x_qc_status', '=', 'QC Failed')]"/>
-                <separator/>
+                <!-- FG QC Status (x_qc_status) is a non-stored compute field with no
+                     search() method — it can be displayed in the list but not used
+                     in a filter domain, so only PDI (a real stored field) is filterable
+                     here. Group by Bike Model to scan FG QC Status visually instead. -->
                 <filter name="filter_pdi_pending" string="PDI Pending"
                         domain="[('x_pdi_state', '=', 'pending')]"/>
                 <filter name="filter_pdi_passed" string="PDI Passed"
