@@ -26,3 +26,7 @@ access_combo_price_user,combo.price.user,model_elegomotors_combo_price,base.grou
 access_combo_price_sale_manager,combo.price.sale.manager,model_elegomotors_combo_price,sales_team.group_sale_manager,1,1,1,1
 access_combo_price_admin,combo.price.admin,model_elegomotors_combo_price,base.group_erp_manager,1,1,1,1
 access_bike_combo_wizard_all,bike.combo.wizard.all,model_elegomotors_bike_combo_wizard,base.group_user,1,1,1,1
+access_pdi_parameter_user,pdi.parameter.user,model_elegomotors_pdi_parameter,base.group_user,1,0,0,0
+access_pdi_parameter_admin,pdi.parameter.admin,model_elegomotors_pdi_parameter,base.group_erp_manager,1,1,1,1
+access_pdi_check_result_user,pdi.check.result.user,model_elegomotors_pdi_check_result,base.group_user,1,0,0,0
+access_pdi_check_result_operator,pdi.check.result.operator,model_elegomotors_pdi_check_result,stock.group_stock_manager,1,1,1,0

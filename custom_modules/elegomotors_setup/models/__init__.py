@@ -1,6 +1,7 @@
 from . import ir_actions_server
 from . import res_company
 from . import qc_parameter
+from . import pdi_parameter
 from . import account_move
 from . import mrp_production
 from . import bulk_barcode_wizard

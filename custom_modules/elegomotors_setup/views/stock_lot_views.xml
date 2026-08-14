@@ -85,6 +85,44 @@
                         the unit-level traceability for this vehicle.
                     </p>
                 </page>
+
+                <!-- PDI (Pre-Delivery Inspection) tab — any ElegoMotors bike model -->
+                <page string="PDI Inspection"
+                      invisible="[('product_id.product_tmpl_id', 'not in', [
+                          %(elegomotors_setup.tmpl_ego_scooter)d,
+                          %(elegomotors_setup.tmpl_elego_11)d,
+                          %(elegomotors_setup.tmpl_elego_12)d,
+                          %(elegomotors_setup.tmpl_elego_20p)d,
+                          %(elegomotors_setup.tmpl_elego_30)d,
+                          %(elegomotors_setup.tmpl_elego_11_42ah)d,
+                          %(elegomotors_setup.tmpl_elego_12_42ah)d])]">
+                    <group>
+                        <field name="x_pdi_state" widget="badge"
+                               decoration-success="x_pdi_state == 'passed'"
+                               decoration-warning="x_pdi_state == 'pending'"
+                               decoration-danger="x_pdi_state == 'failed'"/>
+                        <field name="x_pdi_checked_date" readonly="1"/>
+                    </group>
+                    <div class="mb-2">
+                        <button type="object" name="action_pdi_approve"
+                                string="Approve PDI" class="btn-primary"
+                                invisible="x_pdi_state == 'passed'"/>
+                        <button type="object" name="action_pdi_fail"
+                                string="Fail PDI" class="btn-secondary"
+                                invisible="x_pdi_state == 'failed'"/>
+                        <button type="object" name="action_pdi_reset"
+                                string="Reset PDI" class="btn-secondary"
+                                invisible="x_pdi_state == 'pending'"/>
+                    </div>
+                    <field name="x_pdi_check_result_ids">
+                        <list editable="bottom">
+                            <field name="category"/>
+                            <field name="name"/>
+                            <field name="result"/>
+                            <field name="notes"/>
+                        </list>
+                    </field>
+                </page>
             </xpath>
         </field>
     </record>

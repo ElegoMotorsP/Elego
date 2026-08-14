@@ -1,0 +1,71 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+    PDI (Pre-Delivery Inspection) Checklist — Starter Set
+    ======================================================
+    Global checklist applied to every bike serial before outgoing dispatch.
+    Manohar (Admin) can add/remove/reorder items later from the Quality
+    Control app without any code change — this is just the initial set.
+
+    noupdate="0" so items added here in future upgrades are picked up, but
+    existing rows (and any Manohar has since edited) are left alone since
+    they're matched by their fixed XML ID, not recreated.
+-->
+<odoo>
+    <data noupdate="0">
+
+        <!-- Documents -->
+        <record id="pdi_param_invoice_copy" model="elegomotors.pdi.parameter">
+            <field name="name">Invoice copy present</field>
+            <field name="category">document</field>
+            <field name="sequence">10</field>
+        </record>
+        <record id="pdi_param_warranty_card" model="elegomotors.pdi.parameter">
+            <field name="name">Warranty card present</field>
+            <field name="category">document</field>
+            <field name="sequence">20</field>
+        </record>
+        <record id="pdi_param_owners_manual" model="elegomotors.pdi.parameter">
+            <field name="name">Owner's manual present</field>
+            <field name="category">document</field>
+            <field name="sequence">30</field>
+        </record>
+        <record id="pdi_param_checklist_sheet" model="elegomotors.pdi.parameter">
+            <field name="name">PDI checklist sheet present</field>
+            <field name="category">document</field>
+            <field name="sequence">40</field>
+        </record>
+
+        <!-- Physical checks -->
+        <record id="pdi_param_test_ride" model="elegomotors.pdi.parameter">
+            <field name="name">Test ride OK</field>
+            <field name="category">physical</field>
+            <field name="sequence">50</field>
+        </record>
+        <record id="pdi_param_lights_horn_brakes" model="elegomotors.pdi.parameter">
+            <field name="name">Lights / Horn / Brakes OK</field>
+            <field name="category">physical</field>
+            <field name="sequence">60</field>
+        </record>
+        <record id="pdi_param_battery_charge" model="elegomotors.pdi.parameter">
+            <field name="name">Battery charge level checked</field>
+            <field name="category">physical</field>
+            <field name="sequence">70</field>
+        </record>
+        <record id="pdi_param_accessories_complete" model="elegomotors.pdi.parameter">
+            <field name="name">Accessories complete</field>
+            <field name="category">physical</field>
+            <field name="sequence">80</field>
+        </record>
+        <record id="pdi_param_body_paint" model="elegomotors.pdi.parameter">
+            <field name="name">Body / paint condition OK</field>
+            <field name="category">physical</field>
+            <field name="sequence">90</field>
+        </record>
+        <record id="pdi_param_tyre_pressure" model="elegomotors.pdi.parameter">
+            <field name="name">Tyre pressure OK</field>
+            <field name="category">physical</field>
+            <field name="sequence">100</field>
+        </record>
+
+    </data>
+</odoo>

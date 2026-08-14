@@ -169,6 +169,20 @@ class DeliveryBikeScanWizard(models.TransientModel):
         # automatic reservation).
         self.picking_id.x_bike_serials_scanned = True
 
+        # Create the PDI checklist for each scanned bike now — this is the
+        # moment we know exactly which serials are going out on this
+        # delivery. Idempotent, so re-scanning the same bike doesn't
+        # duplicate rows. button_validate() blocks the delivery until each
+        # of these is approved (see stock_picking.py).
+        scanned_lots = self.env['stock.lot']
+        for pairs in lots_by_move.values():
+            for lot, _quant in pairs:
+                scanned_lots |= lot
+        scanned_lots._create_pdi_check_results()
+        scanned_lots.x_pdi_check_result_ids.filtered(
+            lambda r: not r.picking_id
+        ).write({'picking_id': self.picking_id.id})
+
         serial_names = ', '.join(
             lot.name for pairs in lots_by_move.values() for lot, _q in pairs
         )

@@ -2,8 +2,9 @@
 import json
 from urllib.parse import quote
 
+from markupsafe import Markup
 from odoo import api, models, fields
-from odoo.exceptions import AccessError
+from odoo.exceptions import AccessError, UserError
 
 
 class StockLot(models.Model):
@@ -39,6 +40,21 @@ class StockLot(models.Model):
         default=False,
         index=True,
         help='Set to True when this serial/lot has failed QC. Prevents sale or store transfer.',
+    )
+
+    # --- PDI (Pre-Delivery Inspection) ---
+    x_pdi_state = fields.Selection([
+        ('pending', 'Pending PDI'),
+        ('passed', 'PDI Passed'),
+        ('failed', 'PDI Failed'),
+    ], string='PDI Status', default='pending', copy=False,
+       help='Pre-Delivery Inspection gate. Outgoing delivery cannot be validated '
+            'for this bike until PDI is Passed.')
+    x_pdi_checked_date = fields.Datetime(string='PDI Checked On', copy=False)
+    x_pdi_check_result_ids = fields.One2many(
+        'elegomotors.pdi.check.result', 'lot_id',
+        string='PDI Checklist',
+        copy=False,
     )
 
     # --- Master Traceability Report: full MO -> QC -> SO -> Delivery ->
@@ -201,3 +217,76 @@ class StockLot(models.Model):
             'view_mode': 'form',
             'res_id': mo.id,
         }
+
+    # --- PDI (Pre-Delivery Inspection) ---
+
+    def _create_pdi_check_results(self):
+        """Auto-create elegomotors.pdi.check.result rows for every active PDI
+        checklist item on this bike serial. Idempotent — skips parameters
+        that already have a result row for this lot (safe to call every
+        time the bike is (re-)scanned onto a delivery)."""
+        CheckResult = self.env['elegomotors.pdi.check.result'].sudo()
+        params = self.env['elegomotors.pdi.parameter'].search([])
+        for lot in self:
+            existing_param_ids = set(lot.x_pdi_check_result_ids.mapped('parameter_id.id'))
+            for param in params:
+                if param.id not in existing_param_ids:
+                    CheckResult.create({
+                        'lot_id': lot.id,
+                        'parameter_id': param.id,
+                    })
+
+    def action_pdi_approve(self):
+        """Pratik/Amit approves PDI: passes if every checklist item is OK,
+        otherwise fails — mirrors action_gate_entry_approve_qc's aggregation."""
+        self.ensure_one()
+        if not self.x_pdi_check_result_ids:
+            raise UserError('No PDI checklist found for this serial. Scan it onto an outgoing delivery first.')
+        any_fail = any(r.result == 'fail' for r in self.x_pdi_check_result_ids)
+        self.x_pdi_state = 'failed' if any_fail else 'passed'
+        self.x_pdi_checked_date = fields.Datetime.now()
+        self.message_post(
+            body=Markup(
+                f"PDI {'<b>FAILED</b>' if any_fail else '<b>Passed</b>'} "
+                f"by {self.env.user.name}."
+            ),
+            message_type='comment',
+            subtype_xmlid='mail.mt_comment',
+        )
+
+    def action_pdi_fail(self):
+        """Explicitly fail PDI regardless of individual checklist rows."""
+        self.ensure_one()
+        self.x_pdi_state = 'failed'
+        self.x_pdi_checked_date = fields.Datetime.now()
+        self.message_post(
+            body=Markup(f"PDI <b>FAILED</b> by {self.env.user.name}."),
+            message_type='comment',
+            subtype_xmlid='mail.mt_comment',
+        )
+
+    def action_export_qc_full_report(self):
+        """Download the QC Report (Full) (xlsx) — FG + PDI status per bike
+        serial — for the selected bikes, or for every ElegoMotors bike unit
+        when nothing is selected."""
+        if self:
+            domain = [('id', 'in', self.ids)]
+        else:
+            bike_tmpls = self.env['mrp.production']._get_ego_templates()
+            domain = [('product_id.product_tmpl_id', 'in', bike_tmpls.ids)]
+        return {
+            'type': 'ir.actions.act_url',
+            'url': '/elegomotors/qc_report/bikes/xlsx?domain=%s' % quote(json.dumps(domain)),
+            'target': 'self',
+        }
+
+    def action_pdi_reset(self):
+        """Reset PDI to pending after rework, so it can be re-inspected."""
+        self.ensure_one()
+        self.x_pdi_state = 'pending'
+        self.x_pdi_check_result_ids.write({'result': False, 'notes': False})
+        self.message_post(
+            body='PDI reset to Pending — ready for re-inspection.',
+            message_type='comment',
+            subtype_xmlid='mail.mt_comment',
+        )

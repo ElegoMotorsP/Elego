@@ -1,0 +1,313 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+    <!--
+        ElegoMotors — Quality Control App: Inward Material QC / FG QC / PDI QC / Report
+
+        Three "tabs" (each its own top menu under the Quality Control app root —
+        see quality_control_menu.xml) that give Pratik/Amit/Manohar one place to
+        work QC instead of hunting through Inventory (Gate Entry) and Manufacturing
+        (MO) separately, plus a consolidated per-bike-serial report.
+
+        Each tab is a thin list/search view on top of EXISTING data/actions —
+        no QC logic is duplicated here:
+          - Inward Material QC -> stock.picking (Gate Entry), x_gate_entry_state
+          - FG QC               -> mrp.production, qc_state / mo_flow_state
+          - PDI QC + Report     -> stock.lot, x_pdi_state / x_qc_status
+    -->
+
+    <!-- ═══════════════════════ 1. INWARD MATERIAL QC ═══════════════════════ -->
+
+    <record id="view_qc_inward_list" model="ir.ui.view">
+        <field name="name">elegomotors.qc.inward.list</field>
+        <field name="model">stock.picking</field>
+        <field name="arch" type="xml">
+            <list string="Inward Material QC" create="false"
+                  default_order="scheduled_date desc">
+                <field name="name" string="Gate Entry No."/>
+                <field name="partner_id" string="Vendor"/>
+                <field name="x_source_po_id" string="PO No."/>
+                <field name="x_qc_required_product_names" string="QC Products"/>
+                <field name="x_qc_serial_nos" string="Serial No(s)"/>
+                <field name="scheduled_date" string="Date" optional="show"/>
+                <field name="x_gate_entry_state" string="QC Status" widget="badge"
+                       decoration-success="x_gate_entry_state == 'ready'"
+                       decoration-warning="x_gate_entry_state == 'pending_qc'"
+                       decoration-info="x_gate_entry_state == 'in_qc'"/>
+            </list>
+        </field>
+    </record>
+
+    <record id="view_qc_inward_search" model="ir.ui.view">
+        <field name="name">elegomotors.qc.inward.search</field>
+        <field name="model">stock.picking</field>
+        <field name="arch" type="xml">
+            <search string="Inward Material QC">
+                <field name="name" string="Gate Entry No."/>
+                <field name="partner_id" string="Vendor"/>
+                <field name="x_source_po_id" string="PO No."/>
+                <field name="x_qc_serial_nos" string="Serial No."/>
+                <filter name="filter_pending_qc" string="Pending QC"
+                        domain="[('x_gate_entry_state', '=', 'pending_qc')]"/>
+                <filter name="filter_in_qc" string="In QC"
+                        domain="[('x_gate_entry_state', '=', 'in_qc')]"/>
+                <filter name="filter_ready" string="Ready (Completed)"
+                        domain="[('x_gate_entry_state', '=', 'ready')]"/>
+                <group expand="0" string="Group By">
+                    <filter name="group_by_state" string="QC Status"
+                            context="{'group_by': 'x_gate_entry_state'}"/>
+                    <filter name="group_by_vendor" string="Vendor"
+                            context="{'group_by': 'partner_id'}"/>
+                </group>
+            </search>
+        </field>
+    </record>
+
+    <record id="action_qc_inward_material" model="ir.actions.act_window">
+        <field name="name">Inward Material QC</field>
+        <field name="res_model">stock.picking</field>
+        <field name="view_mode">list,form</field>
+        <field name="domain">[('x_is_gate_entry', '=', True)]</field>
+        <field name="context">{'search_default_filter_pending_qc': 1, 'search_default_filter_in_qc': 1}</field>
+        <field name="view_ids" eval="[(5, 0, 0),
+            (0, 0, {'view_mode': 'list', 'view_id': ref('view_qc_inward_list')})]"/>
+        <field name="search_view_id" ref="view_qc_inward_search"/>
+        <field name="help" type="html">
+            <p class="o_view_nocontent_smiling_face">No Gate Entry receipts found.</p>
+        </field>
+    </record>
+
+    <record id="action_export_qc_inward_report" model="ir.actions.server">
+        <field name="name">Export QC Report (XLSX)</field>
+        <field name="model_id" ref="stock.model_stock_picking"/>
+        <field name="binding_model_id" ref="stock.model_stock_picking"/>
+        <field name="binding_view_types">list</field>
+        <field name="state">code</field>
+        <field name="code">action = records.action_export_qc_inward_report()</field>
+    </record>
+
+    <!-- ═══════════════════════════════ 2. FG QC ═════════════════════════════ -->
+
+    <record id="view_qc_fg_list" model="ir.ui.view">
+        <field name="name">elegomotors.qc.fg.list</field>
+        <field name="model">mrp.production</field>
+        <field name="arch" type="xml">
+            <list string="FG QC" create="false" default_order="date_start desc">
+                <field name="x_finished_serial" string="Serial No."/>
+                <field name="product_id" string="Bike Model"/>
+                <field name="name" string="MO No."/>
+                <field name="x_color" string="Colour"/>
+                <field name="x_battery_type" string="Battery Type"/>
+                <field name="date_start" string="Produced On" optional="show"/>
+                <field name="qc_state" string="QC Status" widget="badge"
+                       decoration-success="qc_state == 'passed'"
+                       decoration-warning="qc_state == 'pending'"
+                       decoration-danger="qc_state == 'failed'"/>
+            </list>
+        </field>
+    </record>
+
+    <record id="view_qc_fg_search" model="ir.ui.view">
+        <field name="name">elegomotors.qc.fg.search</field>
+        <field name="model">mrp.production</field>
+        <field name="arch" type="xml">
+            <search string="FG QC">
+                <field name="x_finished_serial" string="Serial No."/>
+                <field name="name" string="MO No."/>
+                <field name="product_id" string="Bike Model"/>
+                <filter name="filter_pending" string="Pending QC"
+                        domain="[('qc_state', '=', 'pending')]"/>
+                <filter name="filter_passed" string="QC Passed"
+                        domain="[('qc_state', '=', 'passed')]"/>
+                <filter name="filter_failed" string="QC Failed"
+                        domain="[('qc_state', '=', 'failed')]"/>
+                <group expand="0" string="Group By">
+                    <filter name="group_by_qc_state" string="QC Status"
+                            context="{'group_by': 'qc_state'}"/>
+                    <filter name="group_by_model" string="Bike Model"
+                            context="{'group_by': 'product_id'}"/>
+                </group>
+            </search>
+        </field>
+    </record>
+
+    <record id="action_qc_fg" model="ir.actions.act_window">
+        <field name="name">FG QC</field>
+        <field name="res_model">mrp.production</field>
+        <field name="view_mode">list,form</field>
+        <field name="domain" eval="[
+            ('product_id.product_tmpl_id', 'in', [
+                ref('elegomotors_setup.tmpl_ego_scooter'),
+                ref('elegomotors_setup.tmpl_elego_11'),
+                ref('elegomotors_setup.tmpl_elego_12'),
+                ref('elegomotors_setup.tmpl_elego_20p'),
+                ref('elegomotors_setup.tmpl_elego_30'),
+                ref('elegomotors_setup.tmpl_elego_11_42ah'),
+                ref('elegomotors_setup.tmpl_elego_12_42ah'),
+            ]),
+            ('mo_flow_state', '!=', False),
+        ]"/>
+        <field name="context">{'search_default_filter_pending': 1}</field>
+        <field name="view_ids" eval="[(5, 0, 0),
+            (0, 0, {'view_mode': 'list', 'view_id': ref('view_qc_fg_list')})]"/>
+        <field name="search_view_id" ref="view_qc_fg_search"/>
+        <field name="help" type="html">
+            <p class="o_view_nocontent_smiling_face">No produced bikes found.</p>
+        </field>
+    </record>
+
+    <!-- ═══════════════════════════════ 3. PDI QC ════════════════════════════ -->
+
+    <record id="view_qc_pdi_list" model="ir.ui.view">
+        <field name="name">elegomotors.qc.pdi.list</field>
+        <field name="model">stock.lot</field>
+        <field name="arch" type="xml">
+            <list string="PDI QC" create="false" default_order="x_pdi_checked_date desc, name desc"
+                  decoration-danger="x_blacklisted">
+                <field name="name" string="Serial No."/>
+                <field name="product_id" string="Bike Model"/>
+                <field name="x_mo_id" string="MO No."/>
+                <field name="x_pdi_checked_date" string="PDI Checked On" optional="show"/>
+                <field name="x_pdi_state" string="PDI Status" widget="badge"
+                       decoration-success="x_pdi_state == 'passed'"
+                       decoration-warning="x_pdi_state == 'pending'"
+                       decoration-danger="x_pdi_state == 'failed'"/>
+                <field name="x_blacklisted" string="Blacklisted" optional="hide" widget="boolean"/>
+            </list>
+        </field>
+    </record>
+
+    <record id="view_qc_pdi_search" model="ir.ui.view">
+        <field name="name">elegomotors.qc.pdi.search</field>
+        <field name="model">stock.lot</field>
+        <field name="arch" type="xml">
+            <search string="PDI QC">
+                <field name="name" string="Serial No."/>
+                <field name="product_id" string="Bike Model"/>
+                <filter name="filter_pending" string="Pending PDI"
+                        domain="[('x_pdi_state', '=', 'pending')]"/>
+                <filter name="filter_passed" string="PDI Passed"
+                        domain="[('x_pdi_state', '=', 'passed')]"/>
+                <filter name="filter_failed" string="PDI Failed"
+                        domain="[('x_pdi_state', '=', 'failed')]"/>
+                <group expand="0" string="Group By">
+                    <filter name="group_by_pdi_state" string="PDI Status"
+                            context="{'group_by': 'x_pdi_state'}"/>
+                    <filter name="group_by_model" string="Bike Model"
+                            context="{'group_by': 'product_id'}"/>
+                </group>
+            </search>
+        </field>
+    </record>
+
+    <record id="action_qc_pdi" model="ir.actions.act_window">
+        <field name="name">PDI QC</field>
+        <field name="res_model">stock.lot</field>
+        <field name="view_mode">list,form</field>
+        <field name="domain" eval="[
+            ('product_id.product_tmpl_id', 'in', [
+                ref('elegomotors_setup.tmpl_ego_scooter'),
+                ref('elegomotors_setup.tmpl_elego_11'),
+                ref('elegomotors_setup.tmpl_elego_12'),
+                ref('elegomotors_setup.tmpl_elego_20p'),
+                ref('elegomotors_setup.tmpl_elego_30'),
+                ref('elegomotors_setup.tmpl_elego_11_42ah'),
+                ref('elegomotors_setup.tmpl_elego_12_42ah'),
+            ]),
+            ('x_pdi_check_result_ids', '!=', False),
+        ]"/>
+        <field name="context">{'search_default_filter_pending': 1, 'create': False}</field>
+        <field name="view_ids" eval="[(5, 0, 0),
+            (0, 0, {'view_mode': 'list', 'view_id': ref('view_qc_pdi_list')})]"/>
+        <field name="search_view_id" ref="view_qc_pdi_search"/>
+        <field name="help" type="html">
+            <p class="o_view_nocontent_smiling_face">No bikes awaiting PDI found.</p>
+            <p>Bikes appear here once scanned onto an outgoing delivery.</p>
+        </field>
+    </record>
+
+    <!-- ═══════════════════════════ 4. QC REPORT (FULL) ══════════════════════ -->
+
+    <record id="view_qc_full_report_list" model="ir.ui.view">
+        <field name="name">elegomotors.qc.full.report.list</field>
+        <field name="model">stock.lot</field>
+        <field name="arch" type="xml">
+            <list string="QC Report (Full)" create="false"
+                  default_order="create_date asc, name asc"
+                  decoration-danger="x_blacklisted">
+                <field name="name" string="Serial No."/>
+                <field name="product_id" string="Bike Model"/>
+                <field name="x_mo_id" string="MO No."/>
+                <field name="create_date" string="Produced On"/>
+                <field name="x_qc_status" string="FG QC Status"/>
+                <field name="x_pdi_state" string="PDI Status" widget="badge"
+                       decoration-success="x_pdi_state == 'passed'"
+                       decoration-warning="x_pdi_state == 'pending'"
+                       decoration-danger="x_pdi_state == 'failed'"/>
+                <field name="x_pdi_checked_date" string="PDI Checked On" optional="show"/>
+                <field name="x_blacklisted" string="Blacklisted" optional="show" widget="boolean"/>
+            </list>
+        </field>
+    </record>
+
+    <record id="view_qc_full_report_search" model="ir.ui.view">
+        <field name="name">elegomotors.qc.full.report.search</field>
+        <field name="model">stock.lot</field>
+        <field name="arch" type="xml">
+            <search string="QC Report (Full)">
+                <field name="name" string="Serial No."/>
+                <field name="product_id" string="Bike Model"/>
+                <filter name="filter_fg_pending" string="FG QC Pending"
+                        domain="[('x_qc_status', '=', 'Pending QC')]"/>
+                <filter name="filter_fg_passed" string="FG QC Passed"
+                        domain="[('x_qc_status', '=', 'QC Passed')]"/>
+                <filter name="filter_fg_failed" string="FG QC Failed"
+                        domain="[('x_qc_status', '=', 'QC Failed')]"/>
+                <separator/>
+                <filter name="filter_pdi_pending" string="PDI Pending"
+                        domain="[('x_pdi_state', '=', 'pending')]"/>
+                <filter name="filter_pdi_passed" string="PDI Passed"
+                        domain="[('x_pdi_state', '=', 'passed')]"/>
+                <filter name="filter_pdi_failed" string="PDI Failed"
+                        domain="[('x_pdi_state', '=', 'failed')]"/>
+                <group expand="0" string="Group By">
+                    <filter name="group_by_model" string="Bike Model"
+                            context="{'group_by': 'product_id'}"/>
+                    <filter name="group_by_pdi_state" string="PDI Status"
+                            context="{'group_by': 'x_pdi_state'}"/>
+                </group>
+            </search>
+        </field>
+    </record>
+
+    <record id="action_qc_full_report" model="ir.actions.act_window">
+        <field name="name">QC Report (Full)</field>
+        <field name="res_model">stock.lot</field>
+        <field name="view_mode">list,form</field>
+        <field name="domain" eval="[('product_id.product_tmpl_id', 'in', [
+            ref('elegomotors_setup.tmpl_ego_scooter'),
+            ref('elegomotors_setup.tmpl_elego_11'),
+            ref('elegomotors_setup.tmpl_elego_12'),
+            ref('elegomotors_setup.tmpl_elego_20p'),
+            ref('elegomotors_setup.tmpl_elego_30'),
+            ref('elegomotors_setup.tmpl_elego_11_42ah'),
+            ref('elegomotors_setup.tmpl_elego_12_42ah'),
+        ])]"/>
+        <field name="context">{'create': False}</field>
+        <field name="view_ids" eval="[(5, 0, 0),
+            (0, 0, {'view_mode': 'list', 'view_id': ref('view_qc_full_report_list')})]"/>
+        <field name="search_view_id" ref="view_qc_full_report_search"/>
+        <field name="help" type="html">
+            <p class="o_view_nocontent_smiling_face">No bikes found.</p>
+        </field>
+    </record>
+
+    <record id="action_export_qc_full_report" model="ir.actions.server">
+        <field name="name">Export QC Report (Full) (XLSX)</field>
+        <field name="model_id" ref="stock.model_stock_lot"/>
+        <field name="binding_model_id" ref="stock.model_stock_lot"/>
+        <field name="binding_view_types">list</field>
+        <field name="state">code</field>
+        <field name="code">action = records.action_export_qc_full_report()</field>
+    </record>
+
+</odoo>

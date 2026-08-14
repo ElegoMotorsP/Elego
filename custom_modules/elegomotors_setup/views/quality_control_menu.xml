@@ -1,0 +1,45 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+    <!--
+        ElegoMotors — Quality Control app root menu.
+
+        Gated on stock.group_stock_manager, which Pratik, Amit, and Manohar
+        all hold (per USERS_AND_PERMISSIONS_REFERENCE.md) while Rajshri,
+        Priyanka, and Prashant only hold Stock User — so this app is visible
+        to exactly the people who touch QC today, with no new group needed.
+
+        Four child menus behave as the app's top tabs, matching how the
+        user described navigating to this screen (Quality Control -> tabs
+        for Inward Material QC / FG QC / PDI QC / QC Report).
+    -->
+
+    <menuitem id="menu_quality_control_root"
+              name="Quality Control"
+              sequence="25"
+              groups="stock.group_stock_manager"/>
+
+    <menuitem id="menu_qc_inward_material"
+              name="Inward Material QC"
+              parent="menu_quality_control_root"
+              action="action_qc_inward_material"
+              sequence="10"/>
+
+    <menuitem id="menu_qc_fg"
+              name="FG QC"
+              parent="menu_quality_control_root"
+              action="action_qc_fg"
+              sequence="20"/>
+
+    <menuitem id="menu_qc_pdi"
+              name="PDI QC"
+              parent="menu_quality_control_root"
+              action="action_qc_pdi"
+              sequence="30"/>
+
+    <menuitem id="menu_qc_full_report"
+              name="QC Report (Full)"
+              parent="menu_quality_control_root"
+              action="action_qc_full_report"
+              sequence="40"/>
+
+</odoo>

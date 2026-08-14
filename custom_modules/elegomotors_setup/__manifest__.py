@@ -71,6 +71,7 @@
         'data/users_data.xml',            # department users (loaded after groups)
         'data/quality_data.xml',         # QC control points: gate entry + FG receipt
         'data/qc_check_sheets_data.xml', # Charger + Battery QC check sheet templates
+        'data/pdi_parameters_data.xml',  # PDI (Pre-Delivery Inspection) starter checklist
         'data/notification_rules.xml',   # automated workflow notifications
         'data/cron_daily_pi.xml',        # Daily consolidated PI generation cron job
         # View overrides (loaded last so base views exist)
@@ -89,6 +90,8 @@
         'views/invoice_bike_scan_wizard_views.xml', # Bike serial scan wizard for invoice assignment (admin fallback)
         'views/delivery_bike_scan_wizard_views.xml', # Store scans shipped bike serials on OUT delivery
         'views/bike_traceability_views.xml',        # Bike Traceability search window + menu
+        'views/quality_control_views.xml',          # Quality Control app: Inward/FG/PDI QC tabs + full report
+        'views/quality_control_menu.xml',            # Quality Control app root menu + 4 tab menus
         'views/generate_pi_wizard_views.xml',       # Generate Daily PI wizard + menu entry
         'views/report_bike_serial_label.xml',       # 75x50mm bike serial label (TSC TTP-244 Pro)
         'views/global_scan_wizard_views.xml',       # Global Production Scan wizard + menu (FIFO MO closing)

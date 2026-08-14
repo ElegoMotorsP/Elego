@@ -1,5 +1,8 @@
 # -*- coding: utf-8 -*-
+import json
 import math
+from urllib.parse import quote
+
 from markupsafe import Markup
 from odoo import Command, api, fields, models
 from odoo.exceptions import AccessError, UserError
@@ -124,6 +127,16 @@ class StockPicking(models.Model):
         compute='_compute_is_gate_entry',
         store=False,
     )
+    x_qc_required_product_names = fields.Char(
+        string='QC Products',
+        compute='_compute_qc_display_fields',
+        help='Products on this Gate Entry that require QC inspection.',
+    )
+    x_qc_serial_nos = fields.Char(
+        string='QC Serial No(s)',
+        compute='_compute_qc_display_fields',
+        help='Serial/lot numbers already recorded against this Gate Entry\'s QC results.',
+    )
 
     # OUT deliveries: True once Amit has assigned the bike serials via the
     # Scan Bike Serials wizard. Bike deliveries cannot be validated without
@@ -214,6 +227,16 @@ class StockPicking(models.Model):
         )
         for picking in self:
             picking.x_is_gate_entry = bool(gate_ref and picking.picking_type_id == gate_ref)
+
+    @api.depends('move_ids.product_id.x_qc_required', 'x_qc_check_result_ids.lot_id')
+    def _compute_qc_display_fields(self):
+        for picking in self:
+            qc_moves = picking.move_ids.filtered(lambda m: m.product_id.x_qc_required)
+            picking.x_qc_required_product_names = ', '.join(
+                qc_moves.mapped('product_id.name')
+            )
+            lots = picking.x_qc_check_result_ids.mapped('lot_id').filtered(bool)
+            picking.x_qc_serial_nos = ', '.join(lots.mapped('name'))
 
     @api.depends('move_line_ids', 'move_line_ids.lot_id', 'state',
                  'picking_type_code', 'x_bike_serials_scanned')
@@ -523,6 +546,24 @@ class StockPicking(models.Model):
                             f'{picking.name}: serial(s) {names} are blacklisted '
                             f'(QC failed) and cannot be shipped. Use "Scan Bike '
                             f'Serials" to pick different unit(s).'
+                        )
+
+            # --- PDI gate: a bike whose Pre-Delivery Inspection is not yet
+            #     approved (pending or failed) can never ship. Mirrors the
+            #     blacklist gate above. ---
+            pdi_bike_tmpls = self.env['mrp.production']._get_ego_templates()
+            for picking in self:
+                if picking.picking_type_code == 'outgoing':
+                    unapproved = picking.move_line_ids.filtered(
+                        lambda ml: ml.lot_id and ml.lot_id.x_pdi_state != 'passed'
+                        and ml.lot_id.product_id.product_tmpl_id in pdi_bike_tmpls
+                    )
+                    if unapproved:
+                        names = ', '.join(unapproved.mapped('lot_id.name'))
+                        raise UserError(
+                            f'{picking.name}: serial(s) {names} have not passed PDI '
+                            f'(Pre-Delivery Inspection) yet. Complete PDI QC for these '
+                            f'units before validating the delivery.'
                         )
 
             # --- Scan gate: bike serials must be assigned by scanning, never
@@ -847,4 +888,18 @@ class StockPicking(models.Model):
             'res_id': wizard.id,
             'view_mode': 'form',
             'target': 'new',
+        }
+
+    def action_export_qc_inward_report(self):
+        """Download the Inward Material QC Report (xlsx) for the selected
+        Gate Entry receipts, or for every Gate Entry when nothing is
+        selected (e.g. run straight from the Action menu)."""
+        if self:
+            domain = [('id', 'in', self.ids)]
+        else:
+            domain = [('x_is_gate_entry', '=', True)]
+        return {
+            'type': 'ir.actions.act_url',
+            'url': '/elegomotors/qc_report/inward/xlsx?domain=%s' % quote(json.dumps(domain)),
+            'target': 'self',
         }
