@@ -892,15 +892,12 @@ class StockPicking(models.Model):
 
     def action_export_qc_inward_report(self):
         """Download the Inward Material QC Report (xlsx) for the selected
-        Gate Entry receipts, or for every Gate Entry when nothing is
+        incoming receipts, or for every incoming receipt when nothing is
         selected (e.g. run straight from the Action menu)."""
         if self:
             domain = [('id', 'in', self.ids)]
         else:
-            gate_ref = self.env.ref(
-                'elegomotors_setup.picking_type_gate_entry', raise_if_not_found=False
-            )
-            domain = [('picking_type_id', '=', gate_ref.id)] if gate_ref else [('id', '=', False)]
+            domain = [('picking_type_code', '=', 'incoming')]
         return {
             'type': 'ir.actions.act_url',
             'url': '/elegomotors/qc_report/inward/xlsx?domain=%s' % quote(json.dumps(domain)),

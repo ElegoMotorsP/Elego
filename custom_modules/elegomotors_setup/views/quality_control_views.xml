@@ -67,15 +67,18 @@
         <field name="name">Inward Material QC</field>
         <field name="res_model">stock.picking</field>
         <field name="view_mode">list,form</field>
-        <!-- x_is_gate_entry is a non-stored compute field and can't be used in a
-             domain — filter on the real stored picking_type_id it derives from. -->
-        <field name="domain" eval="[('picking_type_id', '=', ref('elegomotors_setup.picking_type_gate_entry'))]"/>
+        <!-- The QC gate in stock_picking.button_validate() applies to any incoming
+             receipt (picking_type_code == 'incoming'), not just the dedicated
+             "Gate Entry (Inward)" picking type — plenty of receipts route through
+             the standard "Receipts" type instead. picking_type_code is stored,
+             so it's usable in a domain (x_is_gate_entry is not). -->
+        <field name="domain" eval="[('picking_type_code', '=', 'incoming')]"/>
         <field name="context">{'search_default_filter_pending_qc': 1, 'search_default_filter_in_qc': 1}</field>
         <field name="view_ids" eval="[(5, 0, 0),
             (0, 0, {'view_mode': 'list', 'view_id': ref('view_qc_inward_list')})]"/>
         <field name="search_view_id" ref="view_qc_inward_search"/>
         <field name="help" type="html">
-            <p class="o_view_nocontent_smiling_face">No Gate Entry receipts found.</p>
+            <p class="o_view_nocontent_smiling_face">No incoming receipts found.</p>
         </field>
     </record>
 
