@@ -118,5 +118,6 @@
         <function model="product.template" name="_remove_reorder_rules_for_kit_battery_packs"/>
         <function model="product.template" name="_ensure_kit_boms_for_battery_packs"/>
         <function model="product.template" name="_ensure_battery_pack_names"/>
+        <function model="product.template" name="_ensure_battery_lead_60v42ah_adopted"/>
     </data>
 </odoo>

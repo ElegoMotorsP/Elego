@@ -14,13 +14,18 @@
         See _ensure_elego_11_42ah_color_boms / _ensure_elego_12_42ah_color_boms
         in models/product_template.py.
 
-        Prices are placeholders (mirrors the base model's price) — update via
-        Odoo UI once confirmed by client, same approach as Elego 3.0
-        (see product_elego_30_data.xml).
+        Elego 1.1 42Ah's price (₹65,000) is still a placeholder — update via
+        Odoo UI once confirmed by client, same approach as Elego 3.0 (see
+        product_elego_30_data.xml). Elego 1.2 42Ah's price (₹44,285) is the
+        client's own figure, adopted from a duplicate "Elego 1.2 42ah"
+        product they created directly in Manufacturing before this module's
+        version existed — see _dedupe_client_created_42ah_bike_duplicates()
+        below, which archives that duplicate (and its "Elego 1.1 42ah"
+        sibling) once these records are in place.
 
         Product templates are noupdate="1" so UI price/description edits are
-        preserved. The attribute setup function is noupdate="0" and runs on
-        every upgrade.
+        preserved. The function calls are noupdate="0" and run on every
+        upgrade.
     -->
 
     <data noupdate="1">
@@ -48,18 +53,23 @@
             <field name="categ_id" ref="product.product_category_all"/>
             <field name="uom_id" ref="uom.product_uom_unit"/>
             <field name="uom_po_id" ref="uom.product_uom_unit"/>
-            <field name="list_price">70000.0</field>
+            <field name="list_price">44285.0</field>
             <field name="standard_price">48000.0</field>
             <field name="route_ids" eval="[(4, ref('mrp.route_warehouse0_manufacture'))]"/>
         </record>
 
     </data>
 
-    <!-- Colour attribute setup runs on every upgrade (noupdate="0").
-         Adds Red/Gray/Black/White variants via the same
-         _ensure_new_model_attributes() function used for other models. -->
+    <!-- Runs on every upgrade (noupdate="0"):
+           1. Colour attribute setup — adds Red/Gray/Black/White variants via
+              the same _ensure_new_model_attributes() used for other models.
+           2. Dedupe — archives the client's manually-created duplicate bike
+              products now that tmpl_elego_11_42ah/tmpl_elego_12_42ah above
+              exist to replace them. Must run after the records above, so it
+              lives in this file rather than battery_kit_data.xml. -->
     <data noupdate="0">
         <function model="product.template" name="_ensure_new_model_attributes"/>
+        <function model="product.template" name="_dedupe_client_created_42ah_bike_duplicates"/>
     </data>
 
 </odoo>

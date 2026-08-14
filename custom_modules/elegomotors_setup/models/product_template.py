@@ -2151,6 +2151,75 @@ class ProductTemplate(models.Model):
                 tmpl.sudo().write(vals)
 
     @api.model
+    def _ensure_battery_lead_60v42ah_adopted(self):
+        """Adopt the client's manually-created 60V42Ah lead-acid battery pack
+        ("Battery pack-Lead acid 60v42ah") into our XML-ID namespace instead
+        of creating a duplicate.
+
+        Unlike the other lead-acid packs (60V32Ah/72V32Ah), this one was
+        never declared by this module — the client created the product and
+        its kit BOM directly in Manufacturing while the Elego 1.1/1.2 42Ah
+        BOM setup was being planned. Registering an ir.model.data pointer to
+        the existing record (found by exact name, same resolution idiom as
+        _get_or_rename_bom_component) lets later code/data reference it via
+        env.ref('elegomotors_setup.prod_battery_lead_acid_60v42ah') like
+        every other battery pack, without touching any of the client's own
+        field values (price, tax, kit BOM) — those are left exactly as set.
+        No-ops if the pack doesn't exist yet (e.g. a fresh database) or has
+        already been adopted.
+        """
+        xmlid = 'elegomotors_setup.prod_battery_lead_acid_60v42ah'
+        if self.env.ref(xmlid, raise_if_not_found=False):
+            return
+        tmpl = self.env['product.template'].sudo().with_context(active_test=False).search(
+            [('name', '=ilike', 'Battery pack-Lead acid 60v42ah')], limit=1
+        )
+        if not tmpl:
+            return
+        self.env['ir.model.data'].sudo().create({
+            'name': 'prod_battery_lead_acid_60v42ah',
+            'module': 'elegomotors_setup',
+            'model': 'product.template',
+            'res_id': tmpl.id,
+            'noupdate': True,
+        })
+        _logger.info('ElegoMotors: adopted existing battery pack %r as %s', tmpl.name, xmlid)
+
+    @api.model
+    def _dedupe_client_created_42ah_bike_duplicates(self):
+        """Archive the client's manually-created "Elego 1.1 42ah" / "Elego
+        1.2 42ah" products once this module's own tmpl_elego_11_42ah /
+        tmpl_elego_12_42ah (note the capital "Ah") exist, so the Products
+        list stops showing two near-identical bike models.
+
+        Archiving (active=False) rather than unlink(): safe even if the
+        duplicate already picked up a stock move, BOM, or sale line while it
+        was the only option in the system, and fully reversible if it turns
+        out something still needs it. Matched by exact, case-sensitive name
+        so this can never touch our own "Elego 1.1 42Ah" / "Elego 1.2 42Ah"
+        records. Idempotent — no-ops once the duplicates are already
+        archived or were never created (e.g. a fresh database).
+        """
+        Product = self.env['product.template'].sudo().with_context(active_test=False)
+        pairs = [
+            ('elegomotors_setup.tmpl_elego_11_42ah', 'Elego 1.1 42ah'),
+            ('elegomotors_setup.tmpl_elego_12_42ah', 'Elego 1.2 42ah'),
+        ]
+        for ours_ref, duplicate_name in pairs:
+            ours = self.env.ref(ours_ref, raise_if_not_found=False)
+            if not ours:
+                continue
+            duplicates = Product.search([('name', '=', duplicate_name)]) - ours
+            if not duplicates:
+                continue
+            duplicates.filtered('active').write({'active': False})
+            _logger.warning(
+                'ElegoMotors: archived %d duplicate product(s) named %r '
+                '(kept %s, id=%d) — a client-created duplicate of our own '
+                'bike model.', len(duplicates), duplicate_name, ours.name, ours.id,
+            )
+
+    @api.model
     def _ensure_bike_gst_5_percent(self):
         """Bike units are always taxed at 5% GST (CGST 2.5% + SGST 2.5%,
         remapped to IGST 5% for inter-state customers by the existing fiscal
