@@ -887,6 +887,7 @@ class StockPicking(models.Model):
             'res_model': 'elegomotors.delivery.bike.scan.wizard',
             'res_id': wizard.id,
             'view_mode': 'form',
+            'views': [[False, 'form']],
             'target': 'new',
         }
 
