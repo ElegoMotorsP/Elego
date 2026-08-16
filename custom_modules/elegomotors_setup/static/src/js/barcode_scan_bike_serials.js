@@ -2,7 +2,7 @@
 
 import MainComponent from '@stock_barcode/components/main';
 import { patch } from '@web/core/utils/patch';
-import { useService } from '@web/core/utils/hooks';
+import { user } from '@web/core/user';
 import { onWillStart } from '@odoo/owl';
 
 /**
@@ -15,13 +15,12 @@ import { onWillStart } from '@odoo/owl';
 patch(MainComponent.prototype, {
     setup() {
         super.setup();
-        this.elegoUser = useService('user');
         this.state.canScanBikeSerials = false;
         onWillStart(async () => {
             this.state.canScanBikeSerials = (
-                await this.elegoUser.hasGroup('elegomotors_setup.group_inbound_operator')
+                await user.hasGroup('elegomotors_setup.group_inbound_operator')
             ) || (
-                await this.elegoUser.hasGroup('base.group_erp_manager')
+                await user.hasGroup('base.group_erp_manager')
             );
         });
     },
