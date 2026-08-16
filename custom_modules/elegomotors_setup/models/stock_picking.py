@@ -550,21 +550,27 @@ class StockPicking(models.Model):
 
             # --- PDI gate: a bike whose Pre-Delivery Inspection is not yet
             #     approved (pending or failed) can never ship. Mirrors the
-            #     blacklist gate above. ---
-            pdi_bike_tmpls = self.env['mrp.production']._get_ego_templates()
-            for picking in self:
-                if picking.picking_type_code == 'outgoing':
-                    unapproved = picking.move_line_ids.filtered(
-                        lambda ml: ml.lot_id and ml.lot_id.x_pdi_state != 'passed'
-                        and ml.lot_id.product_id.product_tmpl_id in pdi_bike_tmpls
-                    )
-                    if unapproved:
-                        names = ', '.join(unapproved.mapped('lot_id.name'))
-                        raise UserError(
-                            f'{picking.name}: serial(s) {names} have not passed PDI '
-                            f'(Pre-Delivery Inspection) yet. Complete PDI QC for these '
-                            f'units before validating the delivery.'
+            #     blacklist gate above.
+            #     DISABLED for now (2026-08-16): the PDI workflow isn't fully
+            #     rolled out yet, so it must not block deliveries — including
+            #     from the mobile Barcode app's "Scan Bike Serials" flow.
+            #     Flip PDI_GATE_ENABLED to True once PDI QC is in regular use. ---
+            PDI_GATE_ENABLED = False
+            if PDI_GATE_ENABLED:
+                pdi_bike_tmpls = self.env['mrp.production']._get_ego_templates()
+                for picking in self:
+                    if picking.picking_type_code == 'outgoing':
+                        unapproved = picking.move_line_ids.filtered(
+                            lambda ml: ml.lot_id and ml.lot_id.x_pdi_state != 'passed'
+                            and ml.lot_id.product_id.product_tmpl_id in pdi_bike_tmpls
                         )
+                        if unapproved:
+                            names = ', '.join(unapproved.mapped('lot_id.name'))
+                            raise UserError(
+                                f'{picking.name}: serial(s) {names} have not passed PDI '
+                                f'(Pre-Delivery Inspection) yet. Complete PDI QC for these '
+                                f'units before validating the delivery.'
+                            )
 
             # --- Scan gate: bike serials must be assigned by scanning, never
             #     by Odoo's automatic reservation. Amit (Store) must run the
