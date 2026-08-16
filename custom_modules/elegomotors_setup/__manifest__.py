@@ -1,6 +1,6 @@
 {
     'name': 'ElegoMotors Workflow Setup',
-    'version': '18.0.72.0.0',
+    'version': '18.0.73.0.0',
     'category': 'Manufacturing',
     'summary': 'ElegoMotors EV 2-wheeler end-to-end manufacturing workflow configuration',
     'description': """
@@ -29,6 +29,7 @@
         'hr_holidays',          # Time Off: leave management (Srushti)
         'quality',              # Community QC: quality.point / quality.check / quality.alert
         'l10n_in',              # India localization: GST taxes, INR chart of accounts
+        'stock_barcode',        # Enterprise Barcode app — mobile "Scan Bike Serials" entry point
         # hr_payroll     — Enterprise-only; install separately if EE license is available
         # quality_control — Enterprise-only; Community quality module used instead
     ],
@@ -105,6 +106,8 @@
         'web.assets_backend': [
             'elegomotors_setup/static/src/js/barcode_beep_widget.js',
             'elegomotors_setup/static/src/js/product_configurator_layout.js',
+            'elegomotors_setup/static/src/js/barcode_scan_bike_serials.js',
+            'elegomotors_setup/static/src/xml/barcode_scan_bike_serials.xml',
             'elegomotors_setup/static/src/css/product_configurator.css',
         ],
     },

@@ -1,0 +1,14 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<templates id="template" xml:space="preserve">
+
+    <t t-inherit="stock_barcode.MainComponent" t-inherit-mode="extension">
+        <xpath expr="//button[hasclass('o_validate_page')]" position="before">
+            <button t-if="state.canScanBikeSerials &amp;&amp; env.model.record.picking_type_code === 'outgoing' &amp;&amp; !['done', 'cancel'].includes(env.model.record.state)"
+                class="o_scan_bike_serials btn btn-primary"
+                t-on-click="scanBikeSerials">
+                Scan Bike Serials
+            </button>
+        </xpath>
+    </t>
+
+</templates>
