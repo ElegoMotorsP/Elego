@@ -925,7 +925,14 @@ class StockPicking(models.Model):
                 'message': f'{label} is not on this delivery.',
             }
 
-        scanned_lines = move.move_line_ids.filtered(lambda ml: ml.lot_id)
+        # Odoo's automatic reservation can pre-populate lot_id on a move line
+        # from whichever FG quant it happened to reserve — that's NOT a scan.
+        # A line only counts as genuinely scanned once qty_done is set (which
+        # only this method / a real "done" pick ever sets), never from
+        # reservation alone. Checking lot_id here would falsely reject the
+        # very first real scan whenever it happens to match what Odoo
+        # auto-reserved.
+        scanned_lines = move.move_line_ids.filtered(lambda ml: ml.qty_done > 0)
         if lot in scanned_lines.mapped('lot_id'):
             return {
                 'handled': True, 'success': False,
@@ -971,7 +978,10 @@ class StockPicking(models.Model):
                 'message': f'Serial "{barcode}" is already reserved on delivery {other_ml.picking_id.name}.',
             }
 
-        target_ml = move.move_line_ids.filtered(lambda ml: not ml.lot_id)[:1]
+        # Same reasoning as above: pick a line by qty_done, not by lot_id —
+        # an auto-reserved line's lot_id gets overwritten with whatever was
+        # actually scanned, exactly like the wizard's own scan-only philosophy.
+        target_ml = move.move_line_ids.filtered(lambda ml: ml.qty_done <= 0)[:1]
         if target_ml:
             target_ml.write({
                 'lot_id': lot.id,
@@ -997,7 +1007,7 @@ class StockPicking(models.Model):
             lambda m: m.product_id.product_tmpl_id in bike_tmpls and m.state not in ('done', 'cancel')
         )
         if bike_moves and all(
-            len(m.move_line_ids.filtered(lambda ml: ml.lot_id)) >= max(1, int(m.product_uom_qty))
+            len(m.move_line_ids.filtered(lambda ml: ml.qty_done > 0)) >= max(1, int(m.product_uom_qty))
             for m in bike_moves
         ):
             self.x_bike_serials_scanned = True
