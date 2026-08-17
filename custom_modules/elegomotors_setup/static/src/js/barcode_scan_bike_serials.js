@@ -54,6 +54,11 @@ patch(MainComponent.prototype, {
     },
 
     onBarcodeScanned(barcode) {
+        // TEMP DEBUG — remove once the mobile scan-routing issue is confirmed fixed.
+        this.notification.add(
+            `[dbg] onBarcodeScanned "${barcode}" wizardOpen=${this.state.bikeScanWizardOpen}`,
+            { type: 'info', sticky: true },
+        );
         if (this.state.bikeScanWizardOpen && barcode) {
             this.actionMutex.exec(() => this._feedBikeScanWizard(barcode));
             return;
@@ -75,6 +80,8 @@ patch(MainComponent.prototype, {
      */
     async _feedBikeScanWizard(barcode) {
         const dialog = this._getBikeScanDialog();
+        // TEMP DEBUG — remove once the mobile scan-routing issue is confirmed fixed.
+        this.notification.add(`[dbg] dialog found=${!!dialog}`, { type: 'info', sticky: true });
         if (!dialog) {
             return;
         }
@@ -85,6 +92,11 @@ patch(MainComponent.prototype, {
             ['product_id'],
         );
         const productName = lots[0]?.product_id?.[1];
+        // TEMP DEBUG — remove once the mobile scan-routing issue is confirmed fixed.
+        this.notification.add(
+            `[dbg] lot lookup for "${barcode}" -> product="${productName}"`,
+            { type: 'info', sticky: true },
+        );
 
         const rows = Array.from(dialog.querySelectorAll('.o_data_row'));
         const isRowEmpty = (row) => {
@@ -111,6 +123,8 @@ patch(MainComponent.prototype, {
             const emptyRow = rows.find(isRowEmpty);
             targetCell = emptyRow && emptyRow.querySelector('[name="scanned_serial"]');
         }
+        // TEMP DEBUG — remove once the mobile scan-routing issue is confirmed fixed.
+        this.notification.add(`[dbg] targetCell found=${!!targetCell}, rows=${rows.length}`, { type: 'info', sticky: true });
         if (!targetCell) {
             return;
         }
@@ -121,6 +135,8 @@ patch(MainComponent.prototype, {
         }
         const input = dialog.querySelector('.o_selected_row [name="scanned_serial"] input')
             || targetCell.querySelector('input');
+        // TEMP DEBUG — remove once the mobile scan-routing issue is confirmed fixed.
+        this.notification.add(`[dbg] input found=${!!input}`, { type: 'info', sticky: true });
         if (!input) {
             return;
         }
