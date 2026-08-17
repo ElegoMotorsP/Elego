@@ -897,6 +897,124 @@ class StockPicking(models.Model):
             'target': 'new',
         }
 
+    def action_scan_bike_serial(self, barcode):
+        """Mobile Barcode app: a scan on the delivery's own scan screen that
+        matches a bike serial is assigned directly, without needing the
+        "Scan Bike Serials" wizard opened first. Mirrors that wizard's
+        validations (model/colour match, FG availability, blacklist,
+        duplicate-delivery check), one unit at a time.
+
+        Returns {'handled': False} when the barcode isn't a recognised bike
+        serial at all, so the caller falls back to normal barcode handling
+        (product scan, etc). Otherwise returns {'handled': True, 'success':
+        bool, 'message': str}.
+        """
+        self.ensure_one()
+        bike_tmpls = self.env['mrp.production']._get_ego_templates()
+        lot = self.env['stock.lot'].search([('name', '=', barcode)], limit=1)
+        if not lot or lot.product_id.product_tmpl_id not in bike_tmpls:
+            return {'handled': False}
+
+        label = lot.product_id.display_name
+        move = self.move_ids.filtered(
+            lambda m: m.product_id == lot.product_id and m.state not in ('done', 'cancel')
+        )[:1]
+        if not move:
+            return {
+                'handled': True, 'success': False,
+                'message': f'{label} is not on this delivery.',
+            }
+
+        scanned_lines = move.move_line_ids.filtered(lambda ml: ml.lot_id)
+        if lot in scanned_lines.mapped('lot_id'):
+            return {
+                'handled': True, 'success': False,
+                'message': f'Serial "{barcode}" is already scanned on this delivery.',
+            }
+        demanded = max(1, int(move.product_uom_qty))
+        if len(scanned_lines) >= demanded:
+            return {
+                'handled': True, 'success': False,
+                'message': f'All {label} units on this delivery are already scanned.',
+            }
+        if lot.x_blacklisted:
+            return {
+                'handled': True, 'success': False,
+                'message': f'Serial "{barcode}" is BLACKLISTED (QC failed) — pick a different unit.',
+            }
+
+        quant = None
+        fg_location = self.env.ref(
+            'elegomotors_setup.location_ego_fg', raise_if_not_found=False
+        )
+        if fg_location:
+            quant = self.env['stock.quant'].search([
+                ('lot_id', '=', lot.id),
+                ('location_id', 'child_of', fg_location.id),
+                ('quantity', '>', 0),
+            ], limit=1)
+            if not quant:
+                return {
+                    'handled': True, 'success': False,
+                    'message': f'Serial "{barcode}" is not currently available in Finished Goods.',
+                }
+
+        other_ml = self.env['stock.move.line'].search([
+            ('lot_id', '=', lot.id),
+            ('picking_id', '!=', self.id),
+            ('picking_id.picking_type_code', '=', 'outgoing'),
+            ('state', 'not in', ('done', 'cancel')),
+        ], limit=1)
+        if other_ml:
+            return {
+                'handled': True, 'success': False,
+                'message': f'Serial "{barcode}" is already reserved on delivery {other_ml.picking_id.name}.',
+            }
+
+        target_ml = move.move_line_ids.filtered(lambda ml: not ml.lot_id)[:1]
+        if target_ml:
+            target_ml.write({
+                'lot_id': lot.id,
+                'qty_done': 1,
+                'location_id': quant.location_id.id if quant else move.location_id.id,
+            })
+        else:
+            self.env['stock.move.line'].create({
+                'move_id': move.id,
+                'picking_id': self.id,
+                'product_id': move.product_id.id,
+                'product_uom_id': move.product_uom.id,
+                'qty_done': 1,
+                'lot_id': lot.id,
+                'location_id': quant.location_id.id if quant else move.location_id.id,
+                'location_dest_id': move.location_dest_id.id,
+            })
+
+        lot._create_pdi_check_results()
+        lot.x_pdi_check_result_ids.filtered(lambda r: not r.picking_id).write({'picking_id': self.id})
+
+        bike_moves = self.move_ids.filtered(
+            lambda m: m.product_id.product_tmpl_id in bike_tmpls and m.state not in ('done', 'cancel')
+        )
+        if bike_moves and all(
+            len(m.move_line_ids.filtered(lambda ml: ml.lot_id)) >= max(1, int(m.product_uom_qty))
+            for m in bike_moves
+        ):
+            self.x_bike_serials_scanned = True
+
+        self.message_post(
+            body=Markup(
+                f"Bike serial scanned for shipment by <b>{self.env.user.name}</b>: "
+                f"<b>{lot.name}</b> ({label})."
+            ),
+            message_type='comment',
+            subtype_xmlid='mail.mt_comment',
+        )
+        return {
+            'handled': True, 'success': True,
+            'message': f'{label}: {lot.name} scanned.',
+        }
+
     def action_export_qc_inward_report(self):
         """Download the Inward Material QC Report (xlsx) for the selected
         incoming receipts, or for every incoming receipt when nothing is
