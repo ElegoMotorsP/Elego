@@ -2,21 +2,27 @@
 <odoo>
     <data>
         <!--
-            Adds the Finance API dealer code to the Contact form's
-            Sales & Purchase tab. Values come from the finance partner
-            (e.g. Bajaj Finance) — this field just stores what they assign,
-            it does not generate a code.
+            Adds a Finance API tab to the Contact form with the dealer code.
+            Value comes from the finance partner (e.g. Bajaj Finance) — this
+            field just stores what they assign, it does not generate a code.
+
+            Targets //notebook rather than an existing named page (e.g.
+            "sales_purchase") since that page's presence/name depends on
+            which other apps are installed and in what order their views
+            load — //notebook is guaranteed present on base.view_partner_form.
         -->
         <record id="res_partner_form_finance_api" model="ir.ui.view">
             <field name="name">res.partner.form.finance.api</field>
             <field name="model">res.partner</field>
             <field name="inherit_id" ref="base.view_partner_form"/>
             <field name="arch" type="xml">
-                <page name="sales_purchase" position="inside">
-                    <group string="Finance API">
-                        <field name="x_dealer_code"/>
-                    </group>
-                </page>
+                <xpath expr="//notebook" position="inside">
+                    <page string="Finance API" name="finance_api">
+                        <group>
+                            <field name="x_dealer_code"/>
+                        </group>
+                    </page>
+                </xpath>
             </field>
         </record>
     </data>
