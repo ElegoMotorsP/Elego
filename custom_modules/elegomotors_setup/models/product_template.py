@@ -41,6 +41,35 @@ class ProductTemplate(models.Model):
              'manually overridable at PO time.',
     )
 
+    x_material_code = fields.Char(
+        string='Finance API Material Code',
+        index=True,
+        help='Short model code handed to finance partners (e.g. Bajaj Finance) '
+             'as "materialCode" in the serial-validation API. Editable here — '
+             'no redeploy needed to add or change a code.',
+    )
+
+    @api.model
+    def _seed_finance_material_codes(self):
+        """One-time default materialCode per bike model, for the Bajaj
+        Finance serial-validation API — reuses each model's existing serial
+        number prefix (EL30-, EGO-S1-, etc.) as the code. Only fills blank
+        values, so a correction made later from the product form is never
+        overwritten; safe to run on every upgrade."""
+        codes = {
+            'elegomotors_setup.tmpl_ego_scooter': 'EGOS1',
+            'elegomotors_setup.tmpl_elego_11': 'EL11',
+            'elegomotors_setup.tmpl_elego_12': 'EL12',
+            'elegomotors_setup.tmpl_elego_20p': 'EL20P',
+            'elegomotors_setup.tmpl_elego_30': 'EL30',
+            'elegomotors_setup.tmpl_elego_11_42ah': 'EL1142',
+            'elegomotors_setup.tmpl_elego_12_42ah': 'EL1242',
+        }
+        for xml_id, code in codes.items():
+            tmpl = self.env.ref(xml_id, raise_if_not_found=False)
+            if tmpl and not tmpl.x_material_code:
+                tmpl.x_material_code = code
+
     @api.model
     def _ensure_ego_s1_variant_attributes(self):
         """Idempotent setup of EGO-S1 variant attributes — safe on every upgrade.

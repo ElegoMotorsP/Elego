@@ -1,0 +1,25 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+    <!--
+        Finance API menu — credentials and request log for finance-partner
+        integrations (e.g. Bajaj Finance serial validation). Admin-only:
+        client_id/secret management is sensitive, and the log can contain
+        the same dealer/serial data as the Bike Traceability report.
+    -->
+    <menuitem id="menu_finance_api_root"
+              name="Finance API"
+              sequence="90"
+              groups="base.group_erp_manager"/>
+
+    <menuitem id="menu_finance_api_clients"
+              name="Clients"
+              parent="menu_finance_api_root"
+              action="action_finance_api_client"
+              sequence="10"/>
+
+    <menuitem id="menu_finance_api_log"
+              name="Request Log"
+              parent="menu_finance_api_root"
+              action="action_finance_api_log"
+              sequence="20"/>
+</odoo>

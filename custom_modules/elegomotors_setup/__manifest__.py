@@ -75,6 +75,7 @@
         'data/pdi_parameters_data.xml',  # PDI (Pre-Delivery Inspection) starter checklist
         'data/notification_rules.xml',   # automated workflow notifications
         'data/cron_daily_pi.xml',        # Daily consolidated PI generation cron job
+        'data/finance_material_codes_data.xml', # Default materialCode per bike model (Finance API)
         # View overrides (loaded last so base views exist)
         'views/account_move_views.xml',
         'views/mrp_production_views.xml',   # Post-production QC buttons on MO form; Issue 7+8
@@ -101,6 +102,9 @@
         'views/report_elegomotors_quotation.xml',   # Fully custom Quotation PDF — bike combo "same box" merging;
                                                      # redirects the default Preview/Send/Print to this template
         'views/combo_price_views.xml',              # Bike Combo Prices config + Add Bike Combo wizard
+        'views/res_partner_views.xml',              # Dealer Code (Finance API) on the Contact form
+        'views/finance_api_views.xml',              # Finance API Clients + Request Log views/actions
+        'views/finance_api_menu.xml',                # Finance API menu (Clients, Request Log)
     ],
     'assets': {
         'web.assets_backend': [

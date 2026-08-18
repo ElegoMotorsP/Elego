@@ -42,6 +42,20 @@ class StockLot(models.Model):
         help='Set to True when this serial/lot has failed QC. Prevents sale or store transfer.',
     )
 
+    # --- Finance partner API (Bajaj Finance serial validation) ---
+    x_bfl_validated = fields.Boolean(
+        string='Finance API Validated',
+        default=False,
+        copy=False,
+        index=True,
+        help='Set to True the first time this serial passes the Bajaj Finance '
+             'serial-validation API. Later calls for the same serial return '
+             '"Serial Number Already Validated" instead of re-validating.',
+    )
+    x_bfl_validated_date = fields.Datetime(
+        string='Finance API Validated On', copy=False,
+    )
+
     # --- PDI (Pre-Delivery Inspection) ---
     x_pdi_state = fields.Selection([
         ('pending', 'Pending PDI'),

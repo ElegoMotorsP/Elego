@@ -37,6 +37,9 @@
                     <group string="Kit Purchase">
                         <field name="x_kit_price_default"/>
                     </group>
+                    <group string="Finance API">
+                        <field name="x_material_code"/>
+                    </group>
                 </xpath>
             </field>
         </record>

@@ -1,0 +1,14 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+    <!--
+        Finance API material codes: default materialCode per bike model for
+        the Bajaj Finance serial-validation API, reusing each model's
+        existing serial-number prefix (EL30-, EGO-S1-, etc.). Only fills
+        blank values (see product.template._seed_finance_material_codes) so
+        edits made later from the product form are preserved. noupdate="0"
+        so a newly added bike model still gets seeded on the next upgrade.
+    -->
+    <data noupdate="0">
+        <function model="product.template" name="_seed_finance_material_codes"/>
+    </data>
+</odoo>
