@@ -33,3 +33,14 @@ access_pdi_check_result_operator,pdi.check.result.operator,model_elegomotors_pdi
 access_finance_api_client_admin,finance.api.client.admin,model_elegomotors_finance_api_client,base.group_erp_manager,1,1,1,1
 access_finance_api_client_secret_wizard_admin,finance.api.client.secret.wizard.admin,model_elegomotors_finance_api_client_secret_wizard,base.group_erp_manager,1,1,1,1
 access_finance_api_log_admin,finance.api.log.admin,model_elegomotors_finance_api_log,base.group_erp_manager,1,0,0,0
+access_warranty_policy_rule_admin,warranty.policy.rule.admin,model_elegomotors_warranty_policy_rule,base.group_erp_manager,1,1,1,1
+access_warranty_registration_user,warranty.registration.user,model_elegomotors_warranty_registration,base.group_user,1,0,0,0
+access_warranty_registration_manager,warranty.registration.manager,model_elegomotors_warranty_registration,elegomotors_setup.group_warranty_manager,1,1,0,0
+access_warranty_registration_admin,warranty.registration.admin,model_elegomotors_warranty_registration,base.group_erp_manager,1,1,1,1
+access_warranty_void_wizard_all,warranty.void.wizard.all,model_elegomotors_warranty_void_wizard,base.group_user,1,1,1,1
+access_warranty_claim_user,warranty.claim.user,model_elegomotors_warranty_claim,base.group_user,1,1,1,0
+access_warranty_claim_admin,warranty.claim.admin,model_elegomotors_warranty_claim,base.group_erp_manager,1,1,1,1
+access_warranty_claim_reject_wizard_all,warranty.claim.reject.wizard.all,model_elegomotors_warranty_claim_reject_wizard,base.group_user,1,1,1,1
+access_warranty_api_client_admin,warranty.api.client.admin,model_elegomotors_warranty_api_client,base.group_erp_manager,1,1,1,1
+access_warranty_api_client_secret_wizard_admin,warranty.api.client.secret.wizard.admin,model_elegomotors_warranty_api_client_secret_wizard,base.group_erp_manager,1,1,1,1
+access_warranty_api_log_admin,warranty.api.log.admin,model_elegomotors_warranty_api_log,base.group_erp_manager,1,0,0,0

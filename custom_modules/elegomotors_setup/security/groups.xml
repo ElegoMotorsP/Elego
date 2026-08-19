@@ -133,6 +133,19 @@
             <field name="implied_ids" eval="[(4, ref('account.group_account_invoice'))]"/>
         </record>
 
+        <!--
+            group_warranty_manager
+                Claim-approval rights for the Warranty module. Pratik
+                (Quality) and Manohar (Admin, via the button's extra
+                base.group_erp_manager OR-group) can approve/reject/complete
+                claims and void a warranty. Everyone else (base.group_user)
+                still sees the Registrations/Claims dashboards read-only —
+                this group only gates the state-changing buttons.
+        -->
+        <record id="group_warranty_manager" model="res.groups">
+            <field name="name">Warranty: Claim Approval</field>
+        </record>
+
         <!-- QC Routing Wizard access: all internal users may open it;
              button_validate() already restricts who reaches the wizard. -->
         <record id="access_stock_picking_qc_wizard_all" model="ir.model.access">

@@ -1,0 +1,137 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+    <data>
+
+        <record id="view_warranty_registration_list" model="ir.ui.view">
+            <field name="name">elegomotors.warranty.registration.list</field>
+            <field name="model">elegomotors.warranty.registration</field>
+            <field name="arch" type="xml">
+                <list decoration-danger="warranty_status == 'expired'"
+                      decoration-warning="warranty_status == 'expiring_soon'"
+                      decoration-muted="warranty_status in ('voided', 'replaced')">
+                    <field name="bike_lot_id"/>
+                    <field name="component"/>
+                    <field name="battery_type"/>
+                    <field name="dealer_id"/>
+                    <field name="customer_name"/>
+                    <field name="start_date"/>
+                    <field name="end_date"/>
+                    <field name="days_remaining"/>
+                    <field name="warranty_status" widget="badge"
+                           decoration-success="warranty_status == 'active'"
+                           decoration-warning="warranty_status == 'expiring_soon'"
+                           decoration-danger="warranty_status == 'expired'"
+                           decoration-muted="warranty_status in ('voided', 'replaced')"/>
+                </list>
+            </field>
+        </record>
+
+        <record id="view_warranty_registration_form" model="ir.ui.view">
+            <field name="name">elegomotors.warranty.registration.form</field>
+            <field name="model">elegomotors.warranty.registration</field>
+            <field name="arch" type="xml">
+                <form>
+                    <header>
+                        <field name="warranty_status" widget="statusbar" statusbar_visible="active,expiring_soon,expired"/>
+                        <button name="action_void" type="object" string="Void Warranty"
+                                invisible="state != 'active'"
+                                groups="elegomotors_setup.group_warranty_manager,base.group_erp_manager"/>
+                    </header>
+                    <sheet>
+                        <group>
+                            <group string="Unit">
+                                <field name="bike_lot_id"/>
+                                <field name="component"/>
+                                <field name="battery_type" invisible="component != 'battery'"/>
+                                <field name="component_serial"/>
+                                <field name="chassis_number"/>
+                            </group>
+                            <group string="Sale">
+                                <field name="dealer_id"/>
+                                <field name="customer_name"/>
+                                <field name="customer_mobile"/>
+                                <field name="invoice_number"/>
+                                <field name="invoice_date"/>
+                            </group>
+                        </group>
+                        <group>
+                            <group string="Coverage">
+                                <field name="start_date"/>
+                                <field name="duration_months"/>
+                                <field name="end_date"/>
+                                <field name="days_remaining"/>
+                                <field name="cycle_limit"/>
+                                <field name="water_damage_covered"/>
+                            </group>
+                            <group string="History" invisible="not previous_registration_id and not replacement_ids">
+                                <field name="previous_registration_id" readonly="1"/>
+                                <field name="replacement_ids" readonly="1"/>
+                            </group>
+                        </group>
+                        <field name="void_reason" invisible="state != 'voided'" readonly="1"/>
+                        <notebook>
+                            <page string="Claims">
+                                <field name="claim_ids" readonly="1">
+                                    <list>
+                                        <field name="claim_number"/>
+                                        <field name="claim_type"/>
+                                        <field name="state"/>
+                                        <field name="create_date"/>
+                                    </list>
+                                </field>
+                            </page>
+                        </notebook>
+                    </sheet>
+                </form>
+            </field>
+        </record>
+
+        <record id="view_warranty_registration_search" model="ir.ui.view">
+            <field name="name">elegomotors.warranty.registration.search</field>
+            <field name="model">elegomotors.warranty.registration</field>
+            <field name="arch" type="xml">
+                <search>
+                    <field name="bike_lot_id"/>
+                    <field name="chassis_number"/>
+                    <field name="dealer_id"/>
+                    <field name="customer_name"/>
+                    <filter string="Active" name="filter_active" domain="[('warranty_status', '=', 'active')]"/>
+                    <filter string="Expiring Soon" name="filter_expiring" domain="[('warranty_status', '=', 'expiring_soon')]"/>
+                    <filter string="Expired" name="filter_expired" domain="[('warranty_status', '=', 'expired')]"/>
+                    <filter string="Voided" name="filter_voided" domain="[('warranty_status', '=', 'voided')]"/>
+                    <group expand="0" string="Group By">
+                        <filter string="Component" name="group_component" context="{'group_by': 'component'}"/>
+                        <filter string="Dealer" name="group_dealer" context="{'group_by': 'dealer_id'}"/>
+                        <filter string="Status" name="group_status" context="{'group_by': 'warranty_status'}"/>
+                    </group>
+                </search>
+            </field>
+        </record>
+
+        <record id="action_warranty_registration" model="ir.actions.act_window">
+            <field name="name">Warranty Registrations</field>
+            <field name="res_model">elegomotors.warranty.registration</field>
+            <field name="view_mode">list,form</field>
+            <field name="context">{'search_default_filter_active': 1, 'search_default_filter_expiring': 1}</field>
+        </record>
+
+        <!-- Void wizard -->
+        <record id="view_warranty_void_wizard_form" model="ir.ui.view">
+            <field name="name">elegomotors.warranty.void.wizard.form</field>
+            <field name="model">elegomotors.warranty.void.wizard</field>
+            <field name="arch" type="xml">
+                <form>
+                    <field name="registration_id" invisible="1"/>
+                    <group>
+                        <field name="reason" placeholder="e.g. Repair done outside Elego dealer network"/>
+                    </group>
+                    <footer>
+                        <button string="Void Warranty" type="object" name="action_confirm" class="btn-primary"/>
+                        <button string="Cancel" special="cancel"/>
+                    </footer>
+                </form>
+            </field>
+        </record>
+
+    </data>
+</odoo>

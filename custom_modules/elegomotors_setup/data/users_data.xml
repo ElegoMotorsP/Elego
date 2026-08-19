@@ -295,6 +295,7 @@
                     ref('quality.group_quality_user'),
                     ref('elegomotors_setup.group_qc_pass_operator'),
                     ref('elegomotors_setup.group_fg_transfer_operator'),
+                    ref('elegomotors_setup.group_warranty_manager'),
                     ref('base.group_allow_export'),
                 ]),
             ]"/>

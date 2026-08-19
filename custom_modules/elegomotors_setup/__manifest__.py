@@ -76,6 +76,7 @@
         'data/notification_rules.xml',   # automated workflow notifications
         'data/cron_daily_pi.xml',        # Daily consolidated PI generation cron job
         'data/finance_material_codes_data.xml', # Default materialCode per bike model (Finance API)
+        'data/warranty_claim_sequence_data.xml', # Warranty Claim Number sequence (WC-YYMM-NNNN)
         # View overrides (loaded last so base views exist)
         'views/account_move_views.xml',
         'views/mrp_production_views.xml',   # Post-production QC buttons on MO form; Issue 7+8
@@ -105,6 +106,12 @@
         'views/res_partner_views.xml',              # Dealer Code (Finance API) on the Contact form
         'views/finance_api_views.xml',              # Finance API Clients + Request Log views/actions
         'views/finance_api_menu.xml',                # Finance API menu (Clients, Request Log)
+        'views/warranty_policy_views.xml',          # Warranty Policy Rules (admin-configurable durations)
+        'views/warranty_registration_views.xml',    # Warranty dashboard: Registrations list/form/search
+        'views/warranty_claim_views.xml',           # Warranty Claims list/form + approval workflow
+        'views/report_warranty_certificate.xml',    # Warranty Certificate PDF
+        'views/warranty_api_views.xml',             # Warranty API Clients + Request Log views/actions
+        'views/warranty_menu.xml',                   # Warranty menu (Registrations, Claims, Policy Rules, API)
     ],
     'assets': {
         'web.assets_backend': [

@@ -1,0 +1,35 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+    <data>
+
+        <record id="view_warranty_policy_rule_list" model="ir.ui.view">
+            <field name="name">elegomotors.warranty.policy.rule.list</field>
+            <field name="model">elegomotors.warranty.policy.rule</field>
+            <field name="arch" type="xml">
+                <list editable="bottom">
+                    <field name="component"/>
+                    <field name="battery_type" invisible="component != 'battery'"/>
+                    <field name="context"/>
+                    <field name="duration_months"/>
+                    <field name="cycle_limit"/>
+                    <field name="water_damage_covered"/>
+                    <field name="active"/>
+                </list>
+            </field>
+        </record>
+
+        <record id="action_warranty_policy_rule" model="ir.actions.act_window">
+            <field name="name">Warranty Policy Rules</field>
+            <field name="res_model">elegomotors.warranty.policy.rule</field>
+            <field name="view_mode">list</field>
+            <field name="context">{'default_context': 'bundled'}</field>
+            <field name="help">
+                Duration (months), charge-cycle cap, and water-damage coverage per
+                component — applies to every bike model, current and future. Edit
+                here to change policy without a code change; already-registered
+                warranties keep the value that was active when they were registered.
+            </field>
+        </record>
+
+    </data>
+</odoo>

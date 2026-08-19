@@ -1,0 +1,87 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+    <data>
+
+        <!-- Warranty API Client -->
+        <record id="view_warranty_api_client_list" model="ir.ui.view">
+            <field name="name">elegomotors.warranty.api.client.list</field>
+            <field name="model">elegomotors.warranty.api.client</field>
+            <field name="arch" type="xml">
+                <list>
+                    <field name="name"/>
+                    <field name="client_id"/>
+                    <field name="active"/>
+                </list>
+            </field>
+        </record>
+
+        <record id="view_warranty_api_client_form" model="ir.ui.view">
+            <field name="name">elegomotors.warranty.api.client.form</field>
+            <field name="model">elegomotors.warranty.api.client</field>
+            <field name="arch" type="xml">
+                <form>
+                    <header>
+                        <button name="action_generate_credentials" type="object"
+                                string="Generate Credentials" class="btn-primary"
+                                confirm="This replaces any existing credentials for this client — the old client_secret stops working immediately. Continue?"/>
+                    </header>
+                    <sheet>
+                        <group>
+                            <field name="name"/>
+                            <field name="active"/>
+                            <field name="client_id" readonly="1"/>
+                        </group>
+                    </sheet>
+                </form>
+            </field>
+        </record>
+
+        <record id="action_warranty_api_client" model="ir.actions.act_window">
+            <field name="name">Warranty API Clients</field>
+            <field name="res_model">elegomotors.warranty.api.client</field>
+            <field name="view_mode">list,form</field>
+        </record>
+
+        <record id="view_warranty_api_client_secret_wizard_form" model="ir.ui.view">
+            <field name="name">elegomotors.warranty.api.client.secret.wizard.form</field>
+            <field name="model">elegomotors.warranty.api.client.secret.wizard</field>
+            <field name="arch" type="xml">
+                <form>
+                    <div class="alert alert-warning" role="alert">
+                        Copy the client secret now — it is not stored anywhere and
+                        cannot be shown again. If it's lost, generate new credentials.
+                    </div>
+                    <group>
+                        <field name="client_id" readonly="1"/>
+                        <field name="client_secret" readonly="1"/>
+                    </group>
+                    <footer>
+                        <button string="Close" class="btn-primary" special="cancel"/>
+                    </footer>
+                </form>
+            </field>
+        </record>
+
+        <!-- Warranty API Request Log -->
+        <record id="view_warranty_api_log_list" model="ir.ui.view">
+            <field name="name">elegomotors.warranty.api.log.list</field>
+            <field name="model">elegomotors.warranty.api.log</field>
+            <field name="arch" type="xml">
+                <list create="false" edit="false" delete="false">
+                    <field name="create_date" string="When"/>
+                    <field name="client_id"/>
+                    <field name="endpoint"/>
+                    <field name="chassis_number"/>
+                    <field name="response_summary"/>
+                </list>
+            </field>
+        </record>
+
+        <record id="action_warranty_api_log" model="ir.actions.act_window">
+            <field name="name">Warranty API Request Log</field>
+            <field name="res_model">elegomotors.warranty.api.log</field>
+            <field name="view_mode">list</field>
+        </record>
+
+    </data>
+</odoo>

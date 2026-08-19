@@ -24,3 +24,4 @@ from . import delivery_bike_scan_wizard
 from . import combo_price
 from . import res_partner
 from . import finance_api
+from . import warranty

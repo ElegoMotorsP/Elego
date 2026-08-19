@@ -1,0 +1,77 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+    <data>
+
+        <template id="report_warranty_certificate">
+            <t t-call="web.basic_layout">
+                <t t-foreach="docs" t-as="o">
+                    <div class="page" style="page-break-after: always; font-family: sans-serif; padding: 24px;">
+                        <div style="text-align: center; border-bottom: 2px solid #333; padding-bottom: 12px; margin-bottom: 20px;">
+                            <h2>Warranty Certificate</h2>
+                            <div t-esc="o.bike_lot_id.product_id.display_name"/>
+                        </div>
+                        <table style="width: 100%; font-size: 13px;">
+                            <tr>
+                                <td style="width: 40%; padding: 4px 0;"><strong>Chassis / Serial Number</strong></td>
+                                <td t-esc="o.chassis_number"/>
+                            </tr>
+                            <tr>
+                                <td style="padding: 4px 0;"><strong>Component</strong></td>
+                                <td t-esc="o.component"/>
+                            </tr>
+                            <tr t-if="o.battery_type">
+                                <td style="padding: 4px 0;"><strong>Battery Type</strong></td>
+                                <td t-esc="o.battery_type"/>
+                            </tr>
+                            <tr t-if="o.component_serial">
+                                <td style="padding: 4px 0;"><strong>Component Serial</strong></td>
+                                <td t-esc="o.component_serial"/>
+                            </tr>
+                            <tr>
+                                <td style="padding: 4px 0;"><strong>Dealer</strong></td>
+                                <td t-esc="o.dealer_id.name"/>
+                            </tr>
+                            <tr>
+                                <td style="padding: 4px 0;"><strong>Customer</strong></td>
+                                <td t-esc="o.customer_name"/>
+                            </tr>
+                            <tr>
+                                <td style="padding: 4px 0;"><strong>Invoice Number</strong></td>
+                                <td t-esc="o.invoice_number"/>
+                            </tr>
+                            <tr>
+                                <td style="padding: 4px 0;"><strong>Warranty Start</strong></td>
+                                <td t-esc="o.start_date"/>
+                            </tr>
+                            <tr>
+                                <td style="padding: 4px 0;"><strong>Warranty End</strong></td>
+                                <td t-esc="o.end_date"/>
+                            </tr>
+                            <tr t-if="o.cycle_limit">
+                                <td style="padding: 4px 0;"><strong>Charge-Cycle Limit</strong></td>
+                                <td t-esc="o.cycle_limit"/>
+                            </tr>
+                        </table>
+                        <div style="margin-top: 24px; font-size: 11px; color: #666;">
+                            This certificate reflects warranty terms in effect at the time of registration.
+                            A component replaced under an approved warranty claim continues on this same
+                            certificate's coverage window rather than a new one.
+                        </div>
+                    </div>
+                </t>
+            </t>
+        </template>
+
+        <record id="action_report_warranty_certificate" model="ir.actions.report">
+            <field name="name">Warranty Certificate</field>
+            <field name="model">elegomotors.warranty.registration</field>
+            <field name="report_type">qweb-pdf</field>
+            <field name="report_name">elegomotors_setup.report_warranty_certificate</field>
+            <field name="report_file">elegomotors_setup.report_warranty_certificate</field>
+            <field name="print_report_name">'Warranty Certificate - %s' % (object.chassis_number)</field>
+            <field name="binding_model_id" ref="model_elegomotors_warranty_registration"/>
+            <field name="binding_type">report</field>
+        </record>
+
+    </data>
+</odoo>

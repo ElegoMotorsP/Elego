@@ -1,0 +1,48 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+    <!--
+        Warranty menu. Registrations/Claims visible to all internal users
+        (Management, Store, Quality per the client's answer — simplest way
+        to grant that without a bespoke group), since it's a read-heavy
+        dashboard and the sensitive actions (approve/reject/complete) are
+        separately gated on the buttons themselves via group_warranty_manager.
+        Policy Rules and API Clients/Log are admin-only.
+    -->
+    <menuitem id="menu_warranty_root"
+              name="Warranty"
+              sequence="27"
+              groups="base.group_user"/>
+
+    <menuitem id="menu_warranty_registrations"
+              name="Registrations"
+              parent="menu_warranty_root"
+              action="action_warranty_registration"
+              sequence="10"/>
+
+    <menuitem id="menu_warranty_claims"
+              name="Claims"
+              parent="menu_warranty_root"
+              action="action_warranty_claim"
+              sequence="20"/>
+
+    <menuitem id="menu_warranty_policy_rules"
+              name="Policy Rules"
+              parent="menu_warranty_root"
+              action="action_warranty_policy_rule"
+              groups="base.group_erp_manager"
+              sequence="30"/>
+
+    <menuitem id="menu_warranty_api_clients"
+              name="API Clients"
+              parent="menu_warranty_root"
+              action="action_warranty_api_client"
+              groups="base.group_erp_manager"
+              sequence="40"/>
+
+    <menuitem id="menu_warranty_api_log"
+              name="API Request Log"
+              parent="menu_warranty_root"
+              action="action_warranty_api_log"
+              groups="base.group_erp_manager"
+              sequence="50"/>
+</odoo>
