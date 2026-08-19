@@ -19,6 +19,7 @@ from dateutil.relativedelta import relativedelta
 from markupsafe import Markup
 from odoo import api, fields, models
 from odoo.exceptions import UserError, ValidationError
+from odoo.osv import expression
 
 TOKEN_TTL_SECONDS = 3600
 _PBKDF2_ITERATIONS = 100_000
@@ -145,7 +146,7 @@ class WarrantyRegistration(models.Model):
         ('expired', 'Expired'),
         ('voided', 'Voided'),
         ('replaced', 'Replaced'),
-    ], compute='_compute_warranty_status', string='Status')
+    ], compute='_compute_warranty_status', search='_search_warranty_status', string='Status')
 
     previous_registration_id = fields.Many2one(
         'elegomotors.warranty.registration', copy=False, ondelete='restrict',
@@ -182,6 +183,29 @@ class WarrantyRegistration(models.Model):
                 rec.warranty_status = 'expiring_soon'
             else:
                 rec.warranty_status = 'active'
+
+    @api.model
+    def _search_warranty_status(self, operator, value):
+        """Non-stored compute field — translate a domain leaf on
+        warranty_status into an equivalent domain on the real, stored
+        state/end_date fields so search-view filters keep working without
+        needing a cron to keep a stored value fresh day to day."""
+        today = fields.Date.today()
+        soon = today + relativedelta(days=30)
+        status_domains = {
+            'active': ['&', ('state', '=', 'active'), ('end_date', '>', soon)],
+            'expiring_soon': ['&', ('state', '=', 'active'), '&',
+                               ('end_date', '>=', today), ('end_date', '<=', soon)],
+            'expired': ['&', ('state', '=', 'active'), ('end_date', '<', today)],
+            'voided': [('state', '=', 'voided')],
+            'replaced': [('state', '=', 'replaced')],
+        }
+        values = value if isinstance(value, (list, tuple)) else [value]
+        negate = operator in ('!=', 'not in')
+        matched = [s for s, d in status_domains.items() if (s in values) != negate]
+        if not matched:
+            return [('id', '=', 0)]
+        return expression.OR([status_domains[s] for s in matched])
 
     @api.depends('bike_lot_id.name', 'component')
     def _compute_display_name(self):

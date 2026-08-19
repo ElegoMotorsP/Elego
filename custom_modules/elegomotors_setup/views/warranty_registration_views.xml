@@ -102,7 +102,7 @@
                     <group expand="0" string="Group By">
                         <filter string="Component" name="group_component" context="{'group_by': 'component'}"/>
                         <filter string="Dealer" name="group_dealer" context="{'group_by': 'dealer_id'}"/>
-                        <filter string="Status" name="group_status" context="{'group_by': 'warranty_status'}"/>
+                        <filter string="State" name="group_state" context="{'group_by': 'state'}"/>
                     </group>
                 </search>
             </field>
