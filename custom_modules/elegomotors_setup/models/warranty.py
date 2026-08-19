@@ -103,6 +103,7 @@ class WarrantyPolicyRule(models.Model):
 
 class WarrantyRegistration(models.Model):
     _name = 'elegomotors.warranty.registration'
+    _inherit = ['mail.thread']
     _description = 'Warranty Registration'
     _order = 'end_date desc'
     _rec_name = 'display_name'
@@ -318,6 +319,7 @@ class WarrantyVoidWizard(models.TransientModel):
 
 class WarrantyClaim(models.Model):
     _name = 'elegomotors.warranty.claim'
+    _inherit = ['mail.thread']
     _description = 'Warranty Claim'
     _order = 'create_date desc'
     _rec_name = 'claim_number'
