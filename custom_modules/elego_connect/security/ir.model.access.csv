@@ -1,0 +1,4 @@
+id,name,model_id:id,group_id:id,perm_read,perm_write,perm_create,perm_unlink
+access_connect_api_client_admin,connect.api.client.admin,model_elegomotors_connect_api_client,base.group_erp_manager,1,1,1,1
+access_connect_api_client_secret_wizard_admin,connect.api.client.secret.wizard.admin,model_elegomotors_connect_api_client_secret_wizard,base.group_erp_manager,1,1,1,1
+access_connect_api_log_admin,connect.api.log.admin,model_elegomotors_connect_api_log,base.group_erp_manager,1,0,0,0
