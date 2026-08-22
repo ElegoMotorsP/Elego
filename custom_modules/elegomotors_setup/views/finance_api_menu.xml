@@ -17,6 +17,12 @@
               action="action_finance_api_client"
               sequence="10"/>
 
+    <menuitem id="menu_finance_api_dealers"
+              name="Dealers"
+              parent="menu_finance_api_root"
+              action="action_finance_api_dealers"
+              sequence="15"/>
+
     <menuitem id="menu_finance_api_log"
               name="Request Log"
               parent="menu_finance_api_root"

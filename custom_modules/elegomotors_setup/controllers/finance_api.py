@@ -98,7 +98,17 @@ class FinanceApiController(http.Controller):
         serial_number = (body.get('serialNumber') or '').strip()
         dealer_code = (body.get('dealerCode') or '').strip()
 
-        status, message = self._validate(material_code, serial_number, dealer_code)
+        status, message = self._validate(client, material_code, serial_number, dealer_code)
+        if status is None:
+            request.env['elegomotors.finance.api.log'].sudo().create({
+                'client_id': client.client_id,
+                'material_code': material_code,
+                'serial_number': serial_number,
+                'dealer_code': dealer_code,
+                'response_status': 'blocked',
+                'response_message': message,
+            })
+            return _json_response({'error': message}, status=403)
 
         request.env['elegomotors.finance.api.log'].sudo().create({
             'client_id': client.client_id,
@@ -110,11 +120,16 @@ class FinanceApiController(http.Controller):
         })
         return _json_response({'responseStatus': status, 'responseMessage': message})
 
-    def _validate(self, material_code, serial_number, dealer_code):
+    def _validate(self, client, material_code, serial_number, dealer_code):
         """Check order (BFL doesn't mandate one — see the plan doc for the
         reasoning): serial exists -> material code known/matches -> not
-        already validated -> dealer code known -> serial billed to that
-        dealer -> valid."""
+        already validated -> dealer code known -> client authorized for that
+        dealer -> serial billed to that dealer -> valid.
+
+        Returns (status, message) as usual, except (None, message) signals
+        an authorization failure — the caller turns that into an HTTP 403
+        rather than a BRD responseStatus, since "this client isn't allowed
+        to see this dealer's data" isn't one of BFL's own response codes."""
         env = request.env
         Lot = env['stock.lot'].sudo()
 
@@ -138,6 +153,9 @@ class FinanceApiController(http.Controller):
         )
         if not dealer:
             return '-5', 'Dealer Code INVALID'
+
+        if not client.sudo()._is_dealer_allowed(dealer):
+            return None, 'dealer_not_authorized_for_this_client'
 
         if not lot.x_dealer_id or lot.x_dealer_id != dealer:
             return '-6', 'Serial Number is not billed to this Dealer'

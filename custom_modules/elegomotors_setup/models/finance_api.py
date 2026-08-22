@@ -35,6 +35,14 @@ class FinanceApiClient(models.Model):
     client_secret_salt = fields.Char(readonly=True, copy=False)
     client_secret_hash = fields.Char(readonly=True, copy=False)
     active = fields.Boolean(default=True)
+    allowed_dealer_ids = fields.Many2many(
+        'res.partner', string='Allowed Dealers',
+        domain=[('x_dealer_code', '!=', False)],
+        help='Restrict this client to only validating serials billed to these '
+             'dealers. Leave empty to allow all dealers — this is the default '
+             'and matches existing behavior, so leaving it blank does not '
+             'break a client that was already working.',
+    )
 
     _sql_constraints = [
         ('client_id_unique', 'unique(client_id)', 'Client ID must be unique.'),
@@ -65,6 +73,14 @@ class FinanceApiClient(models.Model):
             'view_mode': 'form',
             'target': 'new',
         }
+
+    def _is_dealer_allowed(self, dealer):
+        """True if this client may query data for `dealer` — an empty
+        allowed_dealer_ids means unrestricted (every dealer allowed)."""
+        self.ensure_one()
+        if not self.allowed_dealer_ids:
+            return True
+        return dealer in self.allowed_dealer_ids
 
     @api.model
     def _hash_secret(self, secret, salt):
