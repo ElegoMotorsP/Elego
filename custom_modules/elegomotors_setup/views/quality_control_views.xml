@@ -20,6 +20,18 @@
     <record id="view_qc_inward_list" model="ir.ui.view">
         <field name="name">elegomotors.qc.inward.list</field>
         <field name="model">stock.picking</field>
+        <!-- High priority (Odoo default is 16, lower wins) keeps this view out of
+             the running whenever some OTHER action on stock.picking asks for "a"
+             list/search view without pinning one explicitly — e.g. Inventory
+             Overview's own core "Open" actions (stock.action_picking_tree_ready
+             and siblings), which never pin a view_id. Without this, Odoo's
+             fallback resolution can pick this dedicated QC view as the default
+             for every stock.picking screen in Odoo, not just this one — which is
+             exactly what happened (Inventory Overview cards showed this view's
+             QC-specific columns instead of their own). This action itself always
+             explicitly requests this view by id below, so the priority bump has
+             no effect on Inward Material QC itself. -->
+        <field name="priority" eval="100"/>
         <field name="arch" type="xml">
             <list string="Inward Material QC" create="false"
                   default_order="scheduled_date desc">
@@ -40,6 +52,8 @@
     <record id="view_qc_inward_search" model="ir.ui.view">
         <field name="name">elegomotors.qc.inward.search</field>
         <field name="model">stock.picking</field>
+        <!-- See the priority comment on view_qc_inward_list above — same reason. -->
+        <field name="priority" eval="100"/>
         <field name="arch" type="xml">
             <search string="Inward Material QC">
                 <field name="name" string="Gate Entry No."/>
@@ -96,6 +110,9 @@
     <record id="view_qc_fg_list" model="ir.ui.view">
         <field name="name">elegomotors.qc.fg.list</field>
         <field name="model">mrp.production</field>
+        <!-- See the priority comment on view_qc_inward_list above — same reason,
+             here protecting Manufacturing's own dashboard "Open" actions. -->
+        <field name="priority" eval="100"/>
         <field name="arch" type="xml">
             <list string="FG QC" create="false" default_order="date_start desc">
                 <field name="x_finished_serial" string="Serial No."/>
@@ -115,6 +132,8 @@
     <record id="view_qc_fg_search" model="ir.ui.view">
         <field name="name">elegomotors.qc.fg.search</field>
         <field name="model">mrp.production</field>
+        <!-- See the priority comment on view_qc_inward_list above — same reason. -->
+        <field name="priority" eval="100"/>
         <field name="arch" type="xml">
             <search string="FG QC">
                 <!-- x_finished_serial is a non-stored compute field (unsearchable) —
@@ -173,6 +192,10 @@
     <record id="view_qc_pdi_list" model="ir.ui.view">
         <field name="name">elegomotors.qc.pdi.list</field>
         <field name="model">stock.lot</field>
+        <!-- See the priority comment on view_qc_inward_list above — same reason,
+             here protecting other stock.lot screens (Lots/Serial Numbers,
+             Bike Traceability) from the same fallback-resolution collision. -->
+        <field name="priority" eval="100"/>
         <field name="arch" type="xml">
             <list string="PDI QC" create="false" default_order="x_pdi_checked_date desc, name desc"
                   decoration-danger="x_blacklisted">
@@ -192,6 +215,8 @@
     <record id="view_qc_pdi_search" model="ir.ui.view">
         <field name="name">elegomotors.qc.pdi.search</field>
         <field name="model">stock.lot</field>
+        <!-- See the priority comment on view_qc_inward_list above — same reason. -->
+        <field name="priority" eval="100"/>
         <field name="arch" type="xml">
             <search string="PDI QC">
                 <field name="name" string="Serial No."/>
@@ -243,6 +268,8 @@
     <record id="view_qc_full_report_list" model="ir.ui.view">
         <field name="name">elegomotors.qc.full.report.list</field>
         <field name="model">stock.lot</field>
+        <!-- See the priority comment on view_qc_inward_list above — same reason. -->
+        <field name="priority" eval="100"/>
         <field name="arch" type="xml">
             <list string="QC Report (Full)" create="false"
                   default_order="create_date asc, name asc"
@@ -265,6 +292,8 @@
     <record id="view_qc_full_report_search" model="ir.ui.view">
         <field name="name">elegomotors.qc.full.report.search</field>
         <field name="model">stock.lot</field>
+        <!-- See the priority comment on view_qc_inward_list above — same reason. -->
+        <field name="priority" eval="100"/>
         <field name="arch" type="xml">
             <search string="QC Report (Full)">
                 <field name="name" string="Serial No."/>
