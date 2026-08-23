@@ -83,6 +83,15 @@ class WarrantyClaimConnectExtension(models.Model):
                  f'LR/AWB {vals.get("lr_awb_number") or "—"}.',
         )
 
+    def action_confirm_delivery(self):
+        """POST /elegomotors/warranty/claims/<n>/acknowledge-receipt — the
+        dealer confirms the replacement dispatched above physically arrived."""
+        self.ensure_one()
+        if self.state != 'dispatched':
+            raise UserError('Only a dispatched claim can be marked as delivered.')
+        self.write({'state': 'delivered_confirmed'})
+        self.message_post(body='Dealer confirmed receipt of the dispatched replacement.')
+
     def action_record_failed_part_action(self, action, evidence_base64=None):
         self.ensure_one()
         if action not in ('return', 'scrap', 'retain'):

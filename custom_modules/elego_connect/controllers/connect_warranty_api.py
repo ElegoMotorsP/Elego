@@ -60,6 +60,31 @@ class ConnectWarrantyApiExtension(http.Controller):
         return _json_response({'claimNumber': claim.claim_number, 'status': claim.state})
 
     @http.route(
+        '/elegomotors/warranty/claims/<string:claim_number>/acknowledge-receipt', type='http',
+        auth='public', methods=['POST'], csrf=False,
+    )
+    def acknowledge_receipt(self, claim_number, **kwargs):
+        client, error_response = _require_bearer_token()
+        if error_response:
+            return error_response
+
+        claim = request.env['elegomotors.warranty.claim'].sudo().search(
+            [('claim_number', '=', claim_number)], limit=1
+        )
+        if not claim:
+            _log(client.client_id, 'claims/acknowledge-receipt', '', 'claim_not_found')
+            return _json_response({'error': 'claim_not_found'})
+
+        try:
+            claim.action_confirm_delivery()
+        except UserError as e:
+            _log(client.client_id, 'claims/acknowledge-receipt', claim.chassis_number, f'invalid_state: {e}')
+            return _json_response({'error': 'invalid_state', 'message': str(e)})
+
+        _log(client.client_id, 'claims/acknowledge-receipt', claim.chassis_number, claim.state)
+        return _json_response({'claimNumber': claim.claim_number, 'status': claim.state})
+
+    @http.route(
         '/elegomotors/warranty/claims/<string:claim_number>/failed-part-action', type='http',
         auth='public', methods=['POST'], csrf=False,
     )
