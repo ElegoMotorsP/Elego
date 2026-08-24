@@ -1,0 +1,16 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+    <!--
+        Flips x_is_ego_bike + x_serial_prefix on for the 7 bike models that
+        existed before these fields did. Every "which templates are Elego
+        bikes" check in this module was hardcoded to these same 7 refs —
+        this seed carries that same list onto the new data-driven fields
+        exactly once, so nothing about the 7 existing models changes.
+        noupdate="0" so a newly added model (created outside the wizard,
+        e.g. by a data file) still gets a chance to be seeded on upgrade —
+        the underlying method only ever fills blanks either way.
+    -->
+    <data noupdate="0">
+        <function model="product.template" name="_seed_ego_bike_flags"/>
+    </data>
+</odoo>

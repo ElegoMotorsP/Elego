@@ -269,22 +269,11 @@ class AccountMove(models.Model):
                     line.name = base_name
 
     def _get_bike_templates(self):
-        """Return recordset of all ElegoMotors bike product templates."""
-        refs = [
-            'elegomotors_setup.tmpl_ego_scooter',
-            'elegomotors_setup.tmpl_elego_11',
-            'elegomotors_setup.tmpl_elego_12',
-            'elegomotors_setup.tmpl_elego_20p',
-            'elegomotors_setup.tmpl_elego_30',
-            'elegomotors_setup.tmpl_elego_11_42ah',
-            'elegomotors_setup.tmpl_elego_12_42ah',
-        ]
-        result = self.env['product.template']
-        for ref in refs:
-            t = self.env.ref(ref, raise_if_not_found=False)
-            if t:
-                result |= t
-        return result
+        """Return recordset of all ElegoMotors bike product templates —
+        every template with x_is_ego_bike checked. Was a separate hardcoded
+        copy of mrp_production.py's _get_ego_templates(); now both just
+        query the same field, so they can never drift out of sync again."""
+        return self.env['product.template'].search([('x_is_ego_bike', '=', True)])
 
     def _append_ego_serial_to_lines(self):
         """Append serial/chassis/component numbers to ElegoMotors bike invoice lines.

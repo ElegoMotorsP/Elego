@@ -44,3 +44,4 @@ access_warranty_claim_reject_wizard_all,warranty.claim.reject.wizard.all,model_e
 access_warranty_api_client_admin,warranty.api.client.admin,model_elegomotors_warranty_api_client,base.group_erp_manager,1,1,1,1
 access_warranty_api_client_secret_wizard_admin,warranty.api.client.secret.wizard.admin,model_elegomotors_warranty_api_client_secret_wizard,base.group_erp_manager,1,1,1,1
 access_warranty_api_log_admin,warranty.api.log.admin,model_elegomotors_warranty_api_log,base.group_erp_manager,1,0,0,0
+access_new_bike_model_wizard_mrp,new.bike.model.wizard.mrp,model_elegomotors_new_bike_model_wizard,mrp.group_mrp_routings,1,1,1,1

@@ -47,7 +47,7 @@
             <!-- Insert the Component Traceability tab after the standard tabs -->
             <xpath expr="//notebook" position="inside">
                 <page string="Component Traceability"
-                      invisible="[('product_id.product_tmpl_id', '!=', %(elegomotors_setup.tmpl_ego_scooter)d)]">
+                      invisible="[('product_id.product_tmpl_id.x_is_ego_bike', '=', False)]">
                     <group string="Manufacturing">
                         <div>
                             <button type="object"
@@ -88,14 +88,7 @@
 
                 <!-- PDI (Pre-Delivery Inspection) tab — any ElegoMotors bike model -->
                 <page string="PDI Inspection"
-                      invisible="[('product_id.product_tmpl_id', 'not in', [
-                          %(elegomotors_setup.tmpl_ego_scooter)d,
-                          %(elegomotors_setup.tmpl_elego_11)d,
-                          %(elegomotors_setup.tmpl_elego_12)d,
-                          %(elegomotors_setup.tmpl_elego_20p)d,
-                          %(elegomotors_setup.tmpl_elego_30)d,
-                          %(elegomotors_setup.tmpl_elego_11_42ah)d,
-                          %(elegomotors_setup.tmpl_elego_12_42ah)d])]">
+                      invisible="[('product_id.product_tmpl_id.x_is_ego_bike', '=', False)]">
                     <group>
                         <field name="x_pdi_state" widget="badge"
                                decoration-success="x_pdi_state == 'passed'"

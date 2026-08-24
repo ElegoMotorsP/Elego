@@ -495,22 +495,12 @@ class MrpProduction(models.Model):
         return result
 
     def _get_ego_templates(self):
-        """Return a recordset of all ElegoMotors bike product templates."""
-        refs = [
-            'elegomotors_setup.tmpl_ego_scooter',
-            'elegomotors_setup.tmpl_elego_11',
-            'elegomotors_setup.tmpl_elego_12',
-            'elegomotors_setup.tmpl_elego_20p',
-            'elegomotors_setup.tmpl_elego_30',
-            'elegomotors_setup.tmpl_elego_11_42ah',
-            'elegomotors_setup.tmpl_elego_12_42ah',
-        ]
-        result = self.env['product.template']
-        for ref in refs:
-            tmpl = self.env.ref(ref, raise_if_not_found=False)
-            if tmpl:
-                result |= tmpl
-        return result
+        """Return a recordset of all ElegoMotors bike product templates —
+        every template with x_is_ego_bike checked, not a hardcoded list.
+        A model created via the New Bike Model wizard (or the product form
+        directly) appears here — and everywhere this method's callers use
+        it — with no code change or module upgrade needed."""
+        return self.env['product.template'].search([('x_is_ego_bike', '=', True)])
 
     def _notify_qc_needed(self):
         """Post a chatter notification after MO completes, asking Pratik to do QC."""
@@ -645,41 +635,30 @@ class MrpBarcodeWizard(models.TransientModel):
     def _get_next_lot_serial(self, production):
         """Return the next auto-generated serial name for this bike template.
 
-        Format: <model prefix>-<YYMM>-<global counter>, where the counter is
-        SHARED across all bike models/variants and never resets — the trailing
-        number of the newest serial in Bike Traceability therefore always
-        equals the total number of units the company has produced.
-        e.g. EL11-2607-0001, then an Elego 1.2 produced next gets
-        EL12-2607-0002. (The old per-model monthly sequences are retained
-        only for serials issued before this change.)
+        Format: <model prefix>-<YYMM>-<counter>, where the prefix comes from
+        the template's own x_serial_prefix field (not a hardcoded list) and
+        the counter is that template's own sequence, auto-created on first
+        use via product.template._get_or_create_serial_sequence() — a model
+        created via the New Bike Model wizard gets a working serial the
+        moment its first unit is produced, no code change needed.
         """
-        prefix_map = [
-            ('elegomotors_setup.tmpl_ego_scooter',   'EGO-S1'),
-            ('elegomotors_setup.tmpl_elego_11',      'EL11'),
-            ('elegomotors_setup.tmpl_elego_12',      'EL12'),
-            ('elegomotors_setup.tmpl_elego_20p',     'EL20P'),
-            ('elegomotors_setup.tmpl_elego_30',      'EL30'),
-            ('elegomotors_setup.tmpl_elego_11_42ah', 'EL1142'),
-            ('elegomotors_setup.tmpl_elego_12_42ah', 'EL1242'),
-        ]
         tmpl = production.product_id.product_tmpl_id
-        for tmpl_ref, prefix in prefix_map:
-            t = self.env.ref(tmpl_ref, raise_if_not_found=False)
-            if t and tmpl == t:
-                number = self.env['ir.sequence'].sudo().next_by_code(
-                    'elego.global.serial'
-                )
-                if not number:
-                    raise UserError(
-                        'Global bike serial counter (elego.global.serial) is '
-                        'missing. Contact your administrator.'
-                    )
-                yymm = fields.Datetime.now().strftime('%y%m')
-                return f'{prefix}-{yymm}-{number}'
-        raise UserError(
-            f'No serial number sequence configured for product "{production.product_id.name}". '
-            f'Contact your administrator.'
-        )
+        if not tmpl.x_is_ego_bike:
+            raise UserError(
+                f'"{tmpl.name}" is not marked as an Elego Bike Model, so it has '
+                f'no serial number configuration. Check "Is Elego Bike Model" '
+                f'on the product form (Inventory > Products) and set a Serial '
+                f'Number Prefix, then try again.'
+            )
+        sequence = tmpl._get_or_create_serial_sequence()
+        number = self.env['ir.sequence'].sudo().next_by_code(sequence.code)
+        if not number:
+            raise UserError(
+                f'Serial number sequence for "{tmpl.name}" ({sequence.code}) '
+                f'could not be consumed. Contact your administrator.'
+            )
+        yymm = fields.Datetime.now().strftime('%y%m')
+        return f'{tmpl.x_serial_prefix}-{yymm}-{number}'
 
     def action_confirm(self):
         self.ensure_one()

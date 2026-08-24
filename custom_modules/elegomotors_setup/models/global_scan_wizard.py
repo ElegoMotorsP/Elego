@@ -155,11 +155,27 @@ class GlobalScanWizard(models.TransientModel):
 
     @api.model
     def _resolve_model_code(self, code):
-        """Return the product.template for a scanned model code, or None."""
-        ref = MODEL_CODE_MAP.get(_normalize_code(code))
-        if not ref:
-            return None
-        return self.env.ref(ref, raise_if_not_found=False)
+        """Return the product.template for a scanned model code, or None.
+
+        Checks the legacy alias table first (exact printed-label spellings
+        already in use for existing models — S1, ELEGO20PLUS, etc.), then
+        falls back to matching the scanned code directly against any Elego
+        bike template's own x_serial_prefix — so a model added via the New
+        Bike Model wizard is scannable the moment its label uses its own
+        prefix, no alias entry needed."""
+        normalized = _normalize_code(code)
+        ref = MODEL_CODE_MAP.get(normalized)
+        if ref:
+            tmpl = self.env.ref(ref, raise_if_not_found=False)
+            if tmpl:
+                return tmpl
+        candidates = self.env['product.template'].search([
+            ('x_is_ego_bike', '=', True),
+            ('x_serial_prefix', '!=', False),
+        ])
+        return candidates.filtered(
+            lambda t: _normalize_code(t.x_serial_prefix) == normalized
+        )[:1] or None
 
     @api.model
     def _resolve_color_code(self, code):

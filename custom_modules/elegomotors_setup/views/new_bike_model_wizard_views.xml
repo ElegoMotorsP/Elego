@@ -1,0 +1,61 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+    <data>
+
+        <record id="view_new_bike_model_wizard_form" model="ir.ui.view">
+            <field name="name">elegomotors.new.bike.model.wizard.form</field>
+            <field name="model">elegomotors.new.bike.model.wizard</field>
+            <field name="arch" type="xml">
+                <form string="New Bike Model">
+                    <div class="alert alert-info" role="alert">
+                        Creates the product, its colour variants, and one Bill of
+                        Materials per colour — no developer or module upgrade needed.
+                        It appears in Bike Traceability, the Quality Control app,
+                        Add Bike Combo, and everywhere else a bike model does, the
+                        moment you confirm below.
+                    </div>
+                    <group string="1. New Model">
+                        <field name="name"/>
+                        <field name="colour_names" placeholder="Red, Black, White, Gray"/>
+                        <field name="x_serial_prefix" placeholder="EL40"/>
+                        <field name="list_price"/>
+                        <field name="standard_price"/>
+                        <field name="x_material_code"/>
+                    </group>
+                    <group string="2. Bill of Materials">
+                        <field name="bom_file" filename="bom_filename"/>
+                        <field name="bom_filename" invisible="1"/>
+                        <p class="text-muted" colspan="2">
+                            CSV columns: <b>Component Name, Quantity, Colour</b>.
+                            Leave Colour blank for a component common to every
+                            colour above; name a specific colour (matching one
+                            entered above, exactly) for a component only that
+                            colour's BOM should include. Save an Excel sheet as
+                            CSV first if needed.
+                        </p>
+                    </group>
+                    <footer>
+                        <button name="action_create" type="object"
+                                string="Create Model" class="btn-primary"/>
+                        <button string="Cancel" class="btn-secondary" special="cancel"/>
+                    </footer>
+                </form>
+            </field>
+        </record>
+
+        <record id="action_new_bike_model_wizard" model="ir.actions.act_window">
+            <field name="name">New Bike Model</field>
+            <field name="res_model">elegomotors.new.bike.model.wizard</field>
+            <field name="view_mode">form</field>
+            <field name="target">new</field>
+        </record>
+
+        <menuitem id="menu_new_bike_model_wizard"
+                  name="New Bike Model"
+                  parent="mrp.menu_mrp_configuration"
+                  action="action_new_bike_model_wizard"
+                  groups="mrp.group_mrp_routings"
+                  sequence="100"/>
+
+    </data>
+</odoo>
