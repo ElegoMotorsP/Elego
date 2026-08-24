@@ -154,10 +154,16 @@ class ProductTemplate(models.Model):
             tmpl = self.env.ref(xml_id, raise_if_not_found=False)
             if not tmpl:
                 continue
+            # Both fields must land in ONE write — the _check_serial_prefix_required
+            # constraint runs after every write, so setting x_is_ego_bike alone
+            # first would trip it on a template whose prefix isn't set yet.
+            vals = {}
             if not tmpl.x_is_ego_bike:
-                tmpl.x_is_ego_bike = True
+                vals['x_is_ego_bike'] = True
             if not tmpl.x_serial_prefix:
-                tmpl.x_serial_prefix = prefix
+                vals['x_serial_prefix'] = prefix
+            if vals:
+                tmpl.write(vals)
 
     @api.model
     def _ensure_ego_s1_variant_attributes(self):
