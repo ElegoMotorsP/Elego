@@ -34,14 +34,24 @@ class NewBikeModelWizard(models.TransientModel):
     _name = 'elegomotors.new.bike.model.wizard'
     _description = 'New Bike Model'
 
-    name = fields.Char(string='Model Name', required=True, help='e.g. "Elego 4.0"')
+    mode = fields.Selection([
+        ('new_model', 'Create New Bike Model'),
+        ('add_variant', 'Add Colour Variant to Existing Model'),
+    ], default='new_model', required=True)
+    product_tmpl_id = fields.Many2one(
+        'product.template', string='Existing Bike Model',
+        domain=[('x_is_ego_bike', '=', True)],
+        help='Add a new colour variant (with its own Bill of Materials) to '
+             'this model without touching its existing colours.',
+    )
+    name = fields.Char(string='Model Name', help='e.g. "Elego 4.0"')
     colour_names = fields.Char(
         string='Colours', required=True,
         help='Comma-separated, e.g. "Red, Black, White, Gray". Each becomes '
-             'a variant of the new model, with its own Bill of Materials.',
+             'a variant of the model, with its own Bill of Materials.',
     )
     x_serial_prefix = fields.Char(
-        string='Serial Number Prefix', required=True,
+        string='Serial Number Prefix',
         help='e.g. EL40. Used to build every unit\'s serial number '
              '(<prefix>-<YYMM>-<counter>) and as its Global Production Scan '
              'barcode code. Must be unique — not already used by another model.',
@@ -136,8 +146,18 @@ class NewBikeModelWizard(models.TransientModel):
 
     def action_create(self):
         self.ensure_one()
+        if self.mode == 'add_variant':
+            return self._action_add_variant()
+        return self._action_create_new_model()
+
+    def _action_create_new_model(self):
+        self.ensure_one()
         Template = self.env['product.template']
 
+        if not self.name:
+            raise UserError('Enter a model name.')
+        if not self.x_serial_prefix:
+            raise UserError('Enter a Serial Number Prefix.')
         if Template.search_count([('name', '=', self.name)]):
             raise UserError(f'A product named "{self.name}" already exists.')
         if Template.search_count([('x_serial_prefix', '=', self.x_serial_prefix)]):
@@ -181,6 +201,69 @@ class NewBikeModelWizard(models.TransientModel):
             'target': 'current',
         }
 
+    def _action_add_variant(self):
+        """Add new colour(s) — each with its own Bill of Materials — to a
+        bike model that already exists, without touching its existing
+        colours/BOMs. Components legitimately differ across a model's own
+        colour variants (different panel/decal part numbers, etc.), so the
+        new colour's BOM is built entirely from what's uploaded here, same
+        as every other colour's BOM already is."""
+        self.ensure_one()
+        tmpl = self.product_tmpl_id
+        if not tmpl:
+            raise UserError('Select the existing bike model to add a colour variant to.')
+        if not tmpl.x_is_ego_bike:
+            raise UserError(f'"{tmpl.name}" is not marked as an Elego Bike Model.')
+
+        colours = self._parse_colours()
+
+        color_attr = self.env.ref('elegomotors_setup.attr_ego_color', raise_if_not_found=False)
+        if not color_attr:
+            raise UserError('The "Color" product attribute (attr_ego_color) is missing.')
+        attr_line = tmpl.attribute_line_ids.filtered(lambda l: l.attribute_id == color_attr)
+        existing_names = {v.name.strip().lower() for v in attr_line.value_ids} if attr_line else set()
+        duplicates = [c for c in colours if c.strip().lower() in existing_names]
+        if duplicates:
+            raise UserError(
+                f'"{tmpl.name}" already has a variant for: {", ".join(duplicates)}. '
+                f'Pick a different colour name, or check spelling against the existing variant.'
+            )
+
+        common_rows, rows_by_colour = self._parse_bom_rows(colours)
+
+        self._add_colour_variants(tmpl, color_attr, attr_line, colours)
+        bom_count = self._create_colour_boms(tmpl, colours, common_rows, rows_by_colour)
+        if not bom_count:
+            raise UserError(
+                'No Bill of Materials could be built from the uploaded file — '
+                'check that the Colour column values match the colour(s) entered above exactly.'
+            )
+
+        tmpl.message_post(
+            body=f'New colour variant(s) added via New Bike Model wizard: '
+                 f'{", ".join(colours)} ({bom_count} new Bill(s) of Materials).',
+        )
+        return {
+            'type': 'ir.actions.act_window',
+            'name': tmpl.name,
+            'res_model': 'product.template',
+            'res_id': tmpl.id,
+            'view_mode': 'form',
+            'target': 'current',
+        }
+
+    def _ensure_colour_values(self, color_attr, colours):
+        """Resolve or create a product.attribute.value for each colour name
+        under the shared Color attribute."""
+        AttrValue = self.env['product.attribute.value']
+        value_ids = []
+        for name in colours:
+            val = AttrValue.search([('attribute_id', '=', color_attr.id), ('name', '=', name)], limit=1)
+            if not val:
+                val = AttrValue.create({'attribute_id': color_attr.id, 'name': name})
+            value_ids.append(val.id)
+        return value_ids
+
     def _setup_colour_variants(self, tmpl, colours):
         """Set up the Color attribute line so one variant per colour name
         exists — reuses the same 'attr_ego_color' attribute every existing
@@ -190,18 +273,25 @@ class NewBikeModelWizard(models.TransientModel):
         color_attr = self.env.ref('elegomotors_setup.attr_ego_color', raise_if_not_found=False)
         if not color_attr:
             raise UserError('The "Color" product attribute (attr_ego_color) is missing.')
-        AttrValue = self.env['product.attribute.value']
-        value_ids = []
-        for name in colours:
-            val = AttrValue.search([('attribute_id', '=', color_attr.id), ('name', '=', name)], limit=1)
-            if not val:
-                val = AttrValue.create({'attribute_id': color_attr.id, 'name': name})
-            value_ids.append(val.id)
+        value_ids = self._ensure_colour_values(color_attr, colours)
         self.env['product.template.attribute.line'].create({
             'product_tmpl_id': tmpl.id,
             'attribute_id': color_attr.id,
             'value_ids': [(6, 0, value_ids)],
         })
+
+    def _add_colour_variants(self, tmpl, color_attr, attr_line, colours):
+        """Append new colour value(s) to an existing Color attribute line —
+        (4, id) so pre-existing colours/variants/BOMs are left untouched."""
+        value_ids = self._ensure_colour_values(color_attr, colours)
+        if attr_line:
+            attr_line.write({'value_ids': [(4, vid) for vid in value_ids]})
+        else:
+            self.env['product.template.attribute.line'].create({
+                'product_tmpl_id': tmpl.id,
+                'attribute_id': color_attr.id,
+                'value_ids': [(6, 0, value_ids)],
+            })
 
     def _create_colour_boms(self, tmpl, colours, common_rows, rows_by_colour):
         """One mrp.bom per colour variant (matching the existing per-colour

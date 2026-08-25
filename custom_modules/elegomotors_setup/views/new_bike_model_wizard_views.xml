@@ -8,21 +8,31 @@
             <field name="arch" type="xml">
                 <form string="New Bike Model">
                     <div class="alert alert-info" role="alert">
-                        Creates the product, its colour variants, and one Bill of
-                        Materials per colour — no developer or module upgrade needed.
-                        It appears in Bike Traceability, the Quality Control app,
-                        Add Bike Combo, and everywhere else a bike model does, the
-                        moment you confirm below.
+                        Create a brand-new bike model, or add new colour
+                        variant(s) — each with its own Bill of Materials — to
+                        a model that already exists. Either way it's live
+                        everywhere a bike model is expected (Bike
+                        Traceability, Quality Control, Add Bike Combo, ...)
+                        the moment you confirm below — no developer or module
+                        upgrade needed.
                     </div>
-                    <group string="1. New Model">
-                        <field name="name"/>
-                        <field name="colour_names" placeholder="Red, Black, White, Gray"/>
-                        <field name="x_serial_prefix" placeholder="EL40"/>
+                    <group>
+                        <field name="mode" widget="radio"/>
+                    </group>
+                    <group string="1. New Model" invisible="mode != 'new_model'">
+                        <field name="name" required="mode == 'new_model'"/>
+                        <field name="x_serial_prefix" placeholder="EL40" required="mode == 'new_model'"/>
                         <field name="list_price"/>
                         <field name="standard_price"/>
                         <field name="x_material_code"/>
                     </group>
-                    <group string="2. Bill of Materials">
+                    <group string="1. Existing Model" invisible="mode != 'add_variant'">
+                        <field name="product_tmpl_id" required="mode == 'add_variant'"/>
+                    </group>
+                    <group string="2. Colour(s)">
+                        <field name="colour_names" placeholder="Red, Black, White, Gray"/>
+                    </group>
+                    <group string="3. Bill of Materials">
                         <field name="bom_file" filename="bom_filename"/>
                         <field name="bom_filename" invisible="1"/>
                         <p class="text-muted" colspan="2">
@@ -36,7 +46,11 @@
                     </group>
                     <footer>
                         <button name="action_create" type="object"
-                                string="Create Model" class="btn-primary"/>
+                                string="Create Model" class="btn-primary"
+                                invisible="mode != 'new_model'"/>
+                        <button name="action_create" type="object"
+                                string="Add Colour Variant(s)" class="btn-primary"
+                                invisible="mode != 'add_variant'"/>
                         <button string="Cancel" class="btn-secondary" special="cancel"/>
                     </footer>
                 </form>
@@ -50,9 +64,14 @@
             <field name="target">new</field>
         </record>
 
+        <!-- Parented directly under the app root, not menu_mrp_configuration:
+             Configuration itself is gated to mrp.group_mrp_manager, which
+             Manohar doesn't hold (he has mrp.group_mrp_user +
+             mrp.group_mrp_routings) — under Configuration this item would be
+             unreachable for him regardless of its own groups="" below. -->
         <menuitem id="menu_new_bike_model_wizard"
                   name="New Bike Model"
-                  parent="mrp.menu_mrp_configuration"
+                  parent="mrp.menu_mrp_root"
                   action="action_new_bike_model_wizard"
                   groups="mrp.group_mrp_routings"
                   sequence="100"/>
