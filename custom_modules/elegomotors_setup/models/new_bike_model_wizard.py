@@ -146,6 +146,13 @@ class NewBikeModelWizard(models.TransientModel):
 
     def action_create(self):
         self.ensure_one()
+        # Reaching this point already required mrp.group_mrp_routings (the
+        # wizard's own menu/ir.model.access gate) — elevate for the actual
+        # product/attribute/BOM writes below, which native Odoo restricts to
+        # Manufacturing/Administrator, so a routings-only user (e.g. Manohar)
+        # can still use this self-service flow without being made a full
+        # Manufacturing Administrator.
+        self = self.sudo()
         if self.mode == 'add_variant':
             return self._action_add_variant()
         return self._action_create_new_model()
