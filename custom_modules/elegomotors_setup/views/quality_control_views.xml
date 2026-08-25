@@ -114,13 +114,13 @@
              here protecting Manufacturing's own dashboard "Open" actions. -->
         <field name="priority" eval="100"/>
         <field name="arch" type="xml">
-            <list string="FG QC" create="false" default_order="date_start desc">
+            <list string="FG QC" create="false" default_order="date_finished desc">
                 <field name="x_finished_serial" string="Serial No."/>
                 <field name="product_id" string="Bike Model"/>
                 <field name="name" string="MO No."/>
                 <field name="x_color" string="Colour"/>
                 <field name="x_battery_type" string="Battery Type"/>
-                <field name="date_start" string="Produced On" optional="show"/>
+                <field name="date_finished" string="Produced On" optional="show"/>
                 <field name="qc_state" string="QC Status" widget="badge"
                        decoration-success="qc_state == 'passed'"
                        decoration-warning="qc_state == 'pending'"
