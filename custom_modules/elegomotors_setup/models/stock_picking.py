@@ -966,17 +966,33 @@ class StockPicking(models.Model):
                     'message': f'Serial "{barcode}" is not currently available in Finished Goods.',
                 }
 
+        # Same reasoning as the auto-reservation comment above: only a line
+        # with qty_done > 0 on the OTHER delivery represents a real scan —
+        # an unscanned auto-reserved placeholder there must not block this
+        # delivery from claiming the physical unit it's actually scanning.
         other_ml = self.env['stock.move.line'].search([
             ('lot_id', '=', lot.id),
             ('picking_id', '!=', self.id),
             ('picking_id.picking_type_code', '=', 'outgoing'),
+            ('qty_done', '>', 0),
             ('state', 'not in', ('done', 'cancel')),
         ], limit=1)
         if other_ml:
             return {
                 'handled': True, 'success': False,
-                'message': f'Serial "{barcode}" is already reserved on delivery {other_ml.picking_id.name}.',
+                'message': f'Serial "{barcode}" is already scanned on delivery {other_ml.picking_id.name}.',
             }
+
+        # Release any stale auto-reservation placeholder (qty_done still 0
+        # — never actually scanned) another open delivery is still holding
+        # on this exact lot, so this claim doesn't double-reserve the quant.
+        self.env['stock.move.line'].search([
+            ('lot_id', '=', lot.id),
+            ('picking_id', '!=', self.id),
+            ('picking_id.picking_type_code', '=', 'outgoing'),
+            ('qty_done', '=', 0),
+            ('state', 'not in', ('done', 'cancel')),
+        ]).unlink()
 
         # Same reasoning as above: pick a line by qty_done, not by lot_id —
         # an auto-reserved line's lot_id gets overwritten with whatever was
