@@ -108,16 +108,22 @@ class DeliveryBikeScanWizard(models.TransientModel):
                     f'in the Finished Goods store.'
                 )
 
-        # Not already going out on another open delivery
+        # Not already SCANNED (qty_done > 0) on another open delivery. A lot
+        # merely auto-reserved by Odoo's standard removal strategy on some
+        # other delivery (qty_done still 0 there — nobody has scanned it)
+        # is just a placeholder, not a real claim — it must not block
+        # whoever actually scans the physical unit first. See the matching
+        # comment in stock_picking.py::action_scan_bike_serial.
         other_ml = self.env['stock.move.line'].search([
             ('lot_id', '=', lot.id),
             ('picking_id', '!=', self.picking_id.id),
             ('picking_id.picking_type_code', '=', 'outgoing'),
+            ('qty_done', '>', 0),
             ('state', 'not in', ('done', 'cancel')),
         ], limit=1)
         if other_ml:
             return None, None, (
-                f'{label}: serial "{serial}" is already reserved on delivery '
+                f'{label}: serial "{serial}" is already scanned on delivery '
                 f'{other_ml.picking_id.name}.'
             )
 
@@ -153,6 +159,17 @@ class DeliveryBikeScanWizard(models.TransientModel):
         for move, lot_quants in lots_by_move.items():
             move.move_line_ids.unlink()
             for lot, quant in lot_quants:
+                # Release any stale auto-reservation placeholder (qty_done
+                # still 0 — never actually scanned) another open delivery is
+                # still holding on this exact lot, so this delivery's claim
+                # on the physical unit doesn't double-reserve the quant.
+                self.env['stock.move.line'].search([
+                    ('lot_id', '=', lot.id),
+                    ('picking_id', '!=', self.picking_id.id),
+                    ('picking_id.picking_type_code', '=', 'outgoing'),
+                    ('qty_done', '=', 0),
+                    ('state', 'not in', ('done', 'cancel')),
+                ]).unlink()
                 MoveL.create({
                     'move_id': move.id,
                     'picking_id': self.picking_id.id,
