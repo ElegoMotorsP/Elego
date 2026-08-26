@@ -81,6 +81,7 @@
         # View overrides (loaded last so base views exist)
         'views/account_move_views.xml',
         'views/mrp_production_views.xml',   # Post-production QC buttons on MO form; Issue 7+8
+        'views/mrp_unbuild_views.xml',      # Serial-Number-Wise Bike Unbuild & Rebuild traceability
         'views/purchase_order_views.xml',   # Receive Products button restriction; Issues 2+3
         'views/purchase_bom_wizard_views.xml', # Load BOM Components wizard on PO form
         'views/sale_order_reject_wizard_views.xml', # Reject Sales Order wizard (mandatory reason)

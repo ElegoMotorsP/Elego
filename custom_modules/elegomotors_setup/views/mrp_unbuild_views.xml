@@ -1,0 +1,41 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+    <!--
+        Serial-Number-Wise Bike Unbuild & Rebuild — traceability on the
+        Unbuild Order form: the original MO that produced the bike, the
+        component serials recovered (snapshot at unbuild time, independent
+        of whatever the lot's own fields hold afterward), and the auto-
+        created rebuild MO once validated.
+
+        Access: creating/validating an Unbuild Order is enforced in Python
+        (models/mrp_unbuild.py — elegomotors_setup.group_unbuild_rebuild_operator),
+        not by hiding this view, since Odoo's core mrp.group_mrp_user already
+        grants model-level access to whoever holds it.
+    -->
+    <record id="mrp_unbuild_form_view_ego" model="ir.ui.view">
+        <field name="name">mrp.unbuild.form.ego.traceability</field>
+        <field name="model">mrp.unbuild</field>
+        <field name="inherit_id" ref="mrp.mrp_unbuild_form_view"/>
+        <field name="arch" type="xml">
+            <xpath expr="//sheet" position="inside">
+                <group string="Bike Rebuild Traceability"
+                       invisible="not x_original_mo_id and not x_chassis_serial">
+                    <group>
+                        <field name="x_original_mo_id" readonly="1"
+                               invisible="not x_original_mo_id"/>
+                        <field name="x_rebuild_mo_id" readonly="1"
+                               invisible="not x_rebuild_mo_id"/>
+                    </group>
+                    <group string="Component Serials Recovered">
+                        <field name="x_chassis_serial" readonly="1"/>
+                        <field name="x_motor_serial" readonly="1"/>
+                        <field name="x_controller_serial" readonly="1"/>
+                        <field name="x_battery_serial" readonly="1"/>
+                        <field name="x_charger_serial" readonly="1"/>
+                        <field name="x_color" readonly="1"/>
+                    </group>
+                </group>
+            </xpath>
+        </field>
+    </record>
+</odoo>

@@ -49,6 +49,9 @@
                • FG Transfer Operator   — FG to Finished Goods transfers (13-Mar)
                • Quality User           — view QC control points and checks;
                                           Pratik (Quality Manager) manages QC config
+               • Unbuild/Rebuild Operator — Serial-Number-Wise Bike Unbuild &
+                                          Rebuild (Manohar-only initially; he can
+                                          grant it to others via Settings > Users)
              ============================================================ -->
         <record id="user_ego_manohar" model="res.users">
             <field name="name">Manohar Kalbhor</field>
@@ -76,9 +79,14 @@
                     ref('elegomotors_setup.group_fg_transfer_operator'),
                     ref('quality.group_quality_user'),
                     ref('base.group_allow_export'),
+                    ref('elegomotors_setup.group_unbuild_rebuild_operator'),
                 ]),
             ]"/>
         </record>
+        <!-- group_unbuild_rebuild_operator: Serial-Number-Wise Bike Unbuild & Rebuild.
+             Manohar is the ONLY initial member — he can grant it to other users
+             himself later via Settings > Users > Manohar Kalbhor > this group,
+             no code/deploy change needed. -->
         <!-- base.group_system (Settings/Administration) matches admin@elegomotors.com's
              access level: implies the top "Administrator" group in every installed app,
              and lets Manohar reach Settings > Users & Companies to manage everyone

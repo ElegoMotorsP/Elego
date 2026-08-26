@@ -49,11 +49,30 @@
                 <page string="Component Traceability"
                       invisible="[('product_id.product_tmpl_id.x_is_ego_bike', '=', False)]">
                     <group string="Manufacturing">
+                        <field name="x_unbuild_id" invisible="1"/>
+                        <field name="x_rebuild_mo_id" invisible="1"/>
                         <div>
                             <button type="object"
                                     name="action_view_manufacturing_orders"
                                     string="Open Manufacturing Order"
                                     class="btn-secondary btn-sm"/>
+                            <button type="object"
+                                    name="action_view_unbuild_order"
+                                    string="Open Unbuild Order"
+                                    class="btn-secondary btn-sm"
+                                    invisible="not x_unbuild_id"/>
+                            <button type="object"
+                                    name="action_view_rebuild_mo"
+                                    string="Open Rebuild MO"
+                                    class="btn-secondary btn-sm"
+                                    invisible="not x_rebuild_mo_id"/>
+                            <button type="object"
+                                    name="action_unbuild_bike"
+                                    string="Unbuild This Bike"
+                                    class="btn-primary btn-sm"
+                                    invisible="x_unbuild_id"
+                                    confirm="This will unbuild this bike serial, recover its components to Production WIP, and automatically create a rebuild MO. Continue?"
+                                    groups="elegomotors_setup.group_unbuild_rebuild_operator"/>
                         </div>
                     </group>
                     <group string="Warranty-Critical Component Serials">
