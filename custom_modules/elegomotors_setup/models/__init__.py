@@ -27,4 +27,3 @@ from . import res_partner
 from . import finance_api
 from . import warranty
 from . import new_bike_model_wizard
-from . import access_operation
