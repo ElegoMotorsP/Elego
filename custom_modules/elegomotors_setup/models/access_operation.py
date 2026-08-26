@@ -19,6 +19,7 @@ adds/removes the user from group_id.users. There is nothing to keep in
 sync; the grid IS the group membership.
 """
 from odoo import api, fields, models
+from odoo.exceptions import UserError
 
 
 class ElegomotorsAccessOperation(models.Model):
@@ -52,6 +53,14 @@ class ElegomotorsAccessOperation(models.Model):
              'Empty means nothing in the system enforces this split yet.',
     )
     is_wired = fields.Boolean(compute='_compute_status', store=True)
+    is_open_to_all = fields.Boolean(
+        compute='_compute_status', store=True,
+        help='group_id is base.group_user — the "is this an internal '
+             'employee account at all" group every other group implies. '
+             'Removing someone from it here would strip their whole '
+             'account, not just this operation, so the grant list is '
+             'shown read-only for these rows.',
+    )
     not_implemented = fields.Boolean(
         string='Feature Not Built',
         help='The underlying feature does not exist in this system yet '
@@ -68,10 +77,14 @@ class ElegomotorsAccessOperation(models.Model):
 
     @api.depends('group_id', 'not_implemented')
     def _compute_status(self):
+        all_users_group = self.env.ref('base.group_user', raise_if_not_found=False)
         for rec in self:
             rec.is_wired = bool(rec.group_id)
+            rec.is_open_to_all = bool(all_users_group) and rec.group_id == all_users_group
             if rec.not_implemented:
                 rec.status_label = 'Feature Not Built'
+            elif rec.is_open_to_all:
+                rec.status_label = 'Open to all users'
             elif rec.group_id:
                 rec.status_label = 'Live'
             else:
@@ -86,4 +99,11 @@ class ElegomotorsAccessOperation(models.Model):
         for rec in self:
             if not rec.group_id:
                 continue
+            if rec.is_open_to_all:
+                raise UserError(
+                    f'"{rec.name}" is open to every internal user (base.group_user) — '
+                    f'that is managed per-person on their own user account (Settings > '
+                    f'Users), not here, since it also controls whether they have an '
+                    f'internal-user account at all.'
+                )
             rec.group_id.sudo().write({'users': [(6, 0, rec.granted_user_ids.ids)]})

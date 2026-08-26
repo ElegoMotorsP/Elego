@@ -325,6 +325,7 @@
             <field name="access_type">view</field>
             <field name="sensitivity">medium</field>
             <field name="business_purpose">Trace chassis, motor, controller, battery and charger.</field>
+            <field name="group_id" ref="stock.group_stock_user"/>
         </record>
         <record id="access_op_036" model="elegomotors.access.operation">
             <field name="sequence">36</field>
@@ -343,6 +344,7 @@
             <field name="access_type">view</field>
             <field name="sensitivity">low</field>
             <field name="business_purpose">View SKU, UoM, category and logistics data.</field>
+            <field name="group_id" ref="base.group_user"/>
         </record>
         <record id="access_op_038" model="elegomotors.access.operation">
             <field name="sequence">38</field>
@@ -415,6 +417,7 @@
             <field name="access_type">view</field>
             <field name="sensitivity">medium</field>
             <field name="business_purpose">View model/component structure and quantities.</field>
+            <field name="group_id" ref="mrp.group_mrp_user"/>
         </record>
         <record id="access_op_046" model="elegomotors.access.operation">
             <field name="sequence">46</field>
@@ -434,6 +437,7 @@
             <field name="access_type">view</field>
             <field name="sensitivity">low</field>
             <field name="business_purpose">View production order, components and status.</field>
+            <field name="group_id" ref="mrp.group_mrp_user"/>
         </record>
         <record id="access_op_048" model="elegomotors.access.operation">
             <field name="sequence">48</field>
@@ -517,6 +521,7 @@
             <field name="access_type">view</field>
             <field name="sensitivity">low</field>
             <field name="business_purpose">View materials awaiting inspection.</field>
+            <field name="group_id" ref="stock.group_stock_manager"/>
         </record>
         <record id="access_op_057" model="elegomotors.access.operation">
             <field name="sequence">57</field>
@@ -526,6 +531,7 @@
             <field name="access_type">operate</field>
             <field name="sensitivity">medium</field>
             <field name="business_purpose">Enter measurements, notes and attachments.</field>
+            <field name="group_id" ref="stock.group_stock_manager"/>
         </record>
         <record id="access_op_058" model="elegomotors.access.operation">
             <field name="sequence">58</field>
@@ -535,6 +541,7 @@
             <field name="access_type">approve</field>
             <field name="sensitivity">high</field>
             <field name="business_purpose">Accept, reject or hold supplied material.</field>
+            <field name="group_id" ref="stock.group_stock_manager"/>
         </record>
         <record id="access_op_059" model="elegomotors.access.operation">
             <field name="sequence">59</field>
@@ -544,6 +551,7 @@
             <field name="access_type">view</field>
             <field name="sensitivity">low</field>
             <field name="business_purpose">View bikes waiting for finished-goods inspection.</field>
+            <field name="group_id" ref="stock.group_stock_manager"/>
         </record>
         <record id="access_op_060" model="elegomotors.access.operation">
             <field name="sequence">60</field>
@@ -573,6 +581,7 @@
             <field name="access_type">approve</field>
             <field name="sensitivity">high</field>
             <field name="business_purpose">Complete pre-dispatch inspection.</field>
+            <field name="group_id" ref="stock.group_stock_manager"/>
         </record>
         <record id="access_op_063" model="elegomotors.access.operation">
             <field name="sequence">63</field>
@@ -582,6 +591,7 @@
             <field name="access_type">operate</field>
             <field name="sensitivity">medium</field>
             <field name="business_purpose">Record nonconformity, root cause and corrective action.</field>
+            <field name="group_id" ref="quality.group_quality_user"/>
         </record>
         <record id="access_op_064" model="elegomotors.access.operation">
             <field name="sequence">64</field>
@@ -591,6 +601,7 @@
             <field name="access_type">report</field>
             <field name="sensitivity">medium</field>
             <field name="business_purpose">Inward, FG, PDI, failure and rejection analysis.</field>
+            <field name="group_id" ref="stock.group_stock_manager"/>
         </record>
         <record id="access_op_065" model="elegomotors.access.operation">
             <field name="sequence">65</field>
@@ -699,6 +710,7 @@
             <field name="access_type">view</field>
             <field name="sensitivity">medium</field>
             <field name="business_purpose">View dealer/customer claim and status.</field>
+            <field name="group_id" ref="base.group_user"/>
         </record>
         <record id="access_op_077" model="elegomotors.access.operation">
             <field name="sequence">77</field>
@@ -708,6 +720,7 @@
             <field name="access_type">operate</field>
             <field name="sensitivity">medium</field>
             <field name="business_purpose">Register part, serial, failure and documents.</field>
+            <field name="group_id" ref="base.group_user"/>
         </record>
         <record id="access_op_078" model="elegomotors.access.operation">
             <field name="sequence">78</field>

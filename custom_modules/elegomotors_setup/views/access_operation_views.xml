@@ -24,11 +24,12 @@
                            decoration-danger="sensitivity == 'critical'"/>
                     <field name="status_label" string="Status"/>
                     <field name="granted_user_ids" widget="many2many_tags"
-                           readonly="not is_wired or not_implemented"
+                           readonly="not is_wired or not_implemented or is_open_to_all"
                            placeholder="Not enforced — cannot grant yet"/>
                     <field name="business_purpose" optional="hide"/>
                     <field name="is_wired" column_invisible="1"/>
                     <field name="not_implemented" column_invisible="1"/>
+                    <field name="is_open_to_all" column_invisible="1"/>
                 </list>
             </field>
         </record>
