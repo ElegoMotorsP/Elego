@@ -713,14 +713,17 @@ class MrpBarcodeWizard(models.TransientModel):
                 f'Number Prefix, then try again.'
             )
         sequence = tmpl._get_or_create_serial_sequence()
-        number = self.env['ir.sequence'].sudo().next_by_code(sequence.code)
-        if not number:
+        # next_by_code() already returns the fully formatted value (the sequence's
+        # own 'prefix' field bakes in x_serial_prefix + YYMM), so it must be
+        # returned as-is — wrapping it again here duplicated the prefix/date,
+        # e.g. "EL11-2608-EL11-2608-0001" instead of "EL11-2608-0001".
+        serial = self.env['ir.sequence'].sudo().next_by_code(sequence.code)
+        if not serial:
             raise UserError(
                 f'Serial number sequence for "{tmpl.name}" ({sequence.code}) '
                 f'could not be consumed. Contact your administrator.'
             )
-        yymm = fields.Datetime.now().strftime('%y%m')
-        return f'{tmpl.x_serial_prefix}-{yymm}-{number}'
+        return serial
 
     def action_confirm(self):
         self.ensure_one()
