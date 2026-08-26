@@ -78,6 +78,7 @@
         'data/finance_material_codes_data.xml', # Default materialCode per bike model (Finance API)
         'data/warranty_claim_sequence_data.xml', # Warranty Claim Number sequence (WC-YYMM-NNNN)
         'data/ego_bike_flag_seed_data.xml', # x_is_ego_bike/x_serial_prefix seed for the 7 pre-existing models
+        'data/access_operation_seed_data.xml', # Self-service Access Control catalog (93 operations)
         # View overrides (loaded last so base views exist)
         'views/account_move_views.xml',
         'views/mrp_production_views.xml',   # Post-production QC buttons on MO form; Issue 7+8
@@ -115,6 +116,7 @@
         'views/warranty_api_views.xml',             # Warranty API Clients + Request Log views/actions
         'views/warranty_menu.xml',                   # Warranty menu (Registrations, Claims, Policy Rules, API)
         'views/new_bike_model_wizard_views.xml',    # New Bike Model wizard (product + BOM, no developer needed)
+        'views/access_operation_views.xml',         # Self-service Access Control matrix (Manohar-managed)
     ],
     'assets': {
         'web.assets_backend': [
