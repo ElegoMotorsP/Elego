@@ -159,6 +159,12 @@ class StockLot(models.Model):
         wip = self.env.ref(
             'elegomotors_setup.location_ego_production_wip', raise_if_not_found=False
         )
+        if not wip:
+            raise UserError(
+                'The "EGO/Production WIP" location (elegomotors_setup.location_ego_production_wip) '
+                'could not be found. Recovered components cannot be routed correctly without it — '
+                'contact your administrator instead of proceeding.'
+            )
         bom = self.env['mrp.unbuild']._find_bom_for_product(self.product_id)
         unbuild = self.env['mrp.unbuild'].create({
             'product_id': self.product_id.id,
@@ -167,7 +173,7 @@ class StockLot(models.Model):
             'bom_id': bom.id if bom else False,
             'lot_id': self.id,
             'location_id': quant.location_id.id,
-            'location_dest_id': wip.id if wip else quant.location_id.id,
+            'location_dest_id': wip.id,
             'company_id': self.company_id.id,
         })
         return {
