@@ -81,22 +81,38 @@ class DeliveryBikeScanWizard(models.TransientModel):
         self.progress_summary = ' | '.join(progress_parts) if progress_parts else 'No bike units on this delivery.'
         self.all_scanned = all_done and bool(progress_parts)
 
+    @api.onchange('scan_input')
+    def _onchange_scan_input(self):
+        """Rapid scanning: a barcode scanner "types" the serial then sends a
+        terminating Enter/Tab, which blurs the field and fires this onchange
+        immediately — no button click needed between units. Processes the
+        scan right here (this onchange's RPC runs the same
+        picking._scan_bike_unit() as the manual button, committing the
+        result straight away, not just staging a client-side field change),
+        then clears the input so the field is empty and focused for the
+        very next scan.
+        """
+        self._process_scan()
+
     def action_scan(self):
-        """Process whatever is currently in scan_input, then clear it for
-        the next scan — this is the method a barcode scanner's Enter
-        keypress (or the on-screen button) triggers."""
+        """Manual fallback for the on-screen "Scan" button — same
+        processing as the automatic onchange above, for anyone who prefers
+        clicking (or whose input method doesn't reliably blur the field)."""
+        self._process_scan()
+        return self._reopen()
+
+    def _process_scan(self):
         self.ensure_one()
         barcode = (self.scan_input or '').strip()
         if not barcode:
             self.last_success = False
             self.last_message = 'Scan or type a serial number first.'
-            return self._reopen()
+            return
         result = self.picking_id._scan_bike_unit(barcode)
         self.last_success = result['success']
         self.last_message = result['message']
         self.scan_input = ''
         self._refresh()
-        return self._reopen()
 
     def _reopen(self):
         return {

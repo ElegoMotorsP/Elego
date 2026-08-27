@@ -24,8 +24,9 @@
                         any order, any model.</strong> Each scan is checked against
                         the delivery's lines (model + colour), Finished Goods
                         availability and the QC blacklist, then assigned
-                        immediately. These serials flow to the customer invoice
-                        automatically after validation.
+                        immediately — just keep scanning, one after another, no
+                        need to click anything in between. These serials flow to
+                        the customer invoice automatically after validation.
                     </div>
                     <field name="picking_id" invisible="1"/>
 
@@ -37,8 +38,9 @@
                         <field name="scan_input"
                                placeholder="Scan or type a bike serial number…"
                                class="flex-grow-1"
+                               autofocus="1"
                                nolabel="1"/>
-                        <button name="action_scan" string="Scan" type="object" class="btn-primary"/>
+                        <button name="action_scan" string="Scan" type="object" class="btn-secondary"/>
                     </div>
                     <field name="last_success" invisible="1"/>
                     <div class="alert alert-success mb-3"
