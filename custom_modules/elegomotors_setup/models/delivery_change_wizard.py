@@ -117,14 +117,22 @@ class DeliveryChangeWizard(models.TransientModel):
             old_serial = line.lot_id.name if line.lot_id else '(not yet scanned)'
 
             if line.action == 'reduce_qty':
+                # Deliberately do NOT touch move.product_uom_qty — the demand
+                # stays at what the customer actually ordered. Only the
+                # scanned claim on this specific unit is removed, so at
+                # validation Odoo sees qty_done < product_uom_qty on this
+                # move and runs its own native backorder flow for the
+                # shortfall. x_delivery_change_authorized_shortfall lets
+                # that shortfall past the "all bikes must be scanned" gate
+                # in button_validate() — see that guard for why it exists.
                 if line.move_line_id:
                     line.move_line_id.unlink()
-                move.product_uom_qty = max(0, move.product_uom_qty - 1)
+                self.picking_id.x_delivery_change_authorized_shortfall = True
                 Log.create({
                     'picking_id': self.picking_id.id, 'move_id': move.id,
                     'change_type': 'reduce_qty',
-                    'old_value': f'{move.product_uom_qty + 1:.0f} {move.product_id.display_name}',
-                    'new_value': f'{move.product_uom_qty:.0f} {move.product_id.display_name}',
+                    'old_value': f'{old_serial} — shipping today',
+                    'new_value': f'not shipped today; backordered (demand stays {move.product_uom_qty:.0f})',
                     'reason': self.reason,
                 })
 
@@ -195,7 +203,7 @@ class DeliveryChangeWizardLine(models.TransientModel):
     product_display = fields.Char(compute='_compute_product_display')
     action = fields.Selection([
         ('keep', 'Keep as-is'),
-        ('reduce_qty', 'Reduce Quantity (drop this unit)'),
+        ('reduce_qty', "Reduce Quantity (don't ship this unit today — backorder it)"),
         ('replace_serial', 'Replace Serial (re-scan a different unit)'),
         ('change_bike', 'Change to a Different Bike Model/Colour'),
     ], default='keep', required=True)
