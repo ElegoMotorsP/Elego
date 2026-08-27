@@ -50,8 +50,16 @@ class DeliveryChangeWizard(models.TransientModel):
         'elegomotors.delivery.change.wizard.line', 'wizard_id',
         string='Bike Units',
     )
+    # NOT required=True at the field level: the wizard record is created
+    # (with reason still blank) the instant "Modify Delivery" is clicked,
+    # before the user has typed anything — a field-level DB constraint would
+    # make that half-formed record fail on the next unrelated ORM flush
+    # (confirmed live: it surfaced as a "mandatory field" error when
+    # clicking "Validate" on the delivery, not when opening this wizard).
+    # The mandatory-reason rule is enforced correctly instead, in Python,
+    # in action_apply() below, at the moment the user actually submits.
     reason = fields.Text(
-        string='Reason for Change', required=True,
+        string='Reason for Change',
         help='Compulsory — recorded against every change made in this session, '
              'with your name and the current date/time.',
     )

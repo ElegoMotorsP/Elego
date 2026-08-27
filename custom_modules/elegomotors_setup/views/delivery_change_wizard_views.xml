@@ -38,7 +38,7 @@
                         </list>
                     </field>
                     <group>
-                        <field name="reason" placeholder="Why is this delivery being changed? (required)"/>
+                        <field name="reason" required="1" placeholder="Why is this delivery being changed? (required)"/>
                     </group>
                 </sheet>
                 <footer>
