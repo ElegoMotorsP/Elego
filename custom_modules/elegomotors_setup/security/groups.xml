@@ -146,6 +146,22 @@
             <field name="name">Warranty: Claim Approval</field>
         </record>
 
+        <!--
+            group_unbuild_rebuild_operator
+                Serial-Number-Wise Bike Unbuild & Rebuild.
+                Initial member: Manohar (Admin) ONLY. Odoo's core mrp.group_mrp_user
+                already grants Pratik/Prashant model-level access to the native
+                Unbuild Orders screen, so the real restriction here is enforced in
+                Python (mrp.unbuild create()/action_validate() in models/mrp_unbuild.py),
+                not by this group alone — this group only gates our own buttons/menus.
+                Manohar (base.group_system) can add other users to this group later
+                himself via Settings > Users, no deploy needed.
+        -->
+        <record id="group_unbuild_rebuild_operator" model="res.groups">
+            <field name="name">Manufacturing: Unbuild / Rebuild Operator</field>
+            <field name="implied_ids" eval="[(4, ref('mrp.group_mrp_user'))]"/>
+        </record>
+
         <!-- QC Routing Wizard access: all internal users may open it;
              button_validate() already restricts who reaches the wizard. -->
         <record id="access_stock_picking_qc_wizard_all" model="ir.model.access">

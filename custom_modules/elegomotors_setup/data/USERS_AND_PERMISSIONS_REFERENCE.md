@@ -39,6 +39,26 @@ From `custom_modules/elegomotors_setup/data/`: user rules, order access, order f
 | **Customer Invoice** | Rajshri (accounting); **Amit (billing)** | Rajshri, Amit, Priyanka, Manohar | Created: Rajshri, Amit, Priyanka (subscribed). Posted: Rajshri, Amit, Priyanka. |
 | **Vendor Bill** | Rajshri; **Amit (billing)** | Rajshri, Amit, Prashant, Manohar | Created: Rajshri, Amit, Prashant (subscribed). Posted: Rajshri, Amit, Prashant. |
 | **Payments** | **Rajshri only** (Accounting User) | Rajshri, Manohar | Rajshri books and pays; no other user has payment creation rights. |
+| **Unbuild Order / Rebuild MO** | **Manohar only** (`group_unbuild_rebuild_operator`) | Manohar | Manohar can extend this group to other users (e.g. Pratik) himself via Settings > Users — no code change needed. |
+
+---
+
+## 3a. Serial-Number-Wise Bike Unbuild & Rebuild
+
+Manohar can take a specific bike serial apart (Unbuild Order), recovering its components to
+EGO/Production WIP, and the system auto-creates a linked Rebuild MO that consumes those
+components straight from WIP (no Issue-to-Production picking). The rebuild may reuse the
+same bike/chassis serial (only once its stock is at zero) or be assigned a new one.
+
+- **Access**: `elegomotors_setup.group_unbuild_rebuild_operator` — Manohar only initially.
+  Enforced in Python (`models/mrp_unbuild.py`) since Odoo's core `mrp.group_mrp_user`
+  (already held by Pratik/Prashant via Manufacturing Operator) would otherwise grant them
+  model-level access to the native Unbuild Orders screen regardless of this group.
+- **Entry point**: "Unbuild This Bike" button on the bike's serial (`stock.lot` form,
+  Component Traceability tab).
+- **Traceability**: Bike Serial → Original MO → Unbuild Order (with a snapshot of the
+  component serials recovered) → Rebuild MO → Rebuilt Bike Serial — visible via smart
+  buttons on the `stock.lot` form and a banner + Rebuild History tab on the MO form.
 
 ---
 

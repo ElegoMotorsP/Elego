@@ -56,6 +56,38 @@
         </field>
     </record>
 
+    <!-- Serial-Number-Wise Bike Unbuild & Rebuild: show the Original MO <-> Unbuild
+         Order <-> Rebuild MO chain directly on the MO form. -->
+    <record id="mrp_production_form_unbuild_rebuild_trace" model="ir.ui.view">
+        <field name="name">mrp.production.form.unbuild.rebuild.trace</field>
+        <field name="model">mrp.production</field>
+        <field name="inherit_id" ref="mrp.mrp_production_form_view"/>
+        <field name="arch" type="xml">
+            <xpath expr="//sheet" position="before">
+                <div class="alert alert-info mb-0 d-flex align-items-center gap-2 flex-wrap"
+                     invisible="not x_source_unbuild_id" role="alert">
+                    <strong>Rebuild MO</strong> — auto-created from Unbuild Order
+                    <field name="x_source_unbuild_id" readonly="1" nolabel="1" class="d-inline"/>
+                    rebuilding the bike originally produced by
+                    <field name="x_original_mo_id" readonly="1" nolabel="1" class="d-inline"/>.
+                    Components are consumed straight from Production WIP.
+                </div>
+            </xpath>
+            <xpath expr="//sheet" position="inside">
+                <group string="Rebuild History" invisible="not x_rebuild_mo_ids">
+                    <field name="x_rebuild_mo_ids" nolabel="1" readonly="1">
+                        <list>
+                            <field name="name"/>
+                            <field name="state"/>
+                            <field name="x_finished_serial"/>
+                            <field name="date_start"/>
+                        </list>
+                    </field>
+                </group>
+            </xpath>
+        </field>
+    </record>
+
     <!-- Issue 7: Finished serial number shown in MO form header.
          Also overrides lot_producing_id readonly so Prashant/Pratik can correct
          the serial if needed while the MO is still in progress/confirmed. -->
@@ -222,6 +254,17 @@
                     <field name="battery_scanned"    invisible="1"/>
                     <field name="charger_scanned"    invisible="1"/>
                     <field name="all_scanned"        invisible="1"/>
+                    <field name="x_is_rebuild_wizard" invisible="1"/>
+
+                    <div class="alert alert-warning d-flex justify-content-between align-items-center mb-2"
+                         invisible="not x_is_rebuild_wizard" role="alert">
+                        <div>
+                            <strong>Rebuild MO</strong> — components below were recovered
+                            from the Unbuild Order. Untick to assign a brand-new serial
+                            instead of reusing the original one.
+                        </div>
+                        <field name="x_reuse_original_serial" widget="boolean_toggle" nolabel="1"/>
+                    </div>
 
                     <div class="d-flex justify-content-between align-items-center mb-2">
                         <div class="alert alert-info mb-0 flex-grow-1 me-3" role="alert">
