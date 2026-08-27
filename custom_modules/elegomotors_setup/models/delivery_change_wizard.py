@@ -85,7 +85,13 @@ class DeliveryChangeWizard(models.TransientModel):
             for _ in range(demand - len(scanned)):
                 Line.create({'wizard_id': self.id, 'move_id': move.id})
 
-    def _check_access(self):
+    def _check_delivery_change_access(self):
+        # NOTE: deliberately NOT named _check_access — Odoo 18's ORM defines
+        # its own internal hook of that exact name (models.py check_access()
+        # calls self._check_access(operation)), and a same-named zero-arg
+        # override on this model collides with it, raising a TypeError on
+        # every create() (confirmed live: "takes 1 positional argument but
+        # 2 were given").
         if (
             not self.env.su
             and self.env.uid != SUPERUSER_ID
@@ -99,7 +105,7 @@ class DeliveryChangeWizard(models.TransientModel):
 
     def action_apply(self):
         self.ensure_one()
-        self._check_access()
+        self._check_delivery_change_access()
         if not (self.reason or '').strip():
             raise UserError('A reason is required to modify this delivery.')
         active_lines = self.line_ids.filtered(lambda l: l.action != 'keep')
