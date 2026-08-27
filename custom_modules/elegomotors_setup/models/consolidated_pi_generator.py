@@ -30,52 +30,37 @@ class ConsolidatedPiGenerator(models.AbstractModel):
 
     @api.model
     def _get_bike_model_configs(self):
-        """Return list of dicts describing each bike model.
+        """Return list of dicts describing each Elego bike model — built
+        from every product.template with x_is_ego_bike checked, not a
+        hardcoded list, so a model added via the New Bike Model wizard is
+        picked up by the daily PI cron with no code change. (Previously
+        hardcoded 6 templates and silently omitted EGO-S1 — this fixes
+        that gap too.)
 
         Each dict:
-          tmpl_ref      : external ID of the product.template
-          model_key     : short key used as x_pi_model_key on the picking
+          tmpl          : the product.template record itself
+          model_key     : stable, unique key used as x_pi_model_key on the picking
           label         : human-readable name for chatter / picking origin
-          uses_color_boms: True for Elego 1.1 (variant-specific BOMs with color parts)
+          uses_color_boms: True if this model has more than one colour
+                           variant — derived from its own Color attribute
+                           line, not a hand-set flag
         """
-        return [
-            {
-                'tmpl_ref': 'elegomotors_setup.tmpl_elego_11',
-                'model_key': 'elego_11',
-                'label': 'Elego 1.1',
-                'uses_color_boms': True,
-            },
-            {
-                'tmpl_ref': 'elegomotors_setup.tmpl_elego_12',
-                'model_key': 'elego_12',
-                'label': 'Elego 1.2',
-                'uses_color_boms': True,
-            },
-            {
-                'tmpl_ref': 'elegomotors_setup.tmpl_elego_20p',
-                'model_key': 'elego_20p',
-                'label': 'Elego 2.0+',
-                'uses_color_boms': True,
-            },
-            {
-                'tmpl_ref': 'elegomotors_setup.tmpl_elego_30',
-                'model_key': 'elego_30',
-                'label': 'Elego 3.0',
-                'uses_color_boms': False,
-            },
-            {
-                'tmpl_ref': 'elegomotors_setup.tmpl_elego_11_42ah',
-                'model_key': 'elego_11_42ah',
-                'label': 'Elego 1.1 42Ah',
-                'uses_color_boms': True,
-            },
-            {
-                'tmpl_ref': 'elegomotors_setup.tmpl_elego_12_42ah',
-                'model_key': 'elego_12_42ah',
-                'label': 'Elego 1.2 42Ah',
-                'uses_color_boms': True,
-            },
-        ]
+        color_attr = self.env.ref('elegomotors_setup.attr_ego_color', raise_if_not_found=False)
+        configs = []
+        for tmpl in self.env['product.template'].search([('x_is_ego_bike', '=', True)]):
+            uses_color_boms = False
+            if color_attr:
+                color_line = tmpl.attribute_line_ids.filtered(
+                    lambda l, ca=color_attr: l.attribute_id == ca
+                )
+                uses_color_boms = len(color_line.value_ids) > 1
+            configs.append({
+                'tmpl': tmpl,
+                'model_key': str(tmpl.id),
+                'label': tmpl.name,
+                'uses_color_boms': uses_color_boms,
+            })
+        return configs
 
     # ------------------------------------------------------------------
     # Main entry point
@@ -98,9 +83,7 @@ class ConsolidatedPiGenerator(models.AbstractModel):
 
         created = 0
         for config in self._get_bike_model_configs():
-            tmpl = self.env.ref(config['tmpl_ref'], raise_if_not_found=False)
-            if not tmpl:
-                continue
+            tmpl = config['tmpl']
 
             mos = self._get_pending_mos_for_model(tmpl)
             if not mos:
@@ -308,9 +291,7 @@ class ConsolidatedPiGenerator(models.AbstractModel):
     @api.model
     def _build_consolidated_pi(self, mos, issue_type, config, for_date):
         """Create one consolidated PI picking for the given MOs."""
-        tmpl = self.env.ref(config['tmpl_ref'], raise_if_not_found=False)
-        if not tmpl:
-            return False
+        tmpl = config['tmpl']
 
         if config['uses_color_boms']:
             classified = self._classify_components_elego_11(mos, tmpl)
@@ -346,11 +327,9 @@ class ConsolidatedPiGenerator(models.AbstractModel):
             return False
 
         # Build config lookup by template id
-        config_by_tmpl = {}
-        for config in self._get_bike_model_configs():
-            tmpl = self.env.ref(config['tmpl_ref'], raise_if_not_found=False)
-            if tmpl:
-                config_by_tmpl[tmpl.id] = config
+        config_by_tmpl = {
+            config['tmpl'].id: config for config in self._get_bike_model_configs()
+        }
 
         section_header_product = self.env.ref(
             'elegomotors_setup.product_pi_section_header', raise_if_not_found=False

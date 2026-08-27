@@ -164,17 +164,11 @@
         <!-- mo_flow_state is a non-stored compute field and can't be used in a
              domain — replicate 'mo_flow_state != False' with the stored fields
              it derives from: state == 'done', or (state in progress/to_close
-             and qty_producing > 0). -->
+             and qty_producing > 0). product_id.product_tmpl_id.x_is_ego_bike
+             (not a hardcoded template list) so a model added via the New
+             Bike Model wizard shows up here automatically. -->
         <field name="domain" eval="[
-            ('product_id.product_tmpl_id', 'in', [
-                ref('elegomotors_setup.tmpl_ego_scooter'),
-                ref('elegomotors_setup.tmpl_elego_11'),
-                ref('elegomotors_setup.tmpl_elego_12'),
-                ref('elegomotors_setup.tmpl_elego_20p'),
-                ref('elegomotors_setup.tmpl_elego_30'),
-                ref('elegomotors_setup.tmpl_elego_11_42ah'),
-                ref('elegomotors_setup.tmpl_elego_12_42ah'),
-            ]),
+            ('product_id.product_tmpl_id.x_is_ego_bike', '=', True),
             '|', ('state', '=', 'done'),
             '&amp;', ('state', 'in', ['progress', 'to_close']), ('qty_producing', '&gt;', 0),
         ]"/>
@@ -242,15 +236,7 @@
         <field name="res_model">stock.lot</field>
         <field name="view_mode">list,form</field>
         <field name="domain" eval="[
-            ('product_id.product_tmpl_id', 'in', [
-                ref('elegomotors_setup.tmpl_ego_scooter'),
-                ref('elegomotors_setup.tmpl_elego_11'),
-                ref('elegomotors_setup.tmpl_elego_12'),
-                ref('elegomotors_setup.tmpl_elego_20p'),
-                ref('elegomotors_setup.tmpl_elego_30'),
-                ref('elegomotors_setup.tmpl_elego_11_42ah'),
-                ref('elegomotors_setup.tmpl_elego_12_42ah'),
-            ]),
+            ('product_id.product_tmpl_id.x_is_ego_bike', '=', True),
             ('x_pdi_check_result_ids', '!=', False),
         ]"/>
         <field name="context">{'search_default_filter_pending': 1, 'create': False}</field>
@@ -322,15 +308,7 @@
         <field name="name">QC Report (Full)</field>
         <field name="res_model">stock.lot</field>
         <field name="view_mode">list,form</field>
-        <field name="domain" eval="[('product_id.product_tmpl_id', 'in', [
-            ref('elegomotors_setup.tmpl_ego_scooter'),
-            ref('elegomotors_setup.tmpl_elego_11'),
-            ref('elegomotors_setup.tmpl_elego_12'),
-            ref('elegomotors_setup.tmpl_elego_20p'),
-            ref('elegomotors_setup.tmpl_elego_30'),
-            ref('elegomotors_setup.tmpl_elego_11_42ah'),
-            ref('elegomotors_setup.tmpl_elego_12_42ah'),
-        ])]"/>
+        <field name="domain" eval="[('product_id.product_tmpl_id.x_is_ego_bike', '=', True)]"/>
         <field name="context">{'create': False}</field>
         <field name="view_ids" eval="[(5, 0, 0),
             (0, 0, {'view_mode': 'list', 'view_id': ref('view_qc_full_report_list')})]"/>

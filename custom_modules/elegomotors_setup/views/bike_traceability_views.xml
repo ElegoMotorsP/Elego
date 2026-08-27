@@ -126,18 +126,11 @@
         <field name="name">Bike Traceability</field>
         <field name="res_model">stock.lot</field>
         <field name="view_mode">list,form</field>
-        <field name="domain" eval="[('product_id.product_tmpl_id', 'in', [
-            ref('elegomotors_setup.tmpl_ego_scooter'),
-            ref('elegomotors_setup.tmpl_elego_11'),
-            ref('elegomotors_setup.tmpl_elego_12'),
-            ref('elegomotors_setup.tmpl_elego_20p'),
-            ref('elegomotors_setup.tmpl_elego_30'),
-            ref('elegomotors_setup.tmpl_elego_11_42ah'),
-            ref('elegomotors_setup.tmpl_elego_12_42ah'),
-        ])]"/>
+        <field name="domain" eval="[('product_id.product_tmpl_id.x_is_ego_bike', '=', True)]"/>
         <field name="context">{'create': False}</field>
         <field name="view_ids" eval="[(5, 0, 0),
-            (0, 0, {'view_mode': 'list', 'view_id': ref('view_bike_traceability_list')})]"/>
+            (0, 0, {'view_mode': 'list', 'view_id': ref('view_bike_traceability_list')}),
+            (0, 0, {'view_mode': 'form', 'view_id': ref('stock.view_production_lot_form')})]"/>
         <field name="search_view_id" ref="view_bike_traceability_search"/>
         <field name="help" type="html">
             <p class="o_view_nocontent_smiling_face">

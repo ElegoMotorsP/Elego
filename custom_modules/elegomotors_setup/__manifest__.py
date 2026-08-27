@@ -77,9 +77,11 @@
         'data/cron_daily_pi.xml',        # Daily consolidated PI generation cron job
         'data/finance_material_codes_data.xml', # Default materialCode per bike model (Finance API)
         'data/warranty_claim_sequence_data.xml', # Warranty Claim Number sequence (WC-YYMM-NNNN)
+        'data/ego_bike_flag_seed_data.xml', # x_is_ego_bike/x_serial_prefix seed for the 7 pre-existing models
         # View overrides (loaded last so base views exist)
         'views/account_move_views.xml',
         'views/mrp_production_views.xml',   # Post-production QC buttons on MO form; Issue 7+8
+        'views/mrp_unbuild_views.xml',      # Serial-Number-Wise Bike Unbuild & Rebuild traceability
         'views/purchase_order_views.xml',   # Receive Products button restriction; Issues 2+3
         'views/purchase_bom_wizard_views.xml', # Load BOM Components wizard on PO form
         'views/sale_order_reject_wizard_views.xml', # Reject Sales Order wizard (mandatory reason)
@@ -112,6 +114,7 @@
         'views/report_warranty_certificate.xml',    # Warranty Certificate PDF
         'views/warranty_api_views.xml',             # Warranty API Clients + Request Log views/actions
         'views/warranty_menu.xml',                   # Warranty menu (Registrations, Claims, Policy Rules, API)
+        'views/new_bike_model_wizard_views.xml',    # New Bike Model wizard (product + BOM, no developer needed)
     ],
     'assets': {
         'web.assets_backend': [

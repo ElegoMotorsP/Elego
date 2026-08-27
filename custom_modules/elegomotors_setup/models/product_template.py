@@ -49,6 +49,67 @@ class ProductTemplate(models.Model):
              'no redeploy needed to add or change a code.',
     )
 
+    x_is_ego_bike = fields.Boolean(
+        string='Is Elego Bike Model',
+        default=False,
+        index=True,
+        help='The single flag every "which products are Elego bikes" check in '
+             'this module reads — Bike Traceability, the Quality Control app, '
+             'the daily consolidated-PI cron, delivery serial-scan enforcement, '
+             'the invoice gate, Global Production Scan, and more. Check this '
+             'when creating a new bike model (normally done for you by the '
+             '"New Bike Model" wizard) so it appears everywhere those already '
+             'do, with no code change or module upgrade needed.',
+    )
+    x_serial_prefix = fields.Char(
+        string='Serial Number Prefix',
+        help='e.g. EL30 for Elego 3.0. Used to build each unit\'s serial '
+             '(<prefix>-<YYMM>-<counter>) and as the Global Production Scan '
+             'barcode model code. Required once "Is Elego Bike Model" is checked.',
+    )
+    x_serial_sequence_id = fields.Many2one(
+        'ir.sequence', string='Serial Number Sequence', readonly=True, copy=False,
+        help='Auto-created the first time a unit of this model is produced — '
+             'nothing to set up by hand.',
+    )
+
+    @api.constrains('x_is_ego_bike', 'x_serial_prefix')
+    def _check_serial_prefix_required(self):
+        for tmpl in self:
+            if tmpl.x_is_ego_bike and not tmpl.x_serial_prefix:
+                raise UserError(
+                    f'"{tmpl.name}" is marked as an Elego Bike Model but has no '
+                    f'Serial Number Prefix — set one (e.g. EL40) before saving.'
+                )
+
+    def _get_or_create_serial_sequence(self):
+        """Lazily create this template's ir.sequence the first time a unit is
+        produced, so the admin never has to visit Settings > Technical
+        themselves. Mirrors the shape of the existing per-model sequences
+        (see e.g. seq_elego_30_serial in data/product_elego_30_data.xml) —
+        same monthly-reset date-range behavior, just created on demand."""
+        self.ensure_one()
+        if self.x_serial_sequence_id:
+            return self.x_serial_sequence_id
+        if not self.x_serial_prefix:
+            raise UserError(
+                f'"{self.name}" has no Serial Number Prefix set — cannot '
+                f'generate a serial number for it. Set one on the product '
+                f'form (Is Elego Bike Model must be checked too).'
+            )
+        sequence = self.env['ir.sequence'].sudo().create({
+            'name': f'{self.name} Serial Number',
+            'code': f'elegomotors.serial.tmpl.{self.id}',
+            'prefix': f'{self.x_serial_prefix}-%(y)s%(month)s-',
+            'padding': 4,
+            'number_next': 1,
+            'number_increment': 1,
+            'use_date_range': True,
+            'company_id': self.env.company.id,
+        })
+        self.sudo().x_serial_sequence_id = sequence.id
+        return sequence
+
     @api.model
     def _seed_finance_material_codes(self):
         """One-time default materialCode per bike model, for the Bajaj
@@ -69,6 +130,40 @@ class ProductTemplate(models.Model):
             tmpl = self.env.ref(xml_id, raise_if_not_found=False)
             if tmpl and not tmpl.x_material_code:
                 tmpl.x_material_code = code
+
+    @api.model
+    def _seed_ego_bike_flags(self):
+        """One-time flip of x_is_ego_bike + x_serial_prefix for the 7 bike
+        models that existed before these fields did — every hardcoded
+        "which templates are Elego bikes" list in this module keyed off
+        these exact same 7 refs, so this seed just carries their prefixes
+        (unchanged serial format) onto the new data-driven fields. Only
+        fills blanks — never overwrites a manual correction — and any
+        model created afterward via the New Bike Model wizard sets these
+        itself, no seed entry needed."""
+        prefixes = {
+            'elegomotors_setup.tmpl_ego_scooter': 'EGO-S1',
+            'elegomotors_setup.tmpl_elego_11': 'EL11',
+            'elegomotors_setup.tmpl_elego_12': 'EL12',
+            'elegomotors_setup.tmpl_elego_20p': 'EL20P',
+            'elegomotors_setup.tmpl_elego_30': 'EL30',
+            'elegomotors_setup.tmpl_elego_11_42ah': 'EL1142',
+            'elegomotors_setup.tmpl_elego_12_42ah': 'EL1242',
+        }
+        for xml_id, prefix in prefixes.items():
+            tmpl = self.env.ref(xml_id, raise_if_not_found=False)
+            if not tmpl:
+                continue
+            # Both fields must land in ONE write — the _check_serial_prefix_required
+            # constraint runs after every write, so setting x_is_ego_bike alone
+            # first would trip it on a template whose prefix isn't set yet.
+            vals = {}
+            if not tmpl.x_is_ego_bike:
+                vals['x_is_ego_bike'] = True
+            if not tmpl.x_serial_prefix:
+                vals['x_serial_prefix'] = prefix
+            if vals:
+                tmpl.write(vals)
 
     @api.model
     def _ensure_ego_s1_variant_attributes(self):

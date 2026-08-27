@@ -71,6 +71,22 @@ class MrpProduction(models.Model):
         help='The consolidated daily PI that covers this MO\'s components.',
     )
 
+    # Serial-Number-Wise Bike Unbuild & Rebuild
+    x_source_unbuild_id = fields.Many2one(
+        'mrp.unbuild', string='Source Unbuild Order', copy=False, readonly=True,
+        help='Set automatically when this MO was auto-created to rebuild a bike '
+             'after its Unbuild Order was validated. Its components are consumed '
+             'straight from Production WIP — no Issue-to-Production picking.',
+    )
+    x_original_mo_id = fields.Many2one(
+        'mrp.production', string='Original Manufacturing Order', copy=False, readonly=True,
+        help='The MO that originally produced the bike serial this rebuild MO recreates.',
+    )
+    x_rebuild_mo_ids = fields.One2many(
+        'mrp.production', 'x_original_mo_id', string='Rebuild MOs', readonly=True,
+        help='Every rebuild MO ever auto-created (via an Unbuild Order) from this MO.',
+    )
+
     # --- Issue 8: gate "Produce" actions until Amit validates Issue to Production ---
     x_issue_picking_done = fields.Boolean(
         string='Issue to Production Done',
@@ -98,6 +114,12 @@ class MrpProduction(models.Model):
 
             # Only apply consolidated PI logic to EGO bike models
             if prod.product_id.product_tmpl_id not in bike_templates:
+                continue
+
+            # Rebuild MOs (auto-created from an Unbuild Order) consume components
+            # already recovered to Production WIP by the unbuild — no Store->WIP
+            # Issue-to-Production picking is needed or created for them.
+            if prod.x_source_unbuild_id:
                 continue
 
             # Cancel the Odoo-auto-created individual PI — we manage our own PI flow.
@@ -168,6 +190,11 @@ class MrpProduction(models.Model):
             'elegomotors_setup.picking_type_production_issue', raise_if_not_found=False
         )
         for prod in self:
+            if prod.x_source_unbuild_id:
+                # Rebuild MO — components already sit in Production WIP from the
+                # Unbuild Order; no Issue-to-Production picking will ever exist.
+                prod.x_issue_picking_done = True
+                continue
             if not issue_type:
                 prod.x_issue_picking_done = True
                 continue
@@ -495,22 +522,12 @@ class MrpProduction(models.Model):
         return result
 
     def _get_ego_templates(self):
-        """Return a recordset of all ElegoMotors bike product templates."""
-        refs = [
-            'elegomotors_setup.tmpl_ego_scooter',
-            'elegomotors_setup.tmpl_elego_11',
-            'elegomotors_setup.tmpl_elego_12',
-            'elegomotors_setup.tmpl_elego_20p',
-            'elegomotors_setup.tmpl_elego_30',
-            'elegomotors_setup.tmpl_elego_11_42ah',
-            'elegomotors_setup.tmpl_elego_12_42ah',
-        ]
-        result = self.env['product.template']
-        for ref in refs:
-            tmpl = self.env.ref(ref, raise_if_not_found=False)
-            if tmpl:
-                result |= tmpl
-        return result
+        """Return a recordset of all ElegoMotors bike product templates —
+        every template with x_is_ego_bike checked, not a hardcoded list.
+        A model created via the New Bike Model wizard (or the product form
+        directly) appears here — and everywhere this method's callers use
+        it — with no code change or module upgrade needed."""
+        return self.env['product.template'].search([('x_is_ego_bike', '=', True)])
 
     def _notify_qc_needed(self):
         """Post a chatter notification after MO completes, asking Pratik to do QC."""
@@ -618,6 +635,25 @@ class MrpBarcodeWizard(models.TransientModel):
     # Req 4: auto-advance toggle (default True = scanner auto-moves to next field)
     x_auto_scan = fields.Boolean(string='Auto-Advance on Scan', default=True)
 
+    # Serial-Number-Wise Bike Rebuild — only meaningful when production_id is a
+    # rebuild MO (x_source_unbuild_id set). Pre-filled True with the unbuilt
+    # bike's snapshot serials; user may untick to mint a brand-new serial instead.
+    x_reuse_original_serial = fields.Boolean(
+        string='Reuse Original Bike Serial',
+        help='Reuse the same chassis/bike serial number that was unbuilt instead '
+             'of assigning a new one. Only allowed once that serial has zero '
+             'stock on hand (guaranteed once it has been unbuilt).',
+    )
+    x_is_rebuild_wizard = fields.Boolean(
+        string='Is Rebuild', compute='_compute_is_rebuild_wizard',
+        help='True when this MO was auto-created to rebuild a previously unbuilt bike.',
+    )
+
+    @api.depends('production_id.x_source_unbuild_id')
+    def _compute_is_rebuild_wizard(self):
+        for wizard in self:
+            wizard.x_is_rebuild_wizard = bool(wizard.production_id.x_source_unbuild_id)
+
     chassis_scanned    = fields.Boolean(compute='_compute_scan_progress')
     motor_scanned      = fields.Boolean(compute='_compute_scan_progress')
     controller_scanned = fields.Boolean(compute='_compute_scan_progress')
@@ -642,44 +678,52 @@ class MrpBarcodeWizard(models.TransientModel):
     def _onchange_barcodes(self):
         self._compute_scan_progress()
 
+    @api.model_create_multi
+    def create(self, vals_list):
+        records = super().create(vals_list)
+        for wizard in records:
+            unbuild = wizard.production_id.x_source_unbuild_id
+            if unbuild and not wizard.x_chassis_serial:
+                wizard.write({
+                    'x_chassis_serial':        unbuild.x_chassis_serial,
+                    'x_motor_serial':          unbuild.x_motor_serial,
+                    'x_controller_serial':     unbuild.x_controller_serial,
+                    'x_battery_serial':        unbuild.x_battery_serial,
+                    'x_charger_serial':        unbuild.x_charger_serial,
+                    'x_reuse_original_serial': True,
+                })
+        return records
+
     def _get_next_lot_serial(self, production):
         """Return the next auto-generated serial name for this bike template.
 
-        Format: <model prefix>-<YYMM>-<global counter>, where the counter is
-        SHARED across all bike models/variants and never resets — the trailing
-        number of the newest serial in Bike Traceability therefore always
-        equals the total number of units the company has produced.
-        e.g. EL11-2607-0001, then an Elego 1.2 produced next gets
-        EL12-2607-0002. (The old per-model monthly sequences are retained
-        only for serials issued before this change.)
+        Format: <model prefix>-<YYMM>-<counter>, where the prefix comes from
+        the template's own x_serial_prefix field (not a hardcoded list) and
+        the counter is that template's own sequence, auto-created on first
+        use via product.template._get_or_create_serial_sequence() — a model
+        created via the New Bike Model wizard gets a working serial the
+        moment its first unit is produced, no code change needed.
         """
-        prefix_map = [
-            ('elegomotors_setup.tmpl_ego_scooter',   'EGO-S1'),
-            ('elegomotors_setup.tmpl_elego_11',      'EL11'),
-            ('elegomotors_setup.tmpl_elego_12',      'EL12'),
-            ('elegomotors_setup.tmpl_elego_20p',     'EL20P'),
-            ('elegomotors_setup.tmpl_elego_30',      'EL30'),
-            ('elegomotors_setup.tmpl_elego_11_42ah', 'EL1142'),
-            ('elegomotors_setup.tmpl_elego_12_42ah', 'EL1242'),
-        ]
         tmpl = production.product_id.product_tmpl_id
-        for tmpl_ref, prefix in prefix_map:
-            t = self.env.ref(tmpl_ref, raise_if_not_found=False)
-            if t and tmpl == t:
-                number = self.env['ir.sequence'].sudo().next_by_code(
-                    'elego.global.serial'
-                )
-                if not number:
-                    raise UserError(
-                        'Global bike serial counter (elego.global.serial) is '
-                        'missing. Contact your administrator.'
-                    )
-                yymm = fields.Datetime.now().strftime('%y%m')
-                return f'{prefix}-{yymm}-{number}'
-        raise UserError(
-            f'No serial number sequence configured for product "{production.product_id.name}". '
-            f'Contact your administrator.'
-        )
+        if not tmpl.x_is_ego_bike:
+            raise UserError(
+                f'"{tmpl.name}" is not marked as an Elego Bike Model, so it has '
+                f'no serial number configuration. Check "Is Elego Bike Model" '
+                f'on the product form (Inventory > Products) and set a Serial '
+                f'Number Prefix, then try again.'
+            )
+        sequence = tmpl._get_or_create_serial_sequence()
+        # next_by_code() already returns the fully formatted value (the sequence's
+        # own 'prefix' field bakes in x_serial_prefix + YYMM), so it must be
+        # returned as-is — wrapping it again here duplicated the prefix/date,
+        # e.g. "EL11-2608-EL11-2608-0001" instead of "EL11-2608-0001".
+        serial = self.env['ir.sequence'].sudo().next_by_code(sequence.code)
+        if not serial:
+            raise UserError(
+                f'Serial number sequence for "{tmpl.name}" ({sequence.code}) '
+                f'could not be consumed. Contact your administrator.'
+            )
+        return serial
 
     def action_confirm(self):
         self.ensure_one()
@@ -699,9 +743,28 @@ class MrpBarcodeWizard(models.TransientModel):
         production = self.production_id
         Lot = self.env['stock.lot']
 
+        # Rebuild MO reusing the original bike serial: the reused lot is
+        # EXPECTED to already own these serial values, so it must be excluded
+        # from the uniqueness checks below rather than tripping them.
+        reuse_lot = False
+        if self.x_reuse_original_serial and production.x_source_unbuild_id:
+            reuse_lot = production.x_source_unbuild_id.lot_id
+            if not reuse_lot:
+                raise UserError('The source Unbuild Order has no original bike serial to reuse.')
+            qty_on_hand = sum(self.env['stock.quant'].search([
+                ('lot_id', '=', reuse_lot.id),
+                ('location_id.usage', '=', 'internal'),
+            ]).mapped('quantity'))
+            if qty_on_hand > 0:
+                raise UserError(
+                    f'Cannot reuse bike serial "{reuse_lot.name}" — it still has '
+                    f'{qty_on_hand} unit(s) on hand. It can only be reused once '
+                    f'fully unbuilt (stock at zero).'
+                )
+
         # Chassis plate number must be globally unique
         existing_chassis = Lot.search([('x_chassis_serial', '=', self.x_chassis_serial)], limit=1)
-        if existing_chassis:
+        if existing_chassis and existing_chassis != reuse_lot:
             raise UserError(
                 f'Chassis number "{self.x_chassis_serial}" is already registered on '
                 f'serial {existing_chassis.name}. Please verify the frame plate barcode.'
@@ -714,7 +777,7 @@ class MrpBarcodeWizard(models.TransientModel):
         ]:
             val = getattr(self, field_name)
             existing = Lot.search([(field_name, '=', val)], limit=1)
-            if existing:
+            if existing and existing != reuse_lot:
                 raise UserError(
                     f'{label} serial "{val}" is already registered on serial '
                     f'{existing.name}. Please verify the barcode.'
@@ -728,7 +791,7 @@ class MrpBarcodeWizard(models.TransientModel):
             val = getattr(self, field_name)
             if val:
                 existing = Lot.search([(field_name, '=', val)], limit=1)
-                if existing:
+                if existing and existing != reuse_lot:
                     raise UserError(
                         f'{label} serial "{val}" is already registered on serial '
                         f'{existing.name}. Please verify the barcode.'
@@ -745,13 +808,16 @@ class MrpBarcodeWizard(models.TransientModel):
                 'Each component must have a unique serial number.'
             )
 
-        # Auto-generate the bike serial number from the model sequence
-        lot_name = self._get_next_lot_serial(production)
-        lot = Lot.create({
-            'name':       lot_name,
-            'product_id': production.product_id.id,
-            'company_id': production.company_id.id,
-        })
+        if reuse_lot:
+            lot = reuse_lot
+        else:
+            # Auto-generate the bike serial number from the model sequence
+            lot_name = self._get_next_lot_serial(production)
+            lot = Lot.create({
+                'name':       lot_name,
+                'product_id': production.product_id.id,
+                'company_id': production.company_id.id,
+            })
         production.lot_producing_id = lot
         production.qty_producing    = 1
 

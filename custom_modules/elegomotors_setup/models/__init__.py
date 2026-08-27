@@ -4,6 +4,7 @@ from . import qc_parameter
 from . import pdi_parameter
 from . import account_move
 from . import mrp_production
+from . import mrp_unbuild
 from . import bulk_barcode_wizard
 from . import batch_mo_wizard
 from . import product_template
@@ -25,3 +26,4 @@ from . import combo_price
 from . import res_partner
 from . import finance_api
 from . import warranty
+from . import new_bike_model_wizard

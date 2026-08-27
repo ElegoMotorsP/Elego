@@ -94,6 +94,96 @@ class StockLot(models.Model):
     x_dealer_id = fields.Many2one('res.partner', string='Dealer', compute='_compute_trace_fields')
     x_dealer_address = fields.Char(string='Dealer Delivery Address', compute='_compute_trace_fields')
 
+    # Serial-Number-Wise Bike Unbuild & Rebuild
+    x_unbuild_id = fields.Many2one(
+        'mrp.unbuild', string='Unbuild Order', compute='_compute_unbuild_rebuild',
+        help='The most recent Unbuild Order that took this bike serial apart, if any.',
+    )
+    x_rebuild_mo_id = fields.Many2one(
+        'mrp.production', string='Rebuild MO', compute='_compute_unbuild_rebuild',
+        help='The MO auto-created to rebuild this bike after it was unbuilt, if any.',
+    )
+
+    def _compute_unbuild_rebuild(self):
+        unbuilds = self.env['mrp.unbuild'].search(
+            [('lot_id', 'in', self.ids)], order='id desc'
+        )
+        unbuild_by_lot = {}
+        for unbuild in unbuilds:
+            unbuild_by_lot.setdefault(unbuild.lot_id.id, unbuild)
+        for lot in self:
+            unbuild = unbuild_by_lot.get(lot.id)
+            lot.x_unbuild_id = unbuild.id if unbuild else False
+            lot.x_rebuild_mo_id = unbuild.x_rebuild_mo_id.id if unbuild else False
+
+    def action_view_unbuild_order(self):
+        self.ensure_one()
+        if not self.x_unbuild_id:
+            return {'type': 'ir.actions.act_window_close'}
+        return {
+            'name': 'Unbuild Order',
+            'type': 'ir.actions.act_window',
+            'res_model': 'mrp.unbuild',
+            'view_mode': 'form',
+            'res_id': self.x_unbuild_id.id,
+        }
+
+    def action_view_rebuild_mo(self):
+        self.ensure_one()
+        if not self.x_rebuild_mo_id:
+            return {'type': 'ir.actions.act_window_close'}
+        return {
+            'name': 'Rebuild Manufacturing Order',
+            'type': 'ir.actions.act_window',
+            'res_model': 'mrp.production',
+            'view_mode': 'form',
+            'res_id': self.x_rebuild_mo_id.id,
+        }
+
+    def action_unbuild_bike(self):
+        """Entry point for the Serial-Number-Wise Bike Unbuild & Rebuild flow:
+        creates and opens an Unbuild Order pre-filled for this bike serial,
+        sourced from wherever it currently has stock and destined for
+        Production WIP. Restricted via the button's view groups and enforced
+        again in mrp.unbuild.create() (elegomotors_setup.group_unbuild_rebuild_operator)."""
+        self.ensure_one()
+        if not self.product_id.product_tmpl_id.x_is_ego_bike:
+            raise UserError('Unbuild is only available for Elego bike serials.')
+        quant = self.env['stock.quant'].search([
+            ('lot_id', '=', self.id),
+            ('location_id.usage', '=', 'internal'),
+            ('quantity', '>', 0),
+        ], limit=1)
+        if not quant:
+            raise UserError(f'Bike serial "{self.name}" has no stock on hand to unbuild.')
+        wip = self.env.ref(
+            'elegomotors_setup.location_ego_production_wip', raise_if_not_found=False
+        )
+        if not wip:
+            raise UserError(
+                'The "EGO/Production WIP" location (elegomotors_setup.location_ego_production_wip) '
+                'could not be found. Recovered components cannot be routed correctly without it — '
+                'contact your administrator instead of proceeding.'
+            )
+        bom = self.env['mrp.unbuild']._find_bom_for_product(self.product_id)
+        unbuild = self.env['mrp.unbuild'].create({
+            'product_id': self.product_id.id,
+            'product_qty': 1,
+            'product_uom_id': self.product_id.uom_id.id,
+            'bom_id': bom.id if bom else False,
+            'lot_id': self.id,
+            'location_id': quant.location_id.id,
+            'location_dest_id': wip.id,
+            'company_id': self.company_id.id,
+        })
+        return {
+            'name': 'Unbuild Bike',
+            'type': 'ir.actions.act_window',
+            'res_model': 'mrp.unbuild',
+            'view_mode': 'form',
+            'res_id': unbuild.id,
+        }
+
     def _compute_trace_fields(self):
         """Batch-resolve the full traceability chain for this bike's lot: the
         Manufacturing Order that produced it, its QC outcome, the outgoing
