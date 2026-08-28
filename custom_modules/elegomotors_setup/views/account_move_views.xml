@@ -89,8 +89,8 @@
                       invisible="move_type not in ('out_invoice', 'out_refund')">
                     <group>
                         <field name="x_transport_name" placeholder="e.g. Shivam Transport"/>
-                        <field name="x_lr_number" placeholder="e.g. LR/2024/0001"/>
-                        <field name="x_lr_date"/>
+                        <field name="x_vehicle_number" placeholder="e.g. MH12AB1234"/>
+                        <field name="x_driver_name" placeholder="e.g. Ramesh Kumar"/>
                     </group>
                 </page>
             </xpath>

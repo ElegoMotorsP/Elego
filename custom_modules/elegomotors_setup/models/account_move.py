@@ -15,6 +15,8 @@ class AccountMove(models.Model):
     x_transport_name = fields.Char(string='Transporter Name')
     x_lr_number = fields.Char(string='LR Number')
     x_lr_date = fields.Date(string='LR Date')
+    x_driver_name = fields.Char(string='Driver Name')
+    x_vehicle_number = fields.Char(string='Vehicle Number')
 
     x_assigned_lot_ids = fields.Many2many(
         'stock.lot',
