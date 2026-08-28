@@ -162,6 +162,20 @@
             <field name="implied_ids" eval="[(4, ref('mrp.group_mrp_user'))]"/>
         </record>
 
+        <!--
+            group_delivery_change_operator
+                Outgoing Delivery Changes: reduce quantity, replace a bike serial,
+                or change the bike (model/colour) on a delivery before it's
+                validated. Initial members: Amit (Store) + Manohar (Admin) — matches
+                Amit's existing end-to-end ownership of the delivery/dispatch
+                workflow and Manohar's blanket access. Enforced in Python
+                (models/delivery_change_wizard.py), not just this group alone, the
+                same defensive pattern as group_unbuild_rebuild_operator.
+        -->
+        <record id="group_delivery_change_operator" model="res.groups">
+            <field name="name">Inventory: Delivery Change Operator</field>
+        </record>
+
         <!-- QC Routing Wizard access: all internal users may open it;
              button_validate() already restricts who reaches the wizard. -->
         <record id="access_stock_picking_qc_wizard_all" model="ir.model.access">

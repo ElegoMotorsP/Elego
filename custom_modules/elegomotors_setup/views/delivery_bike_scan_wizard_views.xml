@@ -3,11 +3,14 @@
     <!--
         Scan Bike Serials — Outgoing Delivery (Amit / Store)
 
-        Serial assignment happens at the OUT delivery, not on the invoice:
-        Amit scans the exact physical bike(s) shipped, model-wise. Validations:
-        right model + colour variant, available in FG store, not blacklisted,
-        not reserved on another delivery. After delivery validation the
-        serials appear on the customer invoice automatically.
+        Random Bike Scanning: one "Scan Serial No." input — scan ANY bike
+        serial and it's matched to whichever delivery line demands that
+        exact model/colour (stock.picking._scan_bike_unit, shared with the
+        mobile Barcode app). Each scan applies immediately; the list below
+        shows every unit scanned so far with live n/demand progress, so a
+        line demanding 2 units shows "1/2" then "2/2" (Multiple Bike
+        Scanning Correction). Works with a physical USB/Bluetooth scanner
+        too — it just types into the focused input, same as any keyboard.
     -->
 
     <record id="view_delivery_bike_scan_wizard_form" model="ir.ui.view">
@@ -17,33 +20,53 @@
             <form string="Scan Bike Serials — Outgoing Delivery">
                 <sheet>
                     <div class="alert alert-info mb-3" role="alert">
-                        <strong>Scan the serial number of each bike being shipped.</strong>
-                        The scanned units are checked against the delivery lines
-                        (model + colour), Finished Goods availability and the QC
-                        blacklist. These serials flow to the customer invoice
-                        automatically after validation.
+                        <strong>Scan the serial number of each bike being shipped —
+                        any order, any model.</strong> Each scan is checked against
+                        the delivery's lines (model + colour), Finished Goods
+                        availability and the QC blacklist, then assigned
+                        immediately — just keep scanning, one after another, no
+                        need to click anything in between. These serials flow to
+                        the customer invoice automatically after validation.
                     </div>
                     <field name="picking_id" invisible="1"/>
+
+                    <group>
+                        <field name="progress_summary" readonly="1" nolabel="1" class="fw-bold"/>
+                    </group>
+
+                    <div class="d-flex align-items-center gap-2 mb-2">
+                        <field name="scan_input"
+                               placeholder="Scan or type a bike serial number…"
+                               class="flex-grow-1"
+                               autofocus="1"
+                               nolabel="1"/>
+                        <button name="action_scan" string="Scan" type="object" class="btn-secondary"/>
+                    </div>
+                    <field name="last_success" invisible="1"/>
+                    <div class="alert alert-success mb-3"
+                         invisible="not last_message or not last_success"
+                         role="alert">
+                        <field name="last_message" readonly="1" nolabel="1"/>
+                    </div>
+                    <div class="alert alert-danger mb-3"
+                         invisible="not last_message or last_success"
+                         role="alert">
+                        <field name="last_message" readonly="1" nolabel="1"/>
+                    </div>
+
                     <field name="line_ids" nolabel="1">
-                        <list editable="bottom" create="false" delete="false"
-                              decoration-success="status == 'OK'"
-                              decoration-danger="status not in ('OK', '') and status != False">
-                            <field name="product_display" string="Model / Variant" readonly="1"/>
-                            <field name="unit_index" string="Unit #" readonly="1"/>
-                            <field name="scanned_serial"
-                                   string="Scan Serial No."
-                                   placeholder="Scan bike serial barcode…"/>
-                            <field name="status" string="Status" readonly="1"/>
-                            <field name="move_id" column_invisible="1"/>
+                        <list create="false" delete="false" edit="false">
+                            <field name="product_display" string="Model / Variant"/>
+                            <field name="lot_id" string="Serial No."/>
                         </list>
                     </field>
                 </sheet>
                 <footer>
-                    <button name="action_confirm"
-                            string="Assign Scanned Bikes"
+                    <button name="action_done"
+                            string="Done"
                             type="object"
                             class="btn-primary"/>
-                    <button string="Cancel" special="cancel" class="btn-secondary"/>
+                    <button string="Close" special="cancel" class="btn-secondary"/>
                 </footer>
             </form>
         </field>

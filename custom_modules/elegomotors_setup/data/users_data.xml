@@ -80,6 +80,7 @@
                     ref('quality.group_quality_user'),
                     ref('base.group_allow_export'),
                     ref('elegomotors_setup.group_unbuild_rebuild_operator'),
+                    ref('elegomotors_setup.group_delivery_change_operator'),
                 ]),
             ]"/>
         </record>
@@ -87,6 +88,8 @@
              Manohar is the ONLY initial member — he can grant it to other users
              himself later via Settings > Users > Manohar Kalbhor > this group,
              no code/deploy change needed. -->
+        <!-- group_delivery_change_operator: Outgoing Delivery Changes — Manohar is
+             one of the two initial members (Amit is the other). -->
         <!-- base.group_system (Settings/Administration) matches admin@elegomotors.com's
              access level: implies the top "Administrator" group in every installed app,
              and lets Manohar reach Settings > Users & Companies to manage everyone
@@ -140,9 +143,13 @@
                     ref('elegomotors_setup.group_store_billing'),
                     ref('elegomotors_setup.group_inbound_operator'),
                     ref('base.group_allow_export'),
+                    ref('elegomotors_setup.group_delivery_change_operator'),
                 ]),
             ]"/>
         </record>
+        <!-- group_delivery_change_operator: Outgoing Delivery Changes — Amit is
+             one of the two initial members (matches his existing end-to-end
+             ownership of delivery/dispatch); Manohar is the other. -->
 
         <!-- ============================================================
              3. PURCHASE — Prashant Khedkar

@@ -147,6 +147,21 @@ class StockPicking(models.Model):
         copy=False,
     )
 
+    # Outgoing Delivery Changes — audit trail of every reduce-qty /
+    # replace-serial / change-bike action taken on this delivery.
+    x_delivery_change_ids = fields.One2many(
+        'elegomotors.delivery.change.log', 'picking_id',
+        string='Delivery Changes', copy=False,
+    )
+    # Set by the Delivery Change wizard's "Reduce Quantity" action: lets a
+    # deliberately short bike delivery past the scan-completeness gate below
+    # so Odoo's own native backorder flow (in button_validate()'s
+    # super() call) can carry the reduced unit forward, instead of the gate
+    # blocking validation outright the way it does for a merely-forgotten scan.
+    x_delivery_change_authorized_shortfall = fields.Boolean(
+        default=False, copy=False,
+    )
+
     # Serial numbers picked on outgoing deliveries — traceability for SO → invoice flow
     x_picked_serial_nos = fields.Char(
         string='Serial No(s)',
@@ -580,6 +595,7 @@ class StockPicking(models.Model):
                 if (
                     picking.picking_type_code == 'outgoing'
                     and not picking.x_bike_serials_scanned
+                    and not picking.x_delivery_change_authorized_shortfall
                     and bike_tmpls
                     and any(
                         m.product_id.product_tmpl_id in bike_tmpls
@@ -879,14 +895,19 @@ class StockPicking(models.Model):
     def action_open_delivery_bike_scan_wizard(self):
         """Amit scans the exact bikes being shipped on this delivery."""
         self.ensure_one()
-        wizard = self.env['elegomotors.delivery.bike.scan.wizard'].create({
-            'picking_id': self.id,
-        })
-        if not wizard.line_ids:
+        bike_tmpls = self.env['mrp.production']._get_ego_templates()
+        has_bike_moves = any(
+            m.product_id.product_tmpl_id in bike_tmpls and m.state not in ('done', 'cancel')
+            for m in self.move_ids
+        )
+        if not has_bike_moves:
             raise UserError(
                 'This delivery has no bike units to scan '
                 '(no ElegoMotors bike products on it).'
             )
+        wizard = self.env['elegomotors.delivery.bike.scan.wizard'].create({
+            'picking_id': self.id,
+        })
         return {
             'type': 'ir.actions.act_window',
             'name': 'Scan Bike Serials — Outgoing Delivery',
@@ -897,23 +918,50 @@ class StockPicking(models.Model):
             'target': 'new',
         }
 
-    def action_scan_bike_serial(self, barcode):
-        """Mobile Barcode app: a scan on the delivery's own scan screen that
-        matches a bike serial is assigned directly, without needing the
-        "Scan Bike Serials" wizard opened first. Mirrors that wizard's
-        validations (model/colour match, FG availability, blacklist,
-        duplicate-delivery check), one unit at a time.
-
-        Returns {'handled': False} when the barcode isn't a recognised bike
-        serial at all, so the caller falls back to normal barcode handling
-        (product scan, etc). Otherwise returns {'handled': True, 'success':
-        bool, 'message': str}.
-        """
+    def _recompute_bike_serials_scanned(self):
+        """Shared completeness check: True once every bike unit demanded on
+        this delivery has a genuinely scanned move line (qty_done > 0).
+        Called after every individual scan (_scan_bike_unit) and after an
+        Outgoing Delivery Change (reduced demand may now already be fully
+        met by what's already scanned)."""
         self.ensure_one()
         bike_tmpls = self.env['mrp.production']._get_ego_templates()
-        lot = self.env['stock.lot'].search([('name', '=', barcode)], limit=1)
+        bike_moves = self.move_ids.filtered(
+            lambda m: m.product_id.product_tmpl_id in bike_tmpls and m.state not in ('done', 'cancel')
+        )
+        self.x_bike_serials_scanned = bool(bike_moves) and all(
+            len(m.move_line_ids.filtered(lambda ml: ml.qty_done > 0)) >= max(1, int(m.product_uom_qty))
+            for m in bike_moves
+        )
+
+    def _scan_bike_unit(self, barcode):
+        """Shared bike-serial scan matching/validation/assignment for an
+        outgoing delivery — scan ANY bike serial and it is matched to
+        whichever delivery line demands that exact model/colour, one unit
+        at a time. Used by both the desktop "Scan Bike Serials" wizard
+        (delivery_bike_scan_wizard.py) and the mobile Barcode app entry
+        point (action_scan_bike_serial below) so every rejection rule
+        (wrong model/colour, wrong location, blacklisted, already scanned
+        here or on another delivery, over-quota) is written exactly once.
+
+        Returns {'success': bool, 'message': str, 'lot': stock.lot recordset
+        or empty}. 'lot' is set even on some failures so a caller can show
+        which physical bike was scanned.
+        """
+        self.ensure_one()
+        Lot = self.env['stock.lot']
+        bike_tmpls = self.env['mrp.production']._get_ego_templates()
+        barcode = (barcode or '').strip()
+        if not barcode:
+            return {'success': False, 'message': 'No serial number scanned.', 'lot': Lot}
+
+        lot = Lot.search([('name', '=', barcode)], limit=1)
         if not lot or lot.product_id.product_tmpl_id not in bike_tmpls:
-            return {'handled': False}
+            return {
+                'success': False,
+                'message': f'Serial "{barcode}" not found or is not an Elego bike serial.',
+                'lot': Lot,
+            }
 
         label = lot.product_id.display_name
         move = self.move_ids.filtered(
@@ -921,8 +969,9 @@ class StockPicking(models.Model):
         )[:1]
         if not move:
             return {
-                'handled': True, 'success': False,
-                'message': f'{label} is not on this delivery.',
+                'success': False,
+                'message': f'{label} is not on this delivery — wrong model/colour for any line here.',
+                'lot': lot,
             }
 
         # Odoo's automatic reservation can pre-populate lot_id on a move line
@@ -935,19 +984,22 @@ class StockPicking(models.Model):
         scanned_lines = move.move_line_ids.filtered(lambda ml: ml.qty_done > 0)
         if lot in scanned_lines.mapped('lot_id'):
             return {
-                'handled': True, 'success': False,
+                'success': False,
                 'message': f'Serial "{barcode}" is already scanned on this delivery.',
+                'lot': lot,
             }
         demanded = max(1, int(move.product_uom_qty))
         if len(scanned_lines) >= demanded:
             return {
-                'handled': True, 'success': False,
-                'message': f'All {label} units on this delivery are already scanned.',
+                'success': False,
+                'message': f'All {label} units on this delivery are already scanned ({demanded}/{demanded}).',
+                'lot': lot,
             }
         if lot.x_blacklisted:
             return {
-                'handled': True, 'success': False,
+                'success': False,
                 'message': f'Serial "{barcode}" is BLACKLISTED (QC failed) — pick a different unit.',
+                'lot': lot,
             }
 
         quant = None
@@ -962,8 +1014,9 @@ class StockPicking(models.Model):
             ], limit=1)
             if not quant:
                 return {
-                    'handled': True, 'success': False,
-                    'message': f'Serial "{barcode}" is not currently available in Finished Goods.',
+                    'success': False,
+                    'message': f'Serial "{barcode}" is not currently available in Finished Goods (wrong location).',
+                    'lot': lot,
                 }
 
         # Same reasoning as the auto-reservation comment above: only a line
@@ -979,8 +1032,9 @@ class StockPicking(models.Model):
         ], limit=1)
         if other_ml:
             return {
-                'handled': True, 'success': False,
+                'success': False,
                 'message': f'Serial "{barcode}" is already scanned on delivery {other_ml.picking_id.name}.',
+                'lot': lot,
             }
 
         # Release any stale auto-reservation placeholder (qty_done still 0
@@ -1019,14 +1073,7 @@ class StockPicking(models.Model):
         lot._create_pdi_check_results()
         lot.x_pdi_check_result_ids.filtered(lambda r: not r.picking_id).write({'picking_id': self.id})
 
-        bike_moves = self.move_ids.filtered(
-            lambda m: m.product_id.product_tmpl_id in bike_tmpls and m.state not in ('done', 'cancel')
-        )
-        if bike_moves and all(
-            len(m.move_line_ids.filtered(lambda ml: ml.qty_done > 0)) >= max(1, int(m.product_uom_qty))
-            for m in bike_moves
-        ):
-            self.x_bike_serials_scanned = True
+        self._recompute_bike_serials_scanned()
 
         self.message_post(
             body=Markup(
@@ -1036,9 +1083,59 @@ class StockPicking(models.Model):
             message_type='comment',
             subtype_xmlid='mail.mt_comment',
         )
+        scanned_count = len(move.move_line_ids.filtered(lambda ml: ml.qty_done > 0))
         return {
-            'handled': True, 'success': True,
-            'message': f'{label}: {lot.name} scanned.',
+            'success': True,
+            'message': f'{label}: {lot.name} scanned ({scanned_count}/{demanded}).',
+            'lot': lot,
+        }
+
+    def action_scan_bike_serial(self, barcode):
+        """Mobile Barcode app: a scan on the delivery's own scan screen that
+        matches a bike serial is assigned directly, without needing the
+        "Scan Bike Serials" wizard opened first. Thin wrapper over the
+        shared _scan_bike_unit() — see that method for the actual matching/
+        validation/assignment logic (also used by the desktop wizard).
+
+        Returns {'handled': False} when the barcode isn't a recognised bike
+        serial at all, so the caller falls back to normal barcode handling
+        (product scan, etc). Otherwise returns {'handled': True, 'success':
+        bool, 'message': str}.
+        """
+        self.ensure_one()
+        bike_tmpls = self.env['mrp.production']._get_ego_templates()
+        lot = self.env['stock.lot'].search([('name', '=', (barcode or '').strip())], limit=1)
+        if not lot or lot.product_id.product_tmpl_id not in bike_tmpls:
+            return {'handled': False}
+        result = self._scan_bike_unit(barcode)
+        return {'handled': True, 'success': result['success'], 'message': result['message']}
+
+    def action_open_delivery_change_wizard(self):
+        """Amit/Manohar: reduce quantity, replace a serial, or change the
+        bike model/colour on this delivery before it's validated — every
+        change requires a reason and is logged (Outgoing Delivery Changes)."""
+        self.ensure_one()
+        bike_tmpls = self.env['mrp.production']._get_ego_templates()
+        has_bike_moves = any(
+            m.product_id.product_tmpl_id in bike_tmpls and m.state not in ('done', 'cancel')
+            for m in self.move_ids
+        )
+        if not has_bike_moves:
+            raise UserError(
+                'This delivery has no bike units to modify '
+                '(no ElegoMotors bike products on it).'
+            )
+        wizard = self.env['elegomotors.delivery.change.wizard'].create({
+            'picking_id': self.id,
+        })
+        return {
+            'type': 'ir.actions.act_window',
+            'name': 'Modify Delivery — Outgoing',
+            'res_model': 'elegomotors.delivery.change.wizard',
+            'res_id': wizard.id,
+            'view_mode': 'form',
+            'views': [[False, 'form']],
+            'target': 'new',
         }
 
     def action_export_qc_inward_report(self):
