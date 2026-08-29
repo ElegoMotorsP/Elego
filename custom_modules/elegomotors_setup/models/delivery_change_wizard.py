@@ -164,31 +164,52 @@ class DeliveryChangeWizard(models.TransientModel):
                 })
 
             elif line.action == 'change_bike':
+                old_label = f'{move.product_id.display_name} ({old_serial})'
                 if line.move_line_id:
                     line.move_line_id.unlink()
-                move.product_uom_qty = max(0, move.product_uom_qty - 1)
-                new_move = self.picking_id.move_ids.filtered(
-                    lambda m: m.product_id == line.new_product_id and m.state not in ('done', 'cancel')
-                )[:1]
-                if new_move:
-                    new_move.product_uom_qty += 1
-                else:
-                    self.env['stock.move'].create({
-                        'name': line.new_product_id.display_name,
-                        'picking_id': self.picking_id.id,
+                if move.product_uom_qty <= 1:
+                    # Common case: this move demands exactly this one unit —
+                    # swap its product in place, on the SAME move record, so
+                    # it stays on the same row/position in the list instead
+                    # of zeroing out to 0 and a new line appearing at the
+                    # bottom (confirmed live: that was confusing — "should
+                    # have taken the same line" as before, just updated).
+                    move.write({
                         'product_id': line.new_product_id.id,
-                        'product_uom_qty': 1,
                         'product_uom': line.new_product_id.uom_id.id,
-                        'location_id': move.location_id.id,
-                        'location_dest_id': move.location_dest_id.id,
-                        'picking_type_id': self.picking_id.picking_type_id.id,
-                        'company_id': self.picking_id.company_id.id,
-                        'state': 'confirmed',
+                        'name': line.new_product_id.display_name,
                     })
+                else:
+                    # This move demands MORE than one unit and only this
+                    # single unit is changing colour — the other units on it
+                    # must stay the original variant, so an in-place product
+                    # swap isn't valid here (one move = one product). Split
+                    # instead: this move's demand drops by 1, and the changed
+                    # unit joins (or starts) a separate move for the new
+                    # colour, same as before.
+                    move.product_uom_qty = max(0, move.product_uom_qty - 1)
+                    new_move = self.picking_id.move_ids.filtered(
+                        lambda m: m.product_id == line.new_product_id and m.state not in ('done', 'cancel')
+                    )[:1]
+                    if new_move:
+                        new_move.product_uom_qty += 1
+                    else:
+                        self.env['stock.move'].create({
+                            'name': line.new_product_id.display_name,
+                            'picking_id': self.picking_id.id,
+                            'product_id': line.new_product_id.id,
+                            'product_uom_qty': 1,
+                            'product_uom': line.new_product_id.uom_id.id,
+                            'location_id': move.location_id.id,
+                            'location_dest_id': move.location_dest_id.id,
+                            'picking_type_id': self.picking_id.picking_type_id.id,
+                            'company_id': self.picking_id.company_id.id,
+                            'state': 'confirmed',
+                        })
                 Log.create({
                     'picking_id': self.picking_id.id, 'move_id': move.id,
                     'change_type': 'change_bike',
-                    'old_value': f'{move.product_id.display_name} ({old_serial})',
+                    'old_value': old_label,
                     'new_value': line.new_product_id.display_name,
                     'reason': self.reason,
                 })
