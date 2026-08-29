@@ -62,10 +62,16 @@
                     </field>
                 </sheet>
                 <footer>
+                    <!-- Deliberately NOT btn-primary: Odoo's dialog binds Enter to
+                         whichever footer button is primary, which was hijacking
+                         every scan's Enter keypress before the scan_input onchange
+                         got a clean chance to process it — confirmed live as "still
+                         needs a manual Scan click". With no primary button in the
+                         footer, Enter reaches the field's own onchange instead. -->
                     <button name="action_done"
                             string="Done"
                             type="object"
-                            class="btn-primary"/>
+                            class="btn-secondary"/>
                     <button string="Close" special="cancel" class="btn-secondary"/>
                 </footer>
             </form>

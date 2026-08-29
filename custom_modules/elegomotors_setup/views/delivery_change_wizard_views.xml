@@ -1,11 +1,12 @@
 <?xml version="1.0" encoding="utf-8"?>
 <odoo>
     <!--
-        Outgoing Delivery Changes — reduce quantity, replace a bike serial,
-        or change the bike (model/colour), before the delivery is
-        validated. A reason is compulsory and every change is logged
-        (elegomotors.delivery.change.log) with who/when from Odoo's own
-        create_uid/create_date, plus a chatter post on the delivery.
+        Outgoing Delivery Changes — reduce quantity (ships the rest with no
+        backorder), replace a bike serial, or change a unit's colour within
+        the same bike model, before the delivery is validated. A reason is
+        compulsory and every change is logged (elegomotors.delivery.change.log)
+        with who/when from Odoo's own create_uid/create_date, plus a chatter
+        post on the delivery.
 
         Access: elegomotors_setup.group_delivery_change_operator
         (Amit + Manohar initially) — enforced in Python
@@ -21,8 +22,9 @@
                     <div class="alert alert-warning mb-3" role="alert">
                         <strong>Changes here apply immediately once you click Apply</strong> —
                         pick an action for each unit you want to change, and enter a
-                        reason (required). Reducing a unit's quantity will leave the
-                        remainder to be shipped as a backorder when you validate.
+                        reason (required). Reducing a unit's quantity ships the rest
+                        normally — it does not create a backorder. Changing a unit's
+                        colour is only allowed within the same bike model.
                     </div>
                     <field name="picking_id" invisible="1"/>
                     <field name="line_ids" nolabel="1">
@@ -30,11 +32,12 @@
                             <field name="product_display" string="Bike Unit" readonly="1"/>
                             <field name="action"/>
                             <field name="new_product_id"
-                                   string="New Model/Colour"
+                                   string="New Colour"
                                    invisible="action != 'change_bike'"/>
                             <field name="move_id" column_invisible="1"/>
                             <field name="move_line_id" column_invisible="1"/>
                             <field name="lot_id" column_invisible="1"/>
+                            <field name="current_tmpl_id" column_invisible="1"/>
                         </list>
                     </field>
                     <group>
