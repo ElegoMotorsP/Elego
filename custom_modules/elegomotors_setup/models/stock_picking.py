@@ -153,15 +153,6 @@ class StockPicking(models.Model):
         'elegomotors.delivery.change.log', 'picking_id',
         string='Delivery Changes', copy=False,
     )
-    # Set by the Delivery Change wizard's "Reduce Quantity" action: lets a
-    # deliberately short bike delivery past the scan-completeness gate below
-    # so Odoo's own native backorder flow (in button_validate()'s
-    # super() call) can carry the reduced unit forward, instead of the gate
-    # blocking validation outright the way it does for a merely-forgotten scan.
-    x_delivery_change_authorized_shortfall = fields.Boolean(
-        default=False, copy=False,
-    )
-
     # Serial numbers picked on outgoing deliveries — traceability for SO → invoice flow
     x_picked_serial_nos = fields.Char(
         string='Serial No(s)',
@@ -595,7 +586,6 @@ class StockPicking(models.Model):
                 if (
                     picking.picking_type_code == 'outgoing'
                     and not picking.x_bike_serials_scanned
-                    and not picking.x_delivery_change_authorized_shortfall
                     and bike_tmpls
                     and any(
                         m.product_id.product_tmpl_id in bike_tmpls

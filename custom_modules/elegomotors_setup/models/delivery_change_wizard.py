@@ -2,16 +2,21 @@
 """Outgoing Delivery Changes — Amit (Store) / Manohar (Admin) only.
 
 Lets an authorised user reduce a bike unit's quantity, replace its scanned
-serial, or swap it for a different model/colour, on a delivery that hasn't
-been validated yet — every change requires a reason and is logged
-(elegomotors.delivery.change.log: who, when, what changed, why).
+serial, or swap it for a different colour of the SAME bike model, on a
+delivery that hasn't been validated yet — every change requires a reason
+and is logged (elegomotors.delivery.change.log: who, when, what changed,
+why).
 
-Reducing a unit's demand and then validating the delivery normally already
-triggers Odoo's own native backorder flow (stock.backorder.confirmation)
-for the shortfall — no custom backorder logic needed here. The Sales
-Order's own ordered quantity is left untouched; only this delivery's
-demand shrinks, so the backorder correctly carries the remainder forward
-against the same SO.
+Reduce Quantity permanently drops that unit's demand on this delivery (and
+its scanned claim, if any) — the remaining units ship normally on
+validation, with NO backorder created for the reduced unit. The Sales
+Order's own ordered quantity is left untouched; only this delivery's own
+demand shrinks.
+
+Change Bike is deliberately scoped to variants of the same model
+(product_tmpl_id) — swapping colour is allowed, swapping to a different
+bike model entirely is not; that's a bigger change than this wizard is
+meant for.
 """
 from markupsafe import Markup
 from odoo import SUPERUSER_ID, api, fields, models
@@ -31,7 +36,7 @@ class DeliveryChangeLog(models.Model):
     change_type = fields.Selection([
         ('reduce_qty', 'Reduce Quantity'),
         ('replace_serial', 'Replace Serial'),
-        ('change_bike', 'Change Bike (Model/Colour)'),
+        ('change_bike', 'Change Colour (same model)'),
     ], required=True)
     old_value = fields.Char(string='Before')
     new_value = fields.Char(string='After')
@@ -122,7 +127,7 @@ class DeliveryChangeWizard(models.TransientModel):
         for line in active_lines:
             if line.action == 'change_bike' and not line.new_product_id:
                 raise UserError(
-                    f'Select a new bike model/colour for {line.product_display}.'
+                    f'Select a new colour for {line.product_display}.'
                 )
 
         Log = self.env['elegomotors.delivery.change.log']
@@ -131,22 +136,19 @@ class DeliveryChangeWizard(models.TransientModel):
             old_serial = line.lot_id.name if line.lot_id else '(not yet scanned)'
 
             if line.action == 'reduce_qty':
-                # Deliberately do NOT touch move.product_uom_qty — the demand
-                # stays at what the customer actually ordered. Only the
-                # scanned claim on this specific unit is removed, so at
-                # validation Odoo sees qty_done < product_uom_qty on this
-                # move and runs its own native backorder flow for the
-                # shortfall. x_delivery_change_authorized_shortfall lets
-                # that shortfall past the "all bikes must be scanned" gate
-                # in button_validate() — see that guard for why it exists.
+                # Ship the remaining units normally, no separate backorder:
+                # drop the demand for this specific unit permanently (not
+                # just its scanned claim), so qty_done stays matched to
+                # product_uom_qty and the delivery validates straight
+                # through for whatever remains.
                 if line.move_line_id:
                     line.move_line_id.unlink()
-                self.picking_id.x_delivery_change_authorized_shortfall = True
+                move.product_uom_qty = max(0, move.product_uom_qty - 1)
                 Log.create({
                     'picking_id': self.picking_id.id, 'move_id': move.id,
                     'change_type': 'reduce_qty',
-                    'old_value': f'{old_serial} — shipping today',
-                    'new_value': f'not shipped today; backordered (demand stays {move.product_uom_qty:.0f})',
+                    'old_value': f'{old_serial} — {move.product_uom_qty + 1:.0f} {move.product_id.display_name} demanded',
+                    'new_value': f'{move.product_uom_qty:.0f} {move.product_id.display_name} demanded — not shipped, no backorder',
                     'reason': self.reason,
                 })
 
@@ -217,14 +219,25 @@ class DeliveryChangeWizardLine(models.TransientModel):
     product_display = fields.Char(compute='_compute_product_display')
     action = fields.Selection([
         ('keep', 'Keep as-is'),
-        ('reduce_qty', "Reduce Quantity (don't ship this unit today — backorder it)"),
+        ('reduce_qty', "Reduce Quantity (this unit won't ship — no backorder)"),
         ('replace_serial', 'Replace Serial (re-scan a different unit)'),
-        ('change_bike', 'Change to a Different Bike Model/Colour'),
+        ('change_bike', 'Change Colour (same model)'),
     ], default='keep', required=True)
-    new_product_id = fields.Many2one(
-        'product.product', string='New Bike Model/Colour',
-        domain=[('product_tmpl_id.x_is_ego_bike', '=', True)],
+    # Change Bike is scoped to the SAME model — only lets you swap the colour
+    # variant, never jump to a different bike model entirely (that's a bigger
+    # change than this wizard is meant for).
+    current_tmpl_id = fields.Many2one(
+        'product.template', compute='_compute_current_tmpl_id',
     )
+    new_product_id = fields.Many2one(
+        'product.product', string='New Colour Variant',
+        domain="[('product_tmpl_id', '=', current_tmpl_id)]",
+    )
+
+    @api.depends('move_id')
+    def _compute_current_tmpl_id(self):
+        for line in self:
+            line.current_tmpl_id = line.move_id.product_id.product_tmpl_id.id
 
     @api.depends('move_id', 'lot_id')
     def _compute_product_display(self):
