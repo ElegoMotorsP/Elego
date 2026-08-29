@@ -20,7 +20,7 @@ serial — every other rejection has its own distinct message).
 After Amit validates the delivery, the serials flow automatically to the
 customer invoice (account_move._sync_assigned_lots_from_deliveries).
 """
-from odoo import api, fields, models
+from odoo import Command, api, fields, models
 from odoo.exceptions import UserError
 
 
@@ -53,13 +53,25 @@ class DeliveryBikeScanWizard(models.TransientModel):
         """Rebuild the read-only 'scanned so far' list and progress summary
         from the picking's actual move lines — the source of truth, so this
         reflects scans done from the mobile Barcode app too, not just this
-        wizard."""
+        wizard.
+
+        Rebuilds line_ids via One2many Command tuples (Command.clear() /
+        Command.create(...)) rather than calling Line.create()/unlink()
+        directly. This method runs from BOTH a real button click
+        (action_scan, self.id a real integer) and from the scan_input
+        onchange (self.id a NewId — Odoo runs onchange against a virtual
+        proxy of the record so field changes stay client-side/previewed
+        until Save). A direct Line.create({'wizard_id': self.id, ...}) call
+        is a real, immediate cross-model write, and passing a NewId as that
+        foreign key doesn't resolve to a real row — confirmed live, it
+        inserted wizard_id=NULL and violated the NOT NULL constraint.
+        Command tuples are the ORM-supported way to mutate a One2many that
+        works correctly in both contexts.
+        """
         self.ensure_one()
         bike_tmpls = self.env['mrp.production']._get_ego_templates()
-        Line = self.env['elegomotors.delivery.bike.scan.wizard.line']
-        self.line_ids.unlink()
 
-        vals = []
+        line_commands = [Command.clear()]
         progress_parts = []
         all_done = True
         for move in self.picking_id.move_ids.filtered(
@@ -68,16 +80,14 @@ class DeliveryBikeScanWizard(models.TransientModel):
             demand = max(1, int(move.product_uom_qty))
             scanned_lines = move.move_line_ids.filtered(lambda ml: ml.qty_done > 0 and ml.lot_id)
             for ml in scanned_lines:
-                vals.append({
-                    'wizard_id': self.id,
+                line_commands.append(Command.create({
                     'move_id': move.id,
                     'lot_id': ml.lot_id.id,
-                })
+                }))
             progress_parts.append(f'{move.product_id.display_name}: {len(scanned_lines)}/{demand}')
             if len(scanned_lines) < demand:
                 all_done = False
-        if vals:
-            Line.create(vals)
+        self.line_ids = line_commands
         self.progress_summary = ' | '.join(progress_parts) if progress_parts else 'No bike units on this delivery.'
         self.all_scanned = all_done and bool(progress_parts)
 

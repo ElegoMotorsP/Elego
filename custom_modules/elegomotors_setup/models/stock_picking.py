@@ -1013,11 +1013,15 @@ class StockPicking(models.Model):
         # with qty_done > 0 on the OTHER delivery represents a real scan —
         # an unscanned auto-reserved placeholder there must not block this
         # delivery from claiming the physical unit it's actually scanning.
+        # qty_done is a non-stored compatibility alias for the real stored
+        # field (quantity) on this Odoo version — search on 'quantity'
+        # directly; searching 'qty_done' raises "Non-stored field ...
+        # cannot be searched" (confirmed live).
         other_ml = self.env['stock.move.line'].search([
             ('lot_id', '=', lot.id),
             ('picking_id', '!=', self.id),
             ('picking_id.picking_type_code', '=', 'outgoing'),
-            ('qty_done', '>', 0),
+            ('quantity', '>', 0),
             ('state', 'not in', ('done', 'cancel')),
         ], limit=1)
         if other_ml:
@@ -1034,7 +1038,7 @@ class StockPicking(models.Model):
             ('lot_id', '=', lot.id),
             ('picking_id', '!=', self.id),
             ('picking_id.picking_type_code', '=', 'outgoing'),
-            ('qty_done', '=', 0),
+            ('quantity', '=', 0),
             ('state', 'not in', ('done', 'cancel')),
         ]).unlink()
 
