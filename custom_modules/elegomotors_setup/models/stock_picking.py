@@ -580,19 +580,31 @@ class StockPicking(models.Model):
 
             # --- Scan gate: bike serials must be assigned by scanning, never
             #     by Odoo's automatic reservation. Amit (Store) must run the
-            #     Scan Bike Serials wizard before the delivery can validate. ---
+            #     Scan Bike Serials wizard before the delivery can validate.
+            #
+            #     Only blocks when NOTHING has been scanned at all — a
+            #     delivery with at least one real scan is allowed through to
+            #     super().button_validate() below, which is Odoo's own core
+            #     button_validate() and already shows/creates the native
+            #     "Create Backorder?" confirmation whenever a move's done
+            #     quantity is short of its demand. This lets someone scan
+            #     only part of what's demanded (deliberately keeping the
+            #     rest for a backorder) and validate directly — no need to
+            #     go through "Modify Delivery" first — while still refusing
+            #     a delivery where not a single unit was ever scanned. ---
             bike_tmpls = self.env['mrp.production']._get_ego_templates()
             for picking in self:
-                if (
-                    picking.picking_type_code == 'outgoing'
-                    and not picking.x_bike_serials_scanned
-                    and bike_tmpls
-                    and any(
-                        m.product_id.product_tmpl_id in bike_tmpls
-                        for m in picking.move_ids
-                        if m.state not in ('done', 'cancel')
-                    )
-                ):
+                if picking.picking_type_code != 'outgoing' or picking.x_bike_serials_scanned or not bike_tmpls:
+                    continue
+                bike_moves = picking.move_ids.filtered(
+                    lambda m: m.product_id.product_tmpl_id in bike_tmpls and m.state not in ('done', 'cancel')
+                )
+                if not bike_moves:
+                    continue
+                any_scanned = any(
+                    m.move_line_ids.filtered(lambda ml: ml.qty_done > 0) for m in bike_moves
+                )
+                if not any_scanned:
                     raise UserError(
                         f'{picking.name}: bike serial numbers must be assigned '
                         f'by scanning the physical units. Click "Scan Bike '
