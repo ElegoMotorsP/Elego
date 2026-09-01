@@ -22,9 +22,18 @@ class SaleOrder(models.Model):
         ('priyanka_kul', 'Priyanka Kul'),
         ('priyanka_sutar', 'Priyanka Sutar'),
         ('srushti_gund', 'Srushti Gund'),
-    ], string='Handled By', copy=False, tracking=True,
+    ], string='Handled By', copy=False, tracking=True, default=False,
        help='Which person on the shared sales account actually created / '
             'is handling this order.')
+    # default=False (explicitly declared, not just omitted) is required here:
+    # elego_connect extends this selection with selection_add=[('elego_connect',
+    # ...)], ondelete={'elego_connect': 'set default'} — Odoo's field setup
+    # asserts the BASE field defines a real default before an extension can use
+    # a 'set default' ondelete policy on an added value. Without it, the whole
+    # registry failed to load (every request 500ing) — confirmed live. False
+    # matches this field's existing "unset" semantics exactly (see the
+    # `if not order.x_actual_salesperson:` check below), so this changes no
+    # behavior for the 3 existing values.
 
     pending_approval = fields.Boolean(
         string="Pending Approval", default=False, copy=False
