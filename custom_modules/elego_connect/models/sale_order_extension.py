@@ -72,7 +72,12 @@ class SaleOrderConnectExtension(models.Model):
             'invoices': [
                 {
                     'id': inv.id,
-                    'number': inv.name,
+                    # inv.name is False (not None) on an unnumbered draft/
+                    # cancelled invoice — Odoo's ORM convention for an
+                    # unset Char field. `or None` normalizes that to a real
+                    # JSON null instead of `false`, which broke the app's
+                    # JSON parsing (a String? field, not a bool).
+                    'number': inv.name or None,
                     'state': inv.state,
                     'paymentState': inv.payment_state,
                     'amountTotal': inv.amount_total,
