@@ -33,6 +33,10 @@
           value to sale.order's existing x_actual_salesperson field so
           these are distinguishable from the 3 real salespeople's retail
           orders in reports.
+        - GET /elegomotors/connect/invoices/<id>/pdf — downloads the real
+          "ElegoMotors Tax Invoice" QWeb report (elegomotors_setup) for a
+          posted invoice, same pattern as the existing warranty
+          certificate download.
     """,
     'author': 'ElegoMotors',
     'depends': ['elegomotors_setup'],
