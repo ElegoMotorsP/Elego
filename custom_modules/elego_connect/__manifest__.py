@@ -24,6 +24,15 @@
           design repo), plus the two new endpoints that drive them — added by
           subclassing the existing WarrantyApiController rather than editing
           elegomotors_setup's warranty_api.py directly.
+        - POST /elegomotors/connect/orders/confirm — creates + confirms a
+          Sales Order for an HQ-approved dealer PO (docs/07 §7.5). Lands in
+          the same Rajshri/Manohar approval queue as every other sale — does
+          not bypass it. Idempotent on client_order_ref (the PO number).
+          GET /elegomotors/connect/orders/<id>/status returns live SO state
+          + linked invoices. Adds a 4th "Elego Connect (Dealer Orders)"
+          value to sale.order's existing x_actual_salesperson field so
+          these are distinguishable from the 3 real salespeople's retail
+          orders in reports.
     """,
     'author': 'ElegoMotors',
     'depends': ['elegomotors_setup'],
