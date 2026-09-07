@@ -41,6 +41,7 @@ From `custom_modules/elegomotors_setup/data/`: user rules, order access, order f
 | **Payments** | **Rajshri only** (Accounting User) | Rajshri, Manohar | Rajshri books and pays; no other user has payment creation rights. |
 | **Unbuild Order / Rebuild MO** | **Manohar only** (`group_unbuild_rebuild_operator`) | Manohar | Manohar can extend this group to other users (e.g. Pratik) himself via Settings > Users — no code change needed. |
 | **Outgoing Delivery Changes** (reduce qty / replace serial / change bike) | **Amit + Manohar** (`group_delivery_change_operator`) | Amit, Manohar | Every change requires a reason and is logged (who/when from Odoo's own audit fields) in `elegomotors.delivery.change.log`, plus a chatter post on the delivery. |
+| **Sales Return** (return bikes/accessories from a posted invoice) | **Amit + Manohar** (existing `group_store_billing` + `base.group_erp_manager` — no new group) | Amit, Manohar | Creates a draft credit note (Rajshri posts it, same as every other invoice) and moves returned bikes straight into EGO/Finished Goods stock. Logged in `elegomotors.sales.return`. |
 
 ---
 
@@ -81,6 +82,22 @@ backorder flow carry the shortfall forward on a new delivery against the same Sa
 Order (the SO's own ordered quantity is untouched). Bike (and battery/side-guard
 accessory) products are billed on delivered quantity, not ordered quantity, so a
 partial delivery only invoices what actually shipped.
+
+---
+
+## 3c. Sales Return
+
+Amit or Manohar can click "Create Sales Return" on a posted customer invoice that has
+bike serials assigned, select which specific bike(s) are being returned and any
+battery/charger/accessory quantities from the same invoice also coming back, and
+confirm with a reason. This auto-calculates the return value, creates a **draft**
+credit note against the original invoice (Rajshri posts it, same split as every other
+invoice), and moves the returned bike(s) straight into **EGO/Finished Goods** stock
+(returned accessories into EGO/Store) via a dedicated "Sales Return" operation type —
+deliberately not routed through Gate Entry/QC Inward the way Odoo's own native
+"Return" button on a delivery is, since this isn't a quality inspection. Every return
+is logged in `elegomotors.sales.return` (who/when from Odoo's own audit fields,
+bikes/accessories/amount/reason), visible from the invoice's "Sales Returns" tab.
 
 ---
 
