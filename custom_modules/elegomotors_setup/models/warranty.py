@@ -395,6 +395,17 @@ class WarrantyClaim(models.Model):
             )
 
     def _check_warranty_manager(self):
+        # elego_connect_trusted_api: set only by
+        # elego_connect/controllers/connect_warranty_api.py's approve/reject
+        # routes, which already gate the request on its own bearer-token
+        # check (elegomotors.warranty.api.client) before ever reaching here
+        # — that token check is this call's real authorization, equivalent
+        # to how dispatch/acknowledge/failed-part-action already work via
+        # plain sudo() with no user impersonation. Never set by any Odoo UI
+        # action, so a real interactive user still needs the group exactly
+        # as before.
+        if self.env.context.get('elego_connect_trusted_api'):
+            return
         if not (self.env.user.has_group('elegomotors_setup.group_warranty_manager')
                 or self.env.user.has_group('base.group_erp_manager')):
             raise UserError('Only a Warranty Manager or Administrator can do this.')
