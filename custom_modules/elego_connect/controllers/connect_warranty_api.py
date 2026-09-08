@@ -20,6 +20,37 @@ from odoo.addons.elegomotors_setup.controllers.warranty_api import (
 )
 
 
+def _get_warranty_approver():
+    """The real Odoo user the API acts as when approving/rejecting a claim
+    on an Elego Connect HQ app user's behalf (docs/20-project-status.md,
+    2026-09-08 decision: extend Odoo's trust model for this rather than
+    keep it manual). `elegomotors.warranty.claim.action_approve()` and the
+    reject wizard's `action_confirm()` both gate on
+    `self.env.user.has_group('elegomotors_setup.group_warranty_manager')`
+    (or `base.group_erp_manager`) — `sudo()` bypasses record rules/ACLs
+    but does NOT change `self.env.user`, so calling as the anonymous API
+    user (auth='public') always failed that check regardless of `sudo()`.
+    `with_user(...)` is what actually changes it.
+
+    Deliberately a dedicated, clearly-labeled service identity — NOT one
+    of the real named Warranty Managers (e.g. Manohar Kalbhor) — same
+    reasoning as `x_actual_salesperson`'s "Elego Connect (Dealer Orders)"
+    value: never misattribute an API-driven action to a real human who
+    didn't actually take it. Configured via System Parameters (Settings >
+    Technical > Parameters > System Parameters), key
+    'elego_connect.warranty_approver_login', rather than hardcoded, so it
+    can point at a different user per environment (dev/staging/prod)
+    without a code change. Must be created and added to the Warranty
+    Manager group in the Odoo UI first — this code can't do that itself.
+    """
+    login = request.env['ir.config_parameter'].sudo().get_param(
+        'elego_connect.warranty_approver_login'
+    )
+    if not login:
+        return None
+    return request.env['res.users'].sudo().search([('login', '=', login)], limit=1)
+
+
 class ConnectWarrantyApiExtension(http.Controller):
 
     # elegomotors_setup's register/status/claims/certificate all key
@@ -157,4 +188,130 @@ class ConnectWarrantyApiExtension(http.Controller):
             return _json_response({'error': 'invalid_state', 'message': str(e)})
 
         _log(client.client_id, 'claims/failed-part-action', claim.chassis_number, claim.state)
+        return _json_response({'claimNumber': claim.claim_number, 'status': claim.state})
+
+    # --- Approve / Reject — Elego Connect HQ app, 2026-09-08 -------------
+    # Previously deliberately manual-only (needs a real Warranty Manager
+    # user — see _get_warranty_approver's comment for exactly why `sudo()`
+    # alone was never enough). `actorLabel` is the real HQ user who
+    # actually clicked Approve/Reject in the app — posted as a chatter
+    # note so Odoo's own audit trail stays honest about who really
+    # requested it, even though the state change itself is attributed to
+    # the dedicated Elego Connect approver identity. Elego Connect's own
+    # backend additionally writes its own AuditLog row for this (see
+    # api/src/warranty/warranty.service.ts) — the real human-accountable
+    # record now lives on both sides, not lost.
+    @http.route(
+        '/elegomotors/warranty/claims/<string:claim_number>/approve', type='http',
+        auth='public', methods=['POST'], csrf=False,
+    )
+    def approve_claim(self, claim_number, **kwargs):
+        client, error_response = _require_bearer_token()
+        if error_response:
+            return error_response
+        body, error_response = _parse_json_body()
+        if error_response:
+            return error_response
+
+        approver = _get_warranty_approver()
+        if not approver:
+            # A business-outcome error, not a transport failure — status=200
+            # (the default) with an `error` field, same as every other
+            # outcome this module and elegomotors_setup's warranty_api.py
+            # return; a non-2xx here would make OdooWarrantyService.post()
+            # throw its own generic ServiceUnavailableException before the
+            # caller ever saw this specific `error` value.
+            return _json_response({
+                'error': 'approver_not_configured',
+                'message': (
+                    "System parameter 'elego_connect.warranty_approver_login' isn't "
+                    'set to a real Warranty Manager user yet.'
+                ),
+            })
+
+        claim = request.env['elegomotors.warranty.claim'].sudo().search(
+            [('claim_number', '=', claim_number)], limit=1
+        )
+        if not claim:
+            _log(client.client_id, 'claims/approve', '', 'claim_not_found')
+            return _json_response({'error': 'claim_not_found'})
+
+        actor_label = (body.get('actorLabel') or '').strip()
+        try:
+            claim.with_user(approver.id).action_approve()
+            if actor_label:
+                claim.message_post(
+                    body=f'(Requested via Elego Connect by {actor_label})',
+                    message_type='comment', subtype_xmlid='mail.mt_comment',
+                )
+        except UserError as e:
+            _log(client.client_id, 'claims/approve', claim.chassis_number, f'invalid_state: {e}')
+            return _json_response({'error': 'invalid_state', 'message': str(e)})
+
+        _log(client.client_id, 'claims/approve', claim.chassis_number, claim.state)
+        return _json_response({'claimNumber': claim.claim_number, 'status': claim.state})
+
+    @http.route(
+        '/elegomotors/warranty/claims/<string:claim_number>/reject', type='http',
+        auth='public', methods=['POST'], csrf=False,
+    )
+    def reject_claim(self, claim_number, **kwargs):
+        client, error_response = _require_bearer_token()
+        if error_response:
+            return error_response
+        body, error_response = _parse_json_body()
+        if error_response:
+            return error_response
+
+        reason = (body.get('reason') or '').strip()
+        if not reason:
+            return _json_response(
+                {'error': 'missing_or_invalid_fields', 'fields': ['reason']}, status=400
+            )
+
+        approver = _get_warranty_approver()
+        if not approver:
+            # A business-outcome error, not a transport failure — status=200
+            # (the default) with an `error` field, same as every other
+            # outcome this module and elegomotors_setup's warranty_api.py
+            # return; a non-2xx here would make OdooWarrantyService.post()
+            # throw its own generic ServiceUnavailableException before the
+            # caller ever saw this specific `error` value.
+            return _json_response({
+                'error': 'approver_not_configured',
+                'message': (
+                    "System parameter 'elego_connect.warranty_approver_login' isn't "
+                    'set to a real Warranty Manager user yet.'
+                ),
+            })
+
+        claim = request.env['elegomotors.warranty.claim'].sudo().search(
+            [('claim_number', '=', claim_number)], limit=1
+        )
+        if not claim:
+            _log(client.client_id, 'claims/reject', '', 'claim_not_found')
+            return _json_response({'error': 'claim_not_found'})
+
+        actor_label = (body.get('actorLabel') or '').strip()
+        try:
+            # Reuses the exact same wizard a human uses from the Odoo UI
+            # (see WarrantyClaimRejectWizard.action_confirm in
+            # elegomotors_setup/models/warranty.py) rather than
+            # duplicating its state-transition/chatter logic here — stays
+            # correct automatically if that wizard ever changes.
+            wizard = request.env['elegomotors.warranty.claim.reject.wizard'].sudo().with_user(approver.id).create({
+                'claim_id': claim.id,
+                'reason': reason,
+            })
+            wizard.with_user(approver.id).action_confirm()
+            if actor_label:
+                claim.message_post(
+                    body=f'(Requested via Elego Connect by {actor_label})',
+                    message_type='comment', subtype_xmlid='mail.mt_comment',
+                )
+        except UserError as e:
+            _log(client.client_id, 'claims/reject', claim.chassis_number, f'invalid_state: {e}')
+            return _json_response({'error': 'invalid_state', 'message': str(e)})
+
+        _log(client.client_id, 'claims/reject', claim.chassis_number, claim.state)
         return _json_response({'claimNumber': claim.claim_number, 'status': claim.state})
