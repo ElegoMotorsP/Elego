@@ -436,6 +436,13 @@ class ConsolidatedPiGenerator(models.AbstractModel):
             'move_ids': [(0, 0, v) for v in move_vals_list],
         })
         picking.action_confirm()
+        # action_confirm() alone leaves every move at 'confirmed'/unreserved
+        # — Odoo only actually checks on-hand stock and reserves it via a
+        # separate _action_assign() call (or its own background scheduler,
+        # which can run much later). Without this, the picking shows every
+        # line as unavailable ("red") even when the component is genuinely
+        # on hand in EGO/Store right now — confirmed live.
+        picking._action_assign()
 
         # Link every MO to this picking so the daily cron skips them
         mos.write({'x_consolidated_picking_id': picking.id})
@@ -553,6 +560,10 @@ class ConsolidatedPiGenerator(models.AbstractModel):
             'move_ids': [(0, 0, v) for v in move_vals_list],
         })
         picking.action_confirm()
+        # See the matching comment in the daily-batch path above — without
+        # this, the picking shows every line as unavailable even when the
+        # component is genuinely on hand right now.
+        picking._action_assign()
 
         # Link each MO to this consolidated picking
         self.env['mrp.production'].browse(mo_ids).write(

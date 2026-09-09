@@ -136,6 +136,15 @@ class DeliveryBikeScanWizard(models.TransientModel):
 
     def action_done(self):
         self.ensure_one()
+        # Re-derive from the picking (the real source of truth) rather than
+        # trusting self.line_ids as already-set: when the last scan came in
+        # through the scan_input onchange, _refresh() ran against a virtual
+        # in-memory record whose field values were only ever sent to the
+        # browser for display, never actually written to this record's real
+        # DB row — this call is a genuine (non-onchange) method call, so
+        # this _refresh() writes for real and the check below is trustworthy
+        # even after a dialog session that never triggered an explicit save.
+        self._refresh()
         if not self.line_ids:
             raise UserError('No bikes have been scanned yet.')
         return {'type': 'ir.actions.act_window_close'}
