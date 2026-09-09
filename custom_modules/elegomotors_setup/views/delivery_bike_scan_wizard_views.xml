@@ -64,10 +64,15 @@
                 <footer>
                     <!-- Deliberately NOT btn-primary: Odoo's dialog binds Enter to
                          whichever footer button is primary, which was hijacking
-                         every scan's Enter keypress before the scan_input onchange
-                         got a clean chance to process it — confirmed live as "still
-                         needs a manual Scan click". With no primary button in the
-                         footer, Enter reaches the field's own onchange instead. -->
+                         every scan's Enter keypress meant for scan_input. Removing
+                         it stops that hijacking, but a plain Char field still only
+                         commits (and fires @api.onchange('scan_input')) on blur —
+                         nothing makes Enter itself do that. barcode_beep_widget.js's
+                         attachScanInputHandler synthesizes the blur on Enter (and on
+                         an input-typing debounce, for scanners with no terminator
+                         keystroke), then refocuses once the onchange clears the
+                         field — confirmed live: without it, the operator had to
+                         click elsewhere after every single scan for it to register. -->
                     <button name="action_done"
                             string="Done"
                             type="object"
