@@ -130,20 +130,43 @@ class DeliveryChangeWizard(models.TransientModel):
                     f'Select a new colour for {line.product_display}.'
                 )
 
+        # Snapshot each touched move's demand BEFORE any of this call's
+        # mutations, once per move — both the accessory-ratio math below
+        # and the change_bike split-vs-in-place decision need the
+        # session-start quantity, not the live (possibly already-mutated-
+        # by-an-earlier-line-on-the-same-move) one, or a second line
+        # touching the same multi-unit move would compute against a value
+        # the first line already changed.
+        original_qty_by_move = {}
+        units_consumed_by_move = {}
+        for line in active_lines:
+            original_qty_by_move.setdefault(line.move_id.id, line.move_id.product_uom_qty)
+            units_consumed_by_move.setdefault(line.move_id.id, 0)
+
         Log = self.env['elegomotors.delivery.change.log']
         for line in active_lines:
             move = line.move_id
             old_serial = line.lot_id.name if line.lot_id else '(not yet scanned)'
+            move_qty_before = original_qty_by_move[move.id]
+            units_already_consumed = units_consumed_by_move[move.id]
 
             if line.action == 'reduce_qty':
                 # Ship the remaining units normally, no separate backorder:
                 # drop the demand for this specific unit permanently (not
                 # just its scanned claim), so qty_done stays matched to
                 # product_uom_qty and the delivery validates straight
-                # through for whatever remains.
+                # through for whatever remains. The unit dropping off this
+                # delivery no longer needs its share of the combo's
+                # battery/charger either — reduce those proportionally,
+                # using the move's ORIGINAL (pre-this-call) quantity as the
+                # per-unit rate so repeated reduce_qty lines on the same
+                # move each subtract a consistent share rather than a
+                # shrinking one.
                 if line.move_line_id:
                     line.move_line_id.unlink()
                 move.product_uom_qty = max(0, move.product_uom_qty - 1)
+                self.picking_id._reduce_combo_accessories(move, move_qty_before, 1)
+                units_consumed_by_move[move.id] = units_already_consumed + 1
                 Log.create({
                     'picking_id': self.picking_id.id, 'move_id': move.id,
                     'change_type': 'reduce_qty',
@@ -167,7 +190,9 @@ class DeliveryChangeWizard(models.TransientModel):
                 old_label = f'{move.product_id.display_name} ({old_serial})'
                 if line.move_line_id:
                     line.move_line_id.unlink()
-                if move.product_uom_qty <= 1:
+                units_remaining_before_this = move_qty_before - units_already_consumed
+                units_consumed_by_move[move.id] = units_already_consumed + 1
+                if units_remaining_before_this <= 1:
                     # Common case: this move demands exactly this one unit —
                     # swap its product in place, on the SAME move record, so
                     # it stays on the same row/position in the list instead

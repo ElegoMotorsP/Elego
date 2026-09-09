@@ -54,6 +54,7 @@ class StockPicking(models.Model):
         'purchase.order',
         string='Purchase Order',
         copy=False,
+        domain="[('partner_id', '=', partner_id), ('x_receipt_complete', '=', False)]",
         help='Select an open Purchase Order of the vendor above — the operation '
              'lines are filled automatically with the remaining (not yet received) '
              'quantities of that PO. Fully received or closed POs are not listed.',
@@ -185,8 +186,20 @@ class StockPicking(models.Model):
             order = []
             for move in picking.move_ids.filtered(lambda m: m.state != 'cancel'):
                 name_lower = (move.product_id.name or '').lower()
-                if 'battery cell' in name_lower:
-                    key = move.x_kit_pack_name or move.product_id.name
+                if move.x_kit_pack_name:
+                    # Any component exploded from a battery pack's phantom
+                    # BOM belongs here under its pack's name, regardless of
+                    # what the exploded component itself is named — a
+                    # manually-created pack (e.g. the client's own 60V42Ah
+                    # kit, adopted as-is in _ensure_battery_lead_60v42ah_adopted
+                    # without renaming any of its component products) has no
+                    # guarantee its cell product literally contains "battery
+                    # cell" the way this module's own cells do, and was
+                    # silently dropped from this table when that was the
+                    # only way in.
+                    key = move.x_kit_pack_name
+                elif 'battery cell' in name_lower:
+                    key = move.product_id.name
                 elif 'charger' in name_lower or 'battery pack' in name_lower:
                     key = move.product_id.name
                 else:
@@ -919,6 +932,66 @@ class StockPicking(models.Model):
             'views': [[False, 'form']],
             'target': 'new',
         }
+
+    def _combo_accessory_moves(self, bike_move):
+        """The stock.move(s) on this picking representing the battery/
+        charger/other combo accessories that were added alongside
+        bike_move's originating Sales Order line — combo_price.py's
+        action_add_combo() creates the bike, then its battery, then its
+        charger sale.order.line in that sequence, each flagged
+        x_is_combo_item=True except the bike itself. Grouped by SO line
+        sequence: an accessory belongs to the nearest PRECEDING
+        bike-template sale.order.line, which is how they were actually
+        created (each combo-add is one bike line immediately followed by
+        its own accessory lines, before the next bike's combo starts).
+
+        Returns an empty recordset if the bike move has no sale_line_id
+        (e.g. a manually added move, or sale_stock not fully wired) —
+        deliberately never guesses at a link that isn't really there.
+        """
+        self.ensure_one()
+        bike_sale_line = getattr(bike_move, 'sale_line_id', False)
+        if not bike_sale_line:
+            return self.env['stock.move']
+        order = bike_sale_line.order_id
+        bike_tmpls = self.env['mrp.production']._get_ego_templates()
+        accessory_so_lines = self.env['sale.order.line']
+        started = False
+        for line in order.order_line.sorted('sequence'):
+            if line.id == bike_sale_line.id:
+                started = True
+                continue
+            if not started:
+                continue
+            if line.product_id.product_tmpl_id in bike_tmpls:
+                break  # the next bike's own combo starts here
+            if line.x_is_combo_item:
+                accessory_so_lines |= line
+        if not accessory_so_lines:
+            return self.env['stock.move']
+        return self.move_ids.filtered(
+            lambda m: getattr(m, 'sale_line_id', False) in accessory_so_lines
+            and m.state not in ('done', 'cancel')
+        )
+
+    def _reduce_combo_accessories(self, bike_move, bike_qty_before, bike_units_removed):
+        """Proportionally reduce the combo accessory moves (battery cells,
+        charger, etc.) tied to bike_move by the same fraction its own
+        demand is dropping by right now — e.g. removing 1 of 2 bikes on a
+        line halves the associated battery/charger demand too. Uses the
+        ratio between each accessory move and the bike move AS IT STOOD
+        before this reduction (bike_qty_before), passed in explicitly by
+        the caller rather than read fresh here, since by the time this
+        runs the caller may already be mid-way through changing the bike
+        move's own quantity.
+        """
+        self.ensure_one()
+        if bike_units_removed <= 0 or bike_qty_before <= 0:
+            return
+        for acc_move in self._combo_accessory_moves(bike_move):
+            per_bike_rate = acc_move.product_uom_qty / bike_qty_before
+            reduction = per_bike_rate * bike_units_removed
+            acc_move.product_uom_qty = max(0.0, acc_move.product_uom_qty - reduction)
 
     def _recompute_bike_serials_scanned(self):
         """Shared completeness check: True once every bike unit demanded on
