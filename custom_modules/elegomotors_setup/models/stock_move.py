@@ -66,10 +66,23 @@ class StockMove(models.Model):
         for move in self:
             move.x_battery_cell_hint = ''
             name = (move.product_id.name or '').lower()
-            if 'battery cell' in name:
-                # Derive the count from the pack this cell belongs to, not
-                # from the cell's own (always-12V) name.
-                source_name = move.x_kit_pack_name or ''
+            if move.x_kit_pack_name:
+                # Any component exploded from a battery pack's phantom BOM
+                # — derive the cell count from the PACK's name, not the
+                # component's own. Gating on x_kit_pack_name rather than
+                # requiring the component's own name to literally contain
+                # "battery cell" matters for a manually-created pack (e.g.
+                # the client's own 60V42Ah kit, adopted as-is in
+                # _ensure_battery_lead_60v42ah_adopted): its cell product's
+                # name isn't controlled by this module and has no
+                # guarantee of containing that substring — confirmed live
+                # via QA, the pack showed up in the delivery's Battery/
+                # Charger Totals table (stock_picking.py's
+                # _compute_battery_summary, fixed the same way) but with a
+                # blank Cells column, because this compute alone still
+                # required the old substring match to even look up the
+                # pack name.
+                source_name = move.x_kit_pack_name
             elif 'battery pack' in name:
                 source_name = move.product_id.name or ''
             else:
