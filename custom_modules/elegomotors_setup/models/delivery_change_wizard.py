@@ -211,7 +211,11 @@ class DeliveryChangeWizard(models.TransientModel):
                     # swap isn't valid here (one move = one product). Split
                     # instead: this move's demand drops by 1, and the changed
                     # unit joins (or starts) a separate move for the new
-                    # colour, same as before.
+                    # colour, same as before. The unit's colour changed, not
+                    # its model, so it still needs the same battery/charger —
+                    # shift that unit's proportional share from the original
+                    # colour's accessory moves to the new colour's (same rate
+                    # _reduce_combo_accessories uses for Reduce Quantity).
                     move.product_uom_qty = max(0, move.product_uom_qty - 1)
                     new_move = self.picking_id.move_ids.filtered(
                         lambda m: m.product_id == line.new_product_id and m.state not in ('done', 'cancel')
@@ -231,6 +235,7 @@ class DeliveryChangeWizard(models.TransientModel):
                             'company_id': self.picking_id.company_id.id,
                             'state': 'confirmed',
                         })
+                    self.picking_id._shift_combo_accessories(move, move_qty_before, 1)
                 Log.create({
                     'picking_id': self.picking_id.id, 'move_id': move.id,
                     'change_type': 'change_bike',
