@@ -993,6 +993,55 @@ class StockPicking(models.Model):
             reduction = per_bike_rate * bike_units_removed
             acc_move.product_uom_qty = max(0.0, acc_move.product_uom_qty - reduction)
 
+    def _shift_combo_accessories(self, original_bike_move, original_bike_qty_before, units_shifted):
+        """Change Bike's accessory-sync: when `units_shifted` units move off
+        original_bike_move onto a different colour (a same-model swap, so
+        the battery/charger spec doesn't change, only which move's demand
+        it should count against), give a proportional share of each combo
+        accessory to a move for that same accessory product elsewhere on
+        this picking — reusing an existing open move for it if one already
+        exists (matching how the bike's own new-colour move is found/
+        created in delivery_change_wizard.py), creating one otherwise.
+
+        Uses the same per-unit-rate approach as _reduce_combo_accessories
+        (and reduces the original the same way) so the two stay consistent
+        when both act against the same original move in one session; unlike
+        that method this one is only meaningful for Change Bike's SPLIT
+        branch (a move going from >1 unit down by one) — the in-place branch
+        (a move already down to exactly 1 unit swapping its whole product)
+        doesn't change any move's sale_line_id, so the SAME accessory moves
+        stay correctly tied to it with no quantity change needed at all.
+        """
+        self.ensure_one()
+        if units_shifted <= 0 or original_bike_qty_before <= 0:
+            return
+        for acc_move in self._combo_accessory_moves(original_bike_move):
+            per_bike_rate = acc_move.product_uom_qty / original_bike_qty_before
+            shift_qty = per_bike_rate * units_shifted
+            if shift_qty <= 0:
+                continue
+            acc_move.product_uom_qty = max(0.0, acc_move.product_uom_qty - shift_qty)
+            target = self.move_ids.filtered(
+                lambda m: m.product_id == acc_move.product_id
+                and m.id != acc_move.id
+                and m.state not in ('done', 'cancel')
+            )[:1]
+            if target:
+                target.product_uom_qty += shift_qty
+            else:
+                self.env['stock.move'].create({
+                    'name': acc_move.product_id.display_name,
+                    'picking_id': self.id,
+                    'product_id': acc_move.product_id.id,
+                    'product_uom_qty': shift_qty,
+                    'product_uom': acc_move.product_uom.id,
+                    'location_id': acc_move.location_id.id,
+                    'location_dest_id': acc_move.location_dest_id.id,
+                    'picking_type_id': self.picking_type_id.id,
+                    'company_id': self.company_id.id,
+                    'state': 'confirmed',
+                })
+
     def _recompute_bike_serials_scanned(self):
         """Shared completeness check: True once every bike unit demanded on
         this delivery has a genuinely scanned move line (qty_done > 0).
