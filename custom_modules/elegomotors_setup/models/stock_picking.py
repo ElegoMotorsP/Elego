@@ -1042,6 +1042,75 @@ class StockPicking(models.Model):
                     'state': 'confirmed',
                 })
 
+    def _sync_combo_sale_line_product(self, bike_move, new_product_id):
+        """Change Bike's Sales-Order-side sync, for the simple/common case:
+        the underlying SO line's own quantity covers EXACTLY this one unit
+        (nothing else of it is still pending on a different picking or
+        backorder) — safe to swap its product_id in place, at the SAME
+        price_unit and tax (colour doesn't change what price was agreed),
+        with NO quantity change at all. A plain product_id change never
+        triggers Odoo's own automatic re-procurement (_action_launch_
+        stock_rule only fires on a QUANTITY increase on a confirmed
+        order line) — so this can never spawn a duplicate delivery move
+        alongside the one delivery_change_wizard.py already manages
+        directly. The linked battery/charger combo lines need no change
+        either — they're still the same accessory regardless of the
+        bike's colour.
+
+        Previously Change Bike never touched the Sales Order at all, so
+        invoicing (which follows SO lines' own product/price, not the
+        delivery move directly) kept describing the OLD colour, and the
+        swapped unit's battery/charger lost their ₹0/combo-included
+        linkage — confirmed live: the bike ended up separately invoiced
+        at its plain list price instead of staying at the agreed combo
+        price, with the battery/charger billed apart from it too.
+
+        Returns True if the swap was made, False if it was skipped as
+        ambiguous (no sale_line_id, or the SO line covers more than just
+        this delivery's unit) — the caller should flag those for manual
+        review rather than assume they're fine.
+        """
+        self.ensure_one()
+        bike_sale_line = getattr(bike_move, 'sale_line_id', False)
+        if not bike_sale_line:
+            return False
+        if bike_sale_line.product_uom_qty != bike_move.product_uom_qty:
+            return False
+        new_product = self.env['product.product'].browse(new_product_id)
+        bike_sale_line.write({
+            'product_id': new_product_id,
+            'product_uom': new_product.uom_id.id,
+            'name': new_product.display_name,
+        })
+        return True
+
+    def _flag_change_bike_pricing_review(self, bike_move, new_product):
+        """Chatter note on the Sales Order (or, failing that, this picking)
+        when a Change Bike swap couldn't be safely auto-synced to the
+        underlying SO line — either it has no sale_line_id to work from,
+        or (the multi-unit split case) its own quantity covers more than
+        just this delivery's unit, which _sync_combo_sale_line_product()
+        deliberately refuses to touch automatically. Without this, the
+        mismatch would go completely unrepresented anywhere, and Accounts
+        would only discover it at invoicing time.
+        """
+        self.ensure_one()
+        bike_sale_line = getattr(bike_move, 'sale_line_id', False)
+        target = bike_sale_line.order_id if bike_sale_line else self
+        target.message_post(
+            body=Markup(
+                f'<b>Change Bike pricing review needed:</b> a unit on delivery '
+                f'<b>{self.name}</b> was changed to <b>{new_product.display_name}</b>, '
+                f'but the Sales Order line could not be safely auto-updated to '
+                f'match (its quantity covers more than just this delivery, or it '
+                f'has no linked order line). Please verify the invoice will bill '
+                f'the correct colour and combo pricing (including battery/'
+                f'charger) before invoicing this unit.'
+            ),
+            message_type='comment',
+            subtype_xmlid='mail.mt_comment',
+        )
+
     def _recompute_bike_serials_scanned(self):
         """Shared completeness check: True once every bike unit demanded on
         this delivery has a genuinely scanned move line (qty_done > 0).

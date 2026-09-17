@@ -217,6 +217,22 @@ class DeliveryChangeWizard(models.TransientModel):
                     # _scan_bike_unit() creates a fresh line (correctly
                     # carrying the new product) if none is found.
                     move.move_line_ids.filtered(lambda ml: ml.qty_done <= 0).unlink()
+                    # Keep the underlying Sales Order line (and its combo
+                    # pricing) following the swap too — previously only the
+                    # delivery move changed, so invoicing kept describing
+                    # the old colour and lost the ₹0/combo-included linkage
+                    # for the battery/charger. Safe here specifically
+                    # because the SO line covers exactly this one unit (the
+                    # method itself checks) — a plain product_id swap, no
+                    # quantity change, so it can't trigger Odoo's own
+                    # re-procurement.
+                    synced = self.picking_id._sync_combo_sale_line_product(
+                        move, line.new_product_id.id
+                    )
+                    if not synced:
+                        self.picking_id._flag_change_bike_pricing_review(
+                            move, line.new_product_id
+                        )
                 else:
                     # This move demands MORE than one unit and only this
                     # single unit is changing colour — the other units on it
@@ -249,6 +265,19 @@ class DeliveryChangeWizard(models.TransientModel):
                             'state': 'confirmed',
                         })
                     self.picking_id._shift_combo_accessories(move, move_qty_before, 1)
+                    # Splitting a single unit's colour off a multi-unit line
+                    # would need the underlying SO line split too (part of
+                    # its quantity stays the old colour, part moves to the
+                    # new one) — deliberately not automated here, unlike the
+                    # in-place case above, since a quantity change on a
+                    # confirmed SO line can trigger Odoo's own automatic
+                    # re-procurement and risk spawning a duplicate delivery
+                    # move alongside the one this wizard already manages
+                    # directly. Flagged for Accounts to handle manually
+                    # instead of silently going unrepresented on the order.
+                    self.picking_id._flag_change_bike_pricing_review(
+                        move, line.new_product_id
+                    )
                 Log.create({
                     'picking_id': self.picking_id.id, 'move_id': move.id,
                     'change_type': 'change_bike',
