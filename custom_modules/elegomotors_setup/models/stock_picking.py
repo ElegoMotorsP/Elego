@@ -1,11 +1,14 @@
 # -*- coding: utf-8 -*-
 import json
+import logging
 import math
 from urllib.parse import quote
 
 from markupsafe import Markup
 from odoo import Command, api, fields, models
 from odoo.exceptions import AccessError, UserError
+
+_logger = logging.getLogger(__name__)
 
 
 class StockPicking(models.Model):
@@ -1073,10 +1076,28 @@ class StockPicking(models.Model):
         self.ensure_one()
         bike_sale_line = getattr(bike_move, 'sale_line_id', False)
         if not bike_sale_line:
+            _logger.info(
+                'Change Bike SO-sync SKIPPED on %s: move %s (product %s) has '
+                'no sale_line_id at all.',
+                self.name, bike_move.id, bike_move.product_id.display_name,
+            )
             return False
         if bike_sale_line.product_uom_qty != bike_move.product_uom_qty:
+            _logger.info(
+                'Change Bike SO-sync SKIPPED on %s: SO line %s (qty %s) does '
+                'not match move %s (qty %s) — this SO line covers more than '
+                'just this delivery.',
+                self.name, bike_sale_line.id, bike_sale_line.product_uom_qty,
+                bike_move.id, bike_move.product_uom_qty,
+            )
             return False
         new_product = self.env['product.product'].browse(new_product_id)
+        _logger.info(
+            'Change Bike SO-sync APPLYING on %s: SO line %s swapping product '
+            '%s -> %s, keeping price_unit %s.',
+            self.name, bike_sale_line.id, bike_sale_line.product_id.display_name,
+            new_product.display_name, bike_sale_line.price_unit,
+        )
         bike_sale_line.write({
             'product_id': new_product_id,
             'product_uom': new_product.uom_id.id,
@@ -1097,6 +1118,10 @@ class StockPicking(models.Model):
         self.ensure_one()
         bike_sale_line = getattr(bike_move, 'sale_line_id', False)
         target = bike_sale_line.order_id if bike_sale_line else self
+        _logger.info(
+            'Change Bike pricing review flagged on %s (posted to %s %s).',
+            self.name, target._name, target.id,
+        )
         target.message_post(
             body=Markup(
                 f'<b>Change Bike pricing review needed:</b> a unit on delivery '
