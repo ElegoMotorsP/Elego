@@ -204,6 +204,19 @@ class DeliveryChangeWizard(models.TransientModel):
                         'product_uom': line.new_product_id.uom_id.id,
                         'name': line.new_product_id.display_name,
                     })
+                    # move.write() above only touches the stock.move record —
+                    # any move_line Odoo's own auto-reservation had already
+                    # created against the OLD product (unscanned, qty_done<=0)
+                    # keeps that stale product_id, since move_line.product_id
+                    # isn't a related/computed field that follows its move.
+                    # Scanning the NEW variant's serial then lands on that
+                    # stale line and trips Odoo's own core constraint — "The
+                    # Lot/Serial number (...) is linked to another product."
+                    # — confirmed live. Safe to drop: qty_done<=0 means
+                    # nothing real was ever scanned onto it, and
+                    # _scan_bike_unit() creates a fresh line (correctly
+                    # carrying the new product) if none is found.
+                    move.move_line_ids.filtered(lambda ml: ml.qty_done <= 0).unlink()
                 else:
                     # This move demands MORE than one unit and only this
                     # single unit is changing colour — the other units on it
