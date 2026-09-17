@@ -96,6 +96,7 @@
         'views/invoice_bike_scan_wizard_views.xml', # Bike serial scan wizard for invoice assignment (admin fallback)
         'views/delivery_bike_scan_wizard_views.xml', # Store scans shipped bike serials on OUT delivery — Random/Multi-Unit Scanning
         'views/delivery_change_wizard_views.xml',   # Outgoing Delivery Changes: reduce qty / replace serial / change bike
+        'views/delivery_change_log_report_views.xml', # Delivery Changes report: all changes across every delivery, one place
         'views/sales_return_wizard_views.xml',      # Sales Return: return bikes/accessories from a posted invoice
         'views/bike_traceability_views.xml',        # Bike Traceability search window + menu
         'views/quality_control_views.xml',          # Quality Control app: Inward/FG/PDI QC tabs + full report

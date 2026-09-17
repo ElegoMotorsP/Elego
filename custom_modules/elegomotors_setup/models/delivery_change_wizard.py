@@ -41,6 +41,20 @@ class DeliveryChangeLog(models.Model):
     old_value = fields.Char(string='Before')
     new_value = fields.Char(string='After')
     reason = fields.Text(required=True)
+    # For the "Delivery Changes" report (delivery_change_log_report_views.xml):
+    # lets Amit/Manohar/Accounts trace a change straight to its Sales Order
+    # and invoice(s) — "on which invoice or out order this kind of change
+    # has done" — without hunting through each picking's own tab individually.
+    sale_order_id = fields.Many2one(
+        'sale.order', string='Sales Order', related='picking_id.sale_id', store=True, index=True,
+    )
+    invoice_ids = fields.Many2many(
+        'account.move', string='Invoice(s)', compute='_compute_invoice_ids',
+    )
+
+    def _compute_invoice_ids(self):
+        for log in self:
+            log.invoice_ids = log.sale_order_id.invoice_ids if log.sale_order_id else False
 
 
 class DeliveryChangeWizard(models.TransientModel):
