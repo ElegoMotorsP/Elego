@@ -312,7 +312,11 @@ class DeliveryChangeWizardLine(models.TransientModel):
     product_display = fields.Char(compute='_compute_product_display')
     action = fields.Selection([
         ('keep', 'Keep as-is'),
-        ('reduce_qty', "Reduce Quantity (this unit won't ship — no backorder)"),
+        # 'reduce_qty' deliberately removed from the selectable options here
+        # (per explicit request) — action_apply()'s handling for it is left
+        # in place, inert, since no UI path can set it any more; existing
+        # elegomotors.delivery.change.log rows with change_type='reduce_qty'
+        # still render correctly (that field's own selection is untouched).
         ('replace_serial', 'Replace Serial (re-scan a different unit)'),
         ('change_bike', 'Change Colour (same model)'),
     ], default='keep', required=True)
