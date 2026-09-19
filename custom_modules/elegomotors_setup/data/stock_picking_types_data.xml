@@ -90,6 +90,23 @@
             <field name="sequence">50</field>
         </record>
 
+        <!-- 7. Sales Return: Customer → Finished Goods (incoming) — a plain
+             sales return (Sales Return feature), NOT a quality-inspection
+             return, so it lands returned bikes straight in Finished Goods
+             rather than routing through Gate Entry / QC Inward the way
+             Odoo's own native "Return" button on a Delivery does. -->
+        <record id="picking_type_sales_return" model="stock.picking.type">
+            <field name="name">Sales Return</field>
+            <field name="code">incoming</field>
+            <field name="sequence_code">SR</field>
+            <field name="warehouse_id" ref="stock.warehouse0"/>
+            <field name="default_location_src_id" ref="stock.stock_location_customers"/>
+            <field name="default_location_dest_id" ref="elegomotors_setup.location_ego_fg"/>
+            <field name="use_existing_lots" eval="True"/>
+            <field name="color">7</field>
+            <field name="sequence">60</field>
+        </record>
+
     </data>
 
     <!-- Lot/serial numbers are now entered during QC inspection (in_qc phase)

@@ -40,6 +40,8 @@ From `custom_modules/elegomotors_setup/data/`: user rules, order access, order f
 | **Vendor Bill** | Rajshri; **Amit (billing)** | Rajshri, Amit, Prashant, Manohar | Created: Rajshri, Amit, Prashant (subscribed). Posted: Rajshri, Amit, Prashant. |
 | **Payments** | **Rajshri only** (Accounting User) | Rajshri, Manohar | Rajshri books and pays; no other user has payment creation rights. |
 | **Unbuild Order / Rebuild MO** | **Manohar only** (`group_unbuild_rebuild_operator`) | Manohar | Manohar can extend this group to other users (e.g. Pratik) himself via Settings > Users — no code change needed. |
+| **Outgoing Delivery Changes** (reduce qty / replace serial / change bike) | **Amit + Manohar** (`group_delivery_change_operator`) | Amit, Manohar | Every change requires a reason and is logged (who/when from Odoo's own audit fields) in `elegomotors.delivery.change.log`, plus a chatter post on the delivery. |
+| **Sales Return** (return bikes/accessories from a posted invoice) | **Amit + Manohar** (existing `group_store_billing` + `base.group_erp_manager` — no new group) | Amit, Manohar | Creates a draft credit note (Rajshri posts it, same as every other invoice) and moves returned bikes straight into EGO/Finished Goods stock. Logged in `elegomotors.sales.return`. |
 
 ---
 
@@ -59,6 +61,43 @@ same bike/chassis serial (only once its stock is at zero) or be assigned a new o
 - **Traceability**: Bike Serial → Original MO → Unbuild Order (with a snapshot of the
   component serials recovered) → Rebuild MO → Rebuilt Bike Serial — visible via smart
   buttons on the `stock.lot` form and a banner + Rebuild History tab on the MO form.
+
+---
+
+## 3b. Outgoing Delivery Changes + Random/Multi-Unit Bike Scanning
+
+**Random Bike Scanning:** the "Scan Bike Serials" wizard (and the mobile Barcode app)
+accept ANY bike serial — it's matched automatically to whichever delivery line demands
+that exact model/colour (`stock.picking._scan_bike_unit`, shared by both entry
+points). Wrong model/colour, blacklisted (QC-fail), not physically in Finished Goods,
+or already scanned elsewhere are all rejected with a specific message; scanning the
+exact same serial twice shows "Already scanned"; a line demanding 2 units shows live
+"1/2" then "2/2" progress and refuses a 3rd scan.
+
+**Outgoing Delivery Changes:** Amit or Manohar can click "Modify Delivery" on an
+outgoing delivery before it's validated to reduce a unit's quantity, clear a scanned
+serial for re-scanning, or swap a unit for a different bike model/colour — a reason is
+required every time. Reducing quantity and then validating lets Odoo's native
+backorder flow carry the shortfall forward on a new delivery against the same Sales
+Order (the SO's own ordered quantity is untouched). Bike (and battery/side-guard
+accessory) products are billed on delivered quantity, not ordered quantity, so a
+partial delivery only invoices what actually shipped.
+
+---
+
+## 3c. Sales Return
+
+Amit or Manohar can click "Create Sales Return" on a posted customer invoice that has
+bike serials assigned, select which specific bike(s) are being returned and any
+battery/charger/accessory quantities from the same invoice also coming back, and
+confirm with a reason. This auto-calculates the return value, creates a **draft**
+credit note against the original invoice (Rajshri posts it, same split as every other
+invoice), and moves the returned bike(s) straight into **EGO/Finished Goods** stock
+(returned accessories into EGO/Store) via a dedicated "Sales Return" operation type —
+deliberately not routed through Gate Entry/QC Inward the way Odoo's own native
+"Return" button on a delivery is, since this isn't a quality inspection. Every return
+is logged in `elegomotors.sales.return` (who/when from Odoo's own audit fields,
+bikes/accessories/amount/reason), visible from the invoice's "Sales Returns" tab.
 
 ---
 

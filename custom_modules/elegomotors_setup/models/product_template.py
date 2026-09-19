@@ -132,6 +132,37 @@ class ProductTemplate(models.Model):
                 tmpl.x_material_code = code
 
     @api.model
+    def _seed_bike_invoice_policy(self):
+        """Bill bikes (and their battery/side-guard accessories) on delivered
+        quantity, not ordered quantity — required so a partial delivery
+        (Outgoing Delivery Changes: reduced qty, backorder for the rest)
+        only invoices the units actually shipped, with the backordered
+        remainder invoiced separately once its own delivery validates.
+        Only sets the value where it isn't already 'delivery', so a manual
+        correction from the product form is never overwritten; safe to run
+        on every upgrade. Every template with x_is_ego_bike checked is
+        covered, not a hardcoded list — a model added later via the New
+        Bike Model wizard is covered automatically, no code change needed.
+        """
+        bike_tmpls = self.env['mrp.production']._get_ego_templates()
+        accessory_refs = [
+            'elegomotors_setup.prod_battery_lithium_60v30ah',
+            'elegomotors_setup.prod_battery_lithium_60v39ah',
+            'elegomotors_setup.prod_battery_lead_acid_60v32ah',
+            'elegomotors_setup.prod_battery_lead_acid_72v32ah',
+            'elegomotors_setup.prod_side_guards_black_coating',
+            'elegomotors_setup.prod_side_guards_zinc_coating',
+        ]
+        accessories = self.env['product.template']
+        for xml_id in accessory_refs:
+            tmpl = self.env.ref(xml_id, raise_if_not_found=False)
+            if tmpl:
+                accessories |= tmpl
+        for tmpl in bike_tmpls | accessories:
+            if tmpl.invoice_policy != 'delivery':
+                tmpl.invoice_policy = 'delivery'
+
+    @api.model
     def _seed_ego_bike_flags(self):
         """One-time flip of x_is_ego_bike + x_serial_prefix for the 7 bike
         models that existed before these fields did — every hardcoded

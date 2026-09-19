@@ -232,6 +232,57 @@ function attachSerialRowHandlers(dialog) {
     );
 }
 
+/**
+ * Desktop "Scan Bike Serials" wizard (elegomotors.delivery.bike.scan.wizard):
+ * single `scan_input` field, one scan at a time, no row navigation needed.
+ *
+ * Confirmed live: removing the footer's primary button (see the view's own
+ * comment) stops Enter from being swallowed by a submit button, but it does
+ * NOT make Enter itself commit the field — a plain Char field only commits
+ * its value (and fires @api.onchange('scan_input')) on blur/focusout, and
+ * nothing synthesizes that on Enter by default. Operators had to click
+ * elsewhere after every single scan for it to actually register. Same fix
+ * as attachSerialRowHandlers/attachBarcodeHandlers above: synthesize the
+ * blur ourselves, on both an input-debounce and an Enter keydown, then
+ * refocus once the onchange round-trip clears and re-renders the field —
+ * a programmatic blur() doesn't return focus on its own, and the entire
+ * point here is the operator never touches the mouse/keyboard focus again.
+ */
+function attachScanInputHandler(dialog) {
+    const input = dialog.querySelector('[name="scan_input"] input');
+    if (!input || input._elego_barcode) return;
+    input._elego_barcode = true;
+    let debounceTimer = null;
+
+    function commit() {
+        clearTimeout(debounceTimer);
+        debounceTimer = null;
+        if (!input.value) return;
+        playBeep();
+        input.blur(); // commits the value, triggers _onchange_scan_input server-side
+        setTimeout(() => {
+            const fresh = document.querySelector('.o_dialog [name="scan_input"] input');
+            if (fresh) fresh.focus();
+        }, 250);
+    }
+
+    input.addEventListener("input", () => {
+        clearTimeout(debounceTimer);
+        if (!input.value) return;
+        debounceTimer = setTimeout(commit, 150);
+    });
+    input.addEventListener(
+        "keydown",
+        (ev) => {
+            if (ev.key !== "Enter") return;
+            ev.stopImmediatePropagation();
+            ev.preventDefault();
+            commit();
+        },
+        true
+    );
+}
+
 /** Fresh serial-scan dialog: enter edit mode on the first row's serial cell
  *  so scanning can start immediately without a click. */
 function autoFocusFirstSerialCell(dialog) {
@@ -264,6 +315,10 @@ const observer = new MutationObserver(() => {
     if (dialog.querySelector('[name="scanned_serial"]')) {
         autoFocusFirstSerialCell(dialog);
         attachSerialRowHandlers(dialog);
+        return;
+    }
+    if (dialog.querySelector('[name="scan_input"]')) {
+        attachScanInputHandler(dialog);
         return;
     }
     if (

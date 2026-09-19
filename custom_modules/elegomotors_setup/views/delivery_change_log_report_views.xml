@@ -1,0 +1,108 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+    <!--
+        ElegoMotors — Delivery Changes Report
+
+        Consolidated list of every Outgoing Delivery Change (Reduce Quantity/
+        Replace Serial/Change Colour, from the "Modify Delivery" wizard —
+        delivery_change_wizard.py) across every delivery, in one place —
+        matching Bike Traceability's own pattern (bike_traceability_views.xml)
+        of a dedicated report rather than only a per-record tab. Previously
+        this history was only visible one delivery at a time, on that
+        picking's own "Delivery Change Log" tab — this lets Amit/Manohar/
+        Accounts trace a change straight to its Sales Order and invoice(s)
+        without hunting through individual pickings.
+
+        Access: reuses the existing access_delivery_change_log_user row
+        (ir.model.access.csv) — every internal user already has read access
+        to elegomotors.delivery.change.log; no new security group needed.
+    -->
+
+    <!-- ── List view ──────────────────────────────────────────────────── -->
+    <record id="view_delivery_change_log_report_list" model="ir.ui.view">
+        <field name="name">elegomotors.delivery.change.log.report.list</field>
+        <field name="model">elegomotors.delivery.change.log</field>
+        <field name="arch" type="xml">
+            <list string="Delivery Changes" create="false" edit="false" delete="false"
+                  default_order="create_date desc">
+                <field name="create_date"    string="When"/>
+                <field name="create_uid"     string="By"/>
+                <field name="picking_id"     string="Delivery"/>
+                <field name="sale_order_id"  string="Sales Order"/>
+                <field name="change_type"    string="Change Type"/>
+                <field name="old_value"      string="Before"/>
+                <field name="new_value"      string="After"/>
+                <field name="invoice_ids"    string="Invoice(s)" widget="many2many_tags" optional="show"/>
+                <field name="reason"         string="Reason"/>
+            </list>
+        </field>
+    </record>
+
+    <!-- ── Search view ────────────────────────────────────────────────── -->
+    <record id="view_delivery_change_log_report_search" model="ir.ui.view">
+        <field name="name">elegomotors.delivery.change.log.report.search</field>
+        <field name="model">elegomotors.delivery.change.log</field>
+        <field name="arch" type="xml">
+            <search string="Search Delivery Changes">
+                <field name="picking_id"/>
+                <field name="sale_order_id"/>
+                <field name="invoice_ids"/>
+                <field name="create_uid" string="Changed By"/>
+                <field name="reason"/>
+
+                <separator/>
+                <filter name="filter_reduce_qty" string="Reduce Quantity"
+                        domain="[('change_type', '=', 'reduce_qty')]"/>
+                <filter name="filter_replace_serial" string="Replace Serial"
+                        domain="[('change_type', '=', 'replace_serial')]"/>
+                <filter name="filter_change_bike" string="Change Colour"
+                        domain="[('change_type', '=', 'change_bike')]"/>
+
+                <group expand="0" string="Group By">
+                    <filter name="group_by_change_type" string="Change Type"
+                            context="{'group_by': 'change_type'}"/>
+                    <filter name="group_by_picking" string="Delivery"
+                            context="{'group_by': 'picking_id'}"/>
+                    <filter name="group_by_sale_order" string="Sales Order"
+                            context="{'group_by': 'sale_order_id'}"/>
+                    <filter name="group_by_changed_by" string="Changed By"
+                            context="{'group_by': 'create_uid'}"/>
+                    <filter name="group_by_date" string="Date"
+                            context="{'group_by': 'create_date'}"/>
+                </group>
+            </search>
+        </field>
+    </record>
+
+    <!-- ── Window action ──────────────────────────────────────────────── -->
+    <record id="action_delivery_change_log_report" model="ir.actions.act_window">
+        <field name="name">Delivery Changes</field>
+        <field name="res_model">elegomotors.delivery.change.log</field>
+        <field name="view_mode">list</field>
+        <field name="context">{'create': False}</field>
+        <field name="view_ids" eval="[(5, 0, 0),
+            (0, 0, {'view_mode': 'list', 'view_id': ref('view_delivery_change_log_report_list')})]"/>
+        <field name="search_view_id" ref="view_delivery_change_log_report_search"/>
+        <field name="help" type="html">
+            <p class="o_view_nocontent_smiling_face">
+                No delivery changes recorded yet.
+            </p>
+            <p>
+                Every Reduce Quantity / Replace Serial / Change Colour made
+                via "Modify Delivery" on an outgoing delivery shows up here,
+                with a link to its Sales Order and invoice(s).
+            </p>
+        </field>
+    </record>
+
+    <!-- ── Menu: Inventory > Delivery Changes ────────────────────────────
+         Placed right after Bike Traceability, same parent/pattern, so
+         every user with Inventory access can reach it. -->
+    <menuitem
+        id="menu_delivery_change_log_report"
+        name="Delivery Changes"
+        parent="stock.menu_stock_root"
+        action="action_delivery_change_log_report"
+        sequence="61"/>
+
+</odoo>

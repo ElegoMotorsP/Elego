@@ -1,0 +1,15 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+    <!--
+        Outgoing Delivery Changes: sets invoice_policy = 'delivery' on every
+        bike template + battery/side-guard accessory so "Create Invoice"
+        only bills what has actually shipped, letting a partial delivery's
+        backordered remainder be invoiced separately once it validates.
+        noupdate="0" so a newly added bike model (New Bike Model wizard, or
+        a data file) is picked up on the next upgrade too — the underlying
+        method only ever sets the field when it isn't already 'delivery'.
+    -->
+    <data noupdate="0">
+        <function model="product.template" name="_seed_bike_invoice_policy"/>
+    </data>
+</odoo>

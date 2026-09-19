@@ -132,16 +132,12 @@
                             <td style="padding:1px 0;">: <t t-esc="o.x_transport_name or ''"/></td>
                         </tr>
                         <tr>
-                            <td style="padding:1px 0;"><strong>LR No. &amp; Date</strong></td>
-                            <td style="padding:1px 0;">:
-                                <t t-esc="o.x_lr_number or ''"/>
-                                <t t-if="o.x_lr_date and o.x_lr_number"> - </t>
-                                <t t-if="o.x_lr_date"><t t-esc="o.x_lr_date.strftime('%d-%b-%Y')"/></t>
-                            </td>
+                            <td style="padding:1px 0;"><strong>Driver Name</strong></td>
+                            <td style="padding:1px 0;">: <t t-esc="o.x_driver_name or ''"/></td>
                         </tr>
                         <tr>
                             <td style="padding:1px 0;"><strong>Vehicle Number</strong></td>
-                            <td style="padding:1px 0;">: <t t-esc="(o._fields.get('l10n_in_vehicle_no') and o.l10n_in_vehicle_no) or ''"/></td>
+                            <td style="padding:1px 0;">: <t t-esc="o.x_vehicle_number or ''"/></td>
                         </tr>
                         <tr>
                             <td style="padding:1px 0;"><strong>Date of Supply</strong></td>

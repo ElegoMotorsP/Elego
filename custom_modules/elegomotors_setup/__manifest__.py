@@ -78,6 +78,7 @@
         'data/finance_material_codes_data.xml', # Default materialCode per bike model (Finance API)
         'data/warranty_claim_sequence_data.xml', # Warranty Claim Number sequence (WC-YYMM-NNNN)
         'data/ego_bike_flag_seed_data.xml', # x_is_ego_bike/x_serial_prefix seed for the 7 pre-existing models
+        'data/bike_invoice_policy_seed_data.xml', # invoice_policy='delivery' on bikes + accessories; Outgoing Delivery Changes
         # View overrides (loaded last so base views exist)
         'views/account_move_views.xml',
         'views/mrp_production_views.xml',   # Post-production QC buttons on MO form; Issue 7+8
@@ -93,7 +94,10 @@
         'views/batch_mo_wizard_views.xml',          # Batch MO creation wizard + menu entry; Req 2
         'views/bulk_barcode_wizard_views.xml',      # Bulk barcode scan wizard for multi-unit MO
         'views/invoice_bike_scan_wizard_views.xml', # Bike serial scan wizard for invoice assignment (admin fallback)
-        'views/delivery_bike_scan_wizard_views.xml', # Store scans shipped bike serials on OUT delivery
+        'views/delivery_bike_scan_wizard_views.xml', # Store scans shipped bike serials on OUT delivery — Random/Multi-Unit Scanning
+        'views/delivery_change_wizard_views.xml',   # Outgoing Delivery Changes: reduce qty / replace serial / change bike
+        'views/delivery_change_log_report_views.xml', # Delivery Changes report: all changes across every delivery, one place
+        'views/sales_return_wizard_views.xml',      # Sales Return: return bikes/accessories from a posted invoice
         'views/bike_traceability_views.xml',        # Bike Traceability search window + menu
         'views/quality_control_views.xml',          # Quality Control app: Inward/FG/PDI QC tabs + full report
         'views/quality_control_menu.xml',            # Quality Control app root menu + 4 tab menus

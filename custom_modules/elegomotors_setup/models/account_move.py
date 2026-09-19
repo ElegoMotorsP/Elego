@@ -2,7 +2,7 @@
 import re
 
 from odoo import api, fields, models
-from odoo.exceptions import AccessError
+from odoo.exceptions import AccessError, UserError
 
 
 class AccountMove(models.Model):
@@ -15,6 +15,8 @@ class AccountMove(models.Model):
     x_transport_name = fields.Char(string='Transporter Name')
     x_lr_number = fields.Char(string='LR Number')
     x_lr_date = fields.Date(string='LR Date')
+    x_driver_name = fields.Char(string='Driver Name')
+    x_vehicle_number = fields.Char(string='Vehicle Number')
 
     x_assigned_lot_ids = fields.Many2many(
         'stock.lot',
@@ -249,6 +251,34 @@ class AccountMove(models.Model):
             'view_mode': 'form',
             'target': 'new',
             'context': {'default_invoice_id': self.id},
+        }
+
+    # Sales Return — one row per return created against this invoice
+    x_sales_return_ids = fields.One2many(
+        'elegomotors.sales.return', 'invoice_id', string='Sales Returns',
+    )
+
+    def action_open_sales_return_wizard(self):
+        self.ensure_one()
+        if not self.x_assigned_lot_ids:
+            raise UserError(
+                'This invoice has no bike serials assigned to return '
+                '(x_assigned_lot_ids is empty).'
+            )
+        wizard = self.env['elegomotors.sales.return.wizard'].create({
+            'invoice_id': self.id,
+        })
+        if not wizard.bike_line_ids:
+            raise UserError(
+                'All bike serials on this invoice have already been returned.'
+            )
+        return {
+            'type': 'ir.actions.act_window',
+            'name': 'Create Sales Return',
+            'res_model': 'elegomotors.sales.return.wizard',
+            'res_id': wizard.id,
+            'view_mode': 'form',
+            'target': 'new',
         }
 
     def _refresh_serial_blocks_from_lots(self):
