@@ -109,6 +109,7 @@
         'views/report_purchasequotation.xml',       # PO/RFQ PDF (inherited base template): Sr.No column
         'views/report_deliveryslip.xml',            # Delivery Slip PDF (inherited base template): Sr.No columns
                                                      # + delivery-address overlap fix
+        'views/report_vendor_bill.xml',              # Vendor Bill PDF (inherited base template): Sr.No column
         'views/report_elegomotors_quotation.xml',   # Fully custom Quotation PDF — bike combo "same box" merging;
                                                      # redirects the default Preview/Send/Print to this template
         'views/combo_price_views.xml',              # Bike Combo Prices config + Add Bike Combo wizard
