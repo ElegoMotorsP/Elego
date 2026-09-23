@@ -13,6 +13,16 @@
         auto-provided order_line_index, filtering out section/note rows the
         same way the base template's own t-if="not order_line.display_type"
         does for the product cells.
+
+        NOTE: the product <td> itself is NOT a safe anchor — l10n_in_purchase
+        (India GST localization, also installed here) does position="replace"
+        on //t[@t-foreach='o.order_line']//td[@id='product'] to inject the
+        HSN/SAC code line, swapping in a brand-new <td> with no id at all.
+        Confirmed by inspecting both inheriting views live on staging1
+        (ir.ui.view ids 1794 purchase_stock, 1881 l10n_in_purchase — both
+        priority 16, loading before this file). Anchoring on the surrounding
+        <t t-if="not order_line.display_type"> wrapper instead, since neither
+        of those views touches it — only the leaf <td> inside gets replaced.
     -->
 
     <template id="report_purchasequotation_document_ego" inherit_id="purchase.report_purchasequotation_document">
@@ -21,7 +31,7 @@
             <th name="th_ego_sr" class="text-center">Sr. No.</th>
         </xpath>
 
-        <xpath expr="//td[@id='product']" position="before">
+        <xpath expr="//t[@t-if='not order_line.display_type']/td[1]" position="before">
             <t t-set="ego_prior" t-value="o.order_line[:order_line_index + 1]"/>
             <td name="td_ego_sr" class="text-center">
                 <span t-esc="len([l for l in ego_prior if not l.display_type])"/>
