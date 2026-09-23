@@ -1,11 +1,18 @@
 <?xml version="1.0" encoding="utf-8"?>
 <odoo>
     <!--
-        ElegoMotors — Purchase Order / RFQ PDF: Sr. No. column
+        ElegoMotors — Request for Quotation PDF: Sr. No. column
 
-        purchase.report_purchasequotation_document is the single template used
-        for both the "Request for Quotation" and confirmed "Purchase Order"
-        PDF (title/labels adapt to state elsewhere) — this inherit covers both.
+        purchase.report_purchasequotation_document covers ONLY the draft /
+        sent / to-approve states ("Request for Quotation"). Once a PO is
+        confirmed (state purchase/done), Odoo renders a genuinely SEPARATE
+        template, purchase.report_purchaseorder_document, via a different
+        report action (purchase.action_report_purchase_order) — fixed
+        separately in report_purchaseorder.xml. Confirmed live on staging1
+        (two distinct ir.actions.report records on purchase.order, pointing
+        at report_purchasequotation vs report_purchaseorder respectively) —
+        an earlier version of this fix only covered this file and a
+        confirmed PO showed no Sr. No. as a result.
 
         Follows the same technique as report_saleorder.xml: since this template
         isn't ours to own, only "before"/"after" additions on existing elements
