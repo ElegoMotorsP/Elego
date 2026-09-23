@@ -1,0 +1,93 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+    <!--
+        ElegoMotors — Delivery Slip PDF: Sr. No. column + address overlap fix
+
+        stock.report_delivery_document is Odoo's standard template (inherited,
+        not owned) — only "before"/"after"/"attributes" additions on its
+        existing elements are safe, same constraint as report_saleorder.xml
+        and report_purchasequotation.xml.
+
+        Covers all three product tables the base template can render:
+          - stock_move_table       (picking not yet validated: state != done)
+          - stock_move_line_table  (validated picking, aggregated rows — no
+                                     lot/serial printed): rows come from
+                                     stock.stock_report_delivery_aggregated_move_lines
+          - the same validated-picking table's lot/serial variant, rows from
+            stock.stock_report_delivery_has_serial_move_line (used when
+            stock.group_lot_on_delivery_slip is active)
+        plus the optional backorder table (stock_backorder_table).
+
+        Numbering restarts per table rather than running continuously across
+        a package-grouped delivery's separate per-package tables (has_packages
+        case) — each sub-template is called fresh per package, and reaching a
+        single running count across separate calls would need a bigger Python-
+        level change than this fix's scope. ElegoMotors deliveries don't appear
+        to use Odoo's package feature today, so this is expected to be a
+        non-issue in practice — flagged here in case that changes.
+
+        Address overlap fix: the delivery-address block is set via a plain
+        t-set and rendered inside web.external_layout's own header (alongside
+        the company's own address), so it can't be resized/repositioned
+        directly from this template. wkhtmltopdf (Odoo's PDF renderer) is
+        well known for overlapping FOLLOWING content when a floated header
+        column grows taller than usual — clear:both on the elements right
+        after the header, plus overflow-wrap on the address block itself, is
+        the standard defensive fix for exactly this symptom, without touching
+        the shared web.external_layout template every other report also uses.
+        Needs a visual check on staging1 with a long delivery address (the
+        8-line address that originally surfaced this bug) to confirm.
+    -->
+
+    <template id="report_delivery_document_ego" inherit_id="stock.report_delivery_document">
+
+        <!-- Address overlap fix -->
+        <xpath expr="//div[@name='outgoing_delivery_address']" position="attributes">
+            <attribute name="style">overflow-wrap: break-word; word-break: break-word;</attribute>
+        </xpath>
+        <xpath expr="//h2" position="attributes">
+            <attribute name="style">clear: both;</attribute>
+        </xpath>
+        <xpath expr="//div[@id='informations']" position="attributes">
+            <attribute name="style">clear: both;</attribute>
+        </xpath>
+
+        <!-- Sr. No. — draft / not-yet-validated table -->
+        <xpath expr="//th[@name='th_sm_product']" position="before">
+            <th name="th_ego_sm_sr" class="text-center"><strong>Sr. No.</strong></th>
+        </xpath>
+        <xpath expr="//table[@name='stock_move_table']//td[1]" position="before">
+            <td class="text-center" t-esc="move_index + 1"/>
+        </xpath>
+
+        <!-- Sr. No. — validated table header (covers both the lot/serial and
+             ordered-qty header variants, since both live in the same <tr>) -->
+        <xpath expr="//th[@name='th_sml_product']" position="before">
+            <th name="th_ego_sml_sr" class="text-center">Sr. No.</th>
+        </xpath>
+
+        <!-- Sr. No. — backorder table -->
+        <xpath expr="//th[@name='th_sb_product']" position="before">
+            <th name="th_ego_sb_sr" class="text-center"><strong>Sr. No.</strong></th>
+        </xpath>
+        <xpath expr="//table[@name='stock_backorder_table']//td[1]" position="before">
+            <td class="text-center" t-esc="bo_line_index + 1"/>
+        </xpath>
+
+    </template>
+
+    <!-- Sr. No. — validated table, aggregated (no lot/serial printed) rows -->
+    <template id="stock_report_delivery_aggregated_move_lines_ego" inherit_id="stock.stock_report_delivery_aggregated_move_lines">
+        <xpath expr="//td[1]" position="before">
+            <td class="text-center" t-esc="line_index + 1"/>
+        </xpath>
+    </template>
+
+    <!-- Sr. No. — validated table, lot/serial-numbered rows -->
+    <template id="stock_report_delivery_has_serial_move_line_ego" inherit_id="stock.stock_report_delivery_has_serial_move_line">
+        <xpath expr="//td[1]" position="before">
+            <td class="text-center" t-esc="move_line_index + 1"/>
+        </xpath>
+    </template>
+
+</odoo>
