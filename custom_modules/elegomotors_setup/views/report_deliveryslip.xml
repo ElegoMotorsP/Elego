@@ -18,13 +18,30 @@
             stock.group_lot_on_delivery_slip is active)
         plus the optional backorder table (stock_backorder_table).
 
-        Numbering restarts per table rather than running continuously across
-        a package-grouped delivery's separate per-package tables (has_packages
-        case) — each sub-template is called fresh per package, and reaching a
-        single running count across separate calls would need a bigger Python-
-        level change than this fix's scope. ElegoMotors deliveries don't appear
-        to use Odoo's package feature today, so this is expected to be a
-        non-issue in practice — flagged here in case that changes.
+        Numbering on the validated-picking tables (stock_report_delivery_
+        aggregated_move_lines / stock_report_delivery_has_serial_move_line)
+        uses a single running counter (ego_sr_counter, a one-item list so
+        mutation — not reassignment — is what carries it across separate
+        t-call invocations) shared across the WHOLE document, not a per-table
+        local index. This matters because mrp's own kit-grouping override
+        (confirmed live: mrp.stock_report_delivery_kit_sections /
+        mrp.stock_report_delivery_no_kit_section, both installed via the
+        mrp module already in this app) calls these same two row-templates
+        ONCE PER KIT for a kit-grouped delivery — the sample PDF that
+        originally surfaced this whole request ("Battery Pack...kit" /
+        "Products not associated with a kit") renders through exactly this
+        path. A plain per-call line_index would restart at 1 for every kit
+        section (1 | 1, 2, 3 instead of 1 | 2, 3, 4), which doesn't serve
+        "know the total count of the order" — the actual ask. Confirmed this
+        cross-t-call variable sharing is safe to rely on: Odoo's own
+        has_serial_number variable, set once near the top of
+        report_delivery_document, is read correctly deep inside these same
+        mrp t-call chains — same context-sharing mechanism this counter uses.
+
+        The draft-state table (stock_move_table) and the backorder table
+        keep their own simple local numbering (move_index+1 / bo_line_index+1)
+        — they're single, standalone tables never split across repeated
+        t-calls, so no running counter is needed there.
 
         Address overlap fix: the delivery-address block is set via a plain
         t-set and rendered inside web.external_layout's own header (alongside
@@ -52,6 +69,13 @@
             <attribute name="style">clear: both;</attribute>
         </xpath>
 
+        <!-- Running Sr. No. counter for the validated-picking tables, shared
+             across every kit/package section on the whole document — must be
+             set before any of those tables/branches render. -->
+        <xpath expr="//h2" position="before">
+            <t t-set="ego_sr_counter" t-value="[0]"/>
+        </xpath>
+
         <!-- Sr. No. — draft / not-yet-validated table -->
         <xpath expr="//th[@name='th_sm_product']" position="before">
             <th name="th_ego_sm_sr" class="text-center"><strong>Sr. No.</strong></th>
@@ -76,17 +100,20 @@
 
     </template>
 
-    <!-- Sr. No. — validated table, aggregated (no lot/serial printed) rows -->
+    <!-- Sr. No. — validated table, aggregated (no lot/serial printed) rows.
+         Running counter (see report_delivery_document_ego's comment above)
+         so numbering stays continuous across separate kit sections. -->
     <template id="stock_report_delivery_aggregated_move_lines_ego" inherit_id="stock.stock_report_delivery_aggregated_move_lines">
         <xpath expr="//td[1]" position="before">
-            <td class="text-center" t-esc="line_index + 1"/>
+            <td class="text-center" t-esc="ego_sr_counter.__setitem__(0, ego_sr_counter[0] + 1) or ego_sr_counter[0]"/>
         </xpath>
     </template>
 
-    <!-- Sr. No. — validated table, lot/serial-numbered rows -->
+    <!-- Sr. No. — validated table, lot/serial-numbered rows. Same running
+         counter as the aggregated-lines version above. -->
     <template id="stock_report_delivery_has_serial_move_line_ego" inherit_id="stock.stock_report_delivery_has_serial_move_line">
         <xpath expr="//td[1]" position="before">
-            <td class="text-center" t-esc="move_line_index + 1"/>
+            <td class="text-center" t-esc="ego_sr_counter.__setitem__(0, ego_sr_counter[0] + 1) or ego_sr_counter[0]"/>
         </xpath>
     </template>
 
