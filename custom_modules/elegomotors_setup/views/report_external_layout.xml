@@ -1,0 +1,35 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+    <!--
+        ElegoMotors — company address wrapping fix (affects every PDF)
+
+        web.external_layout_standard puts the company's own address in a
+        <div class="col-6" name="company_address"> inside a <div class="row">
+        with nothing else sharing that row — half the page width sits empty
+        next to it for no reason. With ElegoMotors' compound Indian address
+        (street/street2/city/state/zip each reasonably long on their own),
+        that half-width column forces awkward wrapping, confirmed live on
+        staging1 across multiple PDF types (Delivery Slip, Purchase Order) —
+        this is the actual root cause of what was reported as address text
+        "overlapping" other content. Confirmed the address DATA itself is
+        already correctly split across the proper fields (Settings >
+        Companies), so this needed a template fix, not a data fix.
+
+        Widening to full width (col-12) gives the same content much more
+        room to lay out cleanly, with no competing content lost since the
+        row had nothing else in it. This is company_id=1's report layout
+        (web.external_layout_standard, confirmed via
+        company.external_report_layout_id.key on staging1) — affects every
+        report using the shared header, which is the intended fix per the
+        user's report that this shows up "around every PDF section".
+    -->
+
+    <template id="external_layout_standard_ego" inherit_id="web.external_layout_standard">
+
+        <xpath expr="//div[@name='company_address']" position="attributes">
+            <attribute name="class">col-12</attribute>
+        </xpath>
+
+    </template>
+
+</odoo>
