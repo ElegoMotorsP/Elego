@@ -1,0 +1,33 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+    <!--
+        ElegoMotors — Purchase Order / RFQ PDF: Sr. No. column
+
+        purchase.report_purchasequotation_document is the single template used
+        for both the "Request for Quotation" and confirmed "Purchase Order"
+        PDF (title/labels adapt to state elsewhere) — this inherit covers both.
+
+        Follows the same technique as report_saleorder.xml: since this template
+        isn't ours to own, only "before"/"after" additions on existing elements
+        are safe. Numbering is computed per-row from the base t-foreach's own
+        auto-provided order_line_index, filtering out section/note rows the
+        same way the base template's own t-if="not order_line.display_type"
+        does for the product cells.
+    -->
+
+    <template id="report_purchasequotation_document_ego" inherit_id="purchase.report_purchasequotation_document">
+
+        <xpath expr="//th[@name='th_description']" position="before">
+            <th name="th_ego_sr" class="text-center">Sr. No.</th>
+        </xpath>
+
+        <xpath expr="//td[@id='product']" position="before">
+            <t t-set="ego_prior" t-value="o.order_line[:order_line_index + 1]"/>
+            <td name="td_ego_sr" class="text-center">
+                <span t-esc="len([l for l in ego_prior if not l.display_type])"/>
+            </td>
+        </xpath>
+
+    </template>
+
+</odoo>
