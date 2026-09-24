@@ -1,0 +1,50 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+    <!--
+        ElegoMotors — Request for Quotation PDF: Sr. No. column
+
+        purchase.report_purchasequotation_document covers ONLY the draft /
+        sent / to-approve states ("Request for Quotation"). Once a PO is
+        confirmed (state purchase/done), Odoo renders a genuinely SEPARATE
+        template, purchase.report_purchaseorder_document, via a different
+        report action (purchase.action_report_purchase_order) — fixed
+        separately in report_purchaseorder.xml. Confirmed live on staging1
+        (two distinct ir.actions.report records on purchase.order, pointing
+        at report_purchasequotation vs report_purchaseorder respectively) —
+        an earlier version of this fix only covered this file and a
+        confirmed PO showed no Sr. No. as a result.
+
+        Follows the same technique as report_saleorder.xml: since this template
+        isn't ours to own, only "before"/"after" additions on existing elements
+        are safe. Numbering is computed per-row from the base t-foreach's own
+        auto-provided order_line_index, filtering out section/note rows the
+        same way the base template's own t-if="not order_line.display_type"
+        does for the product cells.
+
+        NOTE: the product <td> itself is NOT a safe anchor — l10n_in_purchase
+        (India GST localization, also installed here) does position="replace"
+        on //t[@t-foreach='o.order_line']//td[@id='product'] to inject the
+        HSN/SAC code line, swapping in a brand-new <td> with no id at all.
+        Confirmed by inspecting both inheriting views live on staging1
+        (ir.ui.view ids 1794 purchase_stock, 1881 l10n_in_purchase — both
+        priority 16, loading before this file). Anchoring on the surrounding
+        <t t-if="not order_line.display_type"> wrapper instead, since neither
+        of those views touches it — only the leaf <td> inside gets replaced.
+    -->
+
+    <template id="report_purchasequotation_document_ego" inherit_id="purchase.report_purchasequotation_document">
+
+        <xpath expr="//th[@name='th_description']" position="before">
+            <th name="th_ego_sr" class="text-center">Sr. No.</th>
+        </xpath>
+
+        <xpath expr="//t[@t-if='not order_line.display_type']/td[1]" position="before">
+            <t t-set="ego_prior" t-value="o.order_line[:order_line_index + 1]"/>
+            <td name="td_ego_sr" class="text-center">
+                <span t-esc="len([l for l in ego_prior if not l.display_type])"/>
+            </td>
+        </xpath>
+
+    </template>
+
+</odoo>

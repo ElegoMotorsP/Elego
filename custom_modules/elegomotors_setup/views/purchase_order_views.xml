@@ -34,4 +34,28 @@
         </field>
     </record>
 
+    <!--
+        Vendor-Product restriction: once a vendor is picked on a PO, the order-line
+        product picker only offers products that vendor is actually assigned to
+        supply (product.supplierinfo — a product's Purchase tab > Vendor Pricelist).
+        UI-level filter only, not a server-side constraint, so it does not affect
+        purchase_bom_wizard.py's _add_or_merge_po_line, which creates PO lines
+        directly for manufacturing BOM components, bypassing this picker entirely.
+
+        A vendor with nothing yet in their Vendor Pricelist will show an empty
+        product list here until products are assigned to them — expected, not a bug.
+    -->
+    <record id="purchase_order_form_product_vendor_restriction" model="ir.ui.view">
+        <field name="name">purchase.order.form.product.vendor.restriction</field>
+        <field name="model">purchase.order</field>
+        <field name="inherit_id" ref="purchase.purchase_order_form"/>
+        <field name="arch" type="xml">
+
+            <xpath expr="//field[@name='order_line']//field[@name='product_id']" position="attributes">
+                <attribute name="domain">[('seller_ids.partner_id', '=', parent.partner_id), ('purchase_ok', '=', True)]</attribute>
+            </xpath>
+
+        </field>
+    </record>
+
 </odoo>

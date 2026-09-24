@@ -1,0 +1,43 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+    <!--
+        ElegoMotors — confirmed Purchase Order PDF: Sr. No. column
+
+        purchase.report_purchaseorder_document is a SEPARATE template from
+        purchase.report_purchasequotation_document (already fixed in
+        report_purchasequotation.xml) — confirmed live on staging1: there
+        are two distinct report actions on purchase.order
+        (purchase.action_report_purchase_order -> report_purchaseorder vs.
+        purchase.report_purchase_quotation -> report_purchasequotation), and
+        this one is what actually renders once a PO is confirmed (state in
+        purchase/done) — the "Request for Quotation" template only covers
+        draft/sent/to-approve. The original fix only touched the quotation
+        template, which is why Sr. No. didn't appear on a confirmed PO.
+
+        Same l10n_in_purchase risk as the quotation report: it also inherits
+        this template (gst_report_purchaseorder_document_inherit, view id
+        1880 on staging1 — named as a direct twin of the quotation report's
+        own override) and, by the same naming/structural symmetry, almost
+        certainly does the same position="replace" on
+        //t[@t-foreach='o.order_line']//td[@id='product'] to inject its
+        HSN/SAC line. Anchoring on the surrounding
+        t-if="not line.display_type" wrapper instead, proactively, rather
+        than risk a second failed upgrade confirming the obvious.
+    -->
+
+    <template id="report_purchaseorder_document_ego" inherit_id="purchase.report_purchaseorder_document">
+
+        <xpath expr="//th[@name='th_description']" position="before">
+            <th name="th_ego_sr" class="text-center">Sr. No.</th>
+        </xpath>
+
+        <xpath expr="//t[@t-if='not line.display_type']/td[1]" position="before">
+            <t t-set="ego_prior" t-value="o.order_line[:line_index + 1]"/>
+            <td name="td_ego_sr" class="text-center">
+                <span t-esc="len([l for l in ego_prior if not l.display_type])"/>
+            </td>
+        </xpath>
+
+    </template>
+
+</odoo>
