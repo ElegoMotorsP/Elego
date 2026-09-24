@@ -20,10 +20,11 @@
 
         Numbering on the validated-picking tables (stock_report_delivery_
         aggregated_move_lines / stock_report_delivery_has_serial_move_line)
-        uses a single running counter (ego_sr_counter, a one-item list so
-        mutation — not reassignment — is what carries it across separate
-        t-call invocations) shared across the WHOLE document, not a per-table
-        local index. This matters because mrp's own kit-grouping override
+        uses a single running counter (ego_sr_counter, a list — mutation via
+        .append(), not reassignment, is what carries it across separate
+        t-call invocations; its LENGTH is the count) shared across the WHOLE
+        document, not a per-table local index. This matters because mrp's
+        own kit-grouping override
         (confirmed live: mrp.stock_report_delivery_kit_sections /
         mrp.stock_report_delivery_no_kit_section, both installed via the
         mrp module already in this app) calls these same two row-templates
@@ -37,6 +38,16 @@
         has_serial_number variable, set once near the top of
         report_delivery_document, is read correctly deep inside these same
         mrp t-call chains — same context-sharing mechanism this counter uses.
+
+        IMPORTANT: an earlier version of this counter used
+        ego_sr_counter.__setitem__(...) — QWeb's safe_eval forbids ANY
+        dunder-named method call (odoo/tools/safe_eval.py
+        assert_no_dunder_name), which broke this report in production with
+        a hard NameError on every print. list.append() is not a dunder name,
+        so it passes the same restriction while achieving the identical
+        "mutate a shared object across t-call boundaries" effect — this is
+        the fix, not a stylistic preference. Do not reintroduce
+        __setitem__/__getattr__/any dunder call in a QWeb expression here.
 
         The draft-state table (stock_move_table) and the backorder table
         keep their own simple local numbering (move_index+1 / bo_line_index+1)
@@ -73,7 +84,7 @@
              across every kit/package section on the whole document — must be
              set before any of those tables/branches render. -->
         <xpath expr="//h2" position="before">
-            <t t-set="ego_sr_counter" t-value="[0]"/>
+            <t t-set="ego_sr_counter" t-value="[]"/>
         </xpath>
 
         <!-- Sr. No. — draft / not-yet-validated table -->
@@ -105,7 +116,7 @@
          so numbering stays continuous across separate kit sections. -->
     <template id="stock_report_delivery_aggregated_move_lines_ego" inherit_id="stock.stock_report_delivery_aggregated_move_lines">
         <xpath expr="//td[1]" position="before">
-            <td class="text-center" t-esc="ego_sr_counter.__setitem__(0, ego_sr_counter[0] + 1) or ego_sr_counter[0]"/>
+            <td class="text-center" t-esc="ego_sr_counter.append(1) or len(ego_sr_counter)"/>
         </xpath>
     </template>
 
@@ -113,7 +124,7 @@
          counter as the aggregated-lines version above. -->
     <template id="stock_report_delivery_has_serial_move_line_ego" inherit_id="stock.stock_report_delivery_has_serial_move_line">
         <xpath expr="//td[1]" position="before">
-            <td class="text-center" t-esc="ego_sr_counter.__setitem__(0, ego_sr_counter[0] + 1) or ego_sr_counter[0]"/>
+            <td class="text-center" t-esc="ego_sr_counter.append(1) or len(ego_sr_counter)"/>
         </xpath>
     </template>
 
