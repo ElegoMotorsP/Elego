@@ -112,6 +112,8 @@
         'views/report_deliveryslip.xml',            # Delivery Slip PDF (inherited base template): Sr.No columns
                                                      # + delivery-address overlap fix
         'views/report_vendor_bill.xml',              # Vendor Bill PDF (inherited base template): Sr.No column
+        'views/report_pickingoperations.xml',       # Picking Operations PDF (inherited base template): Sr.No column
+                                                     # NOTE: shifts the existing Studio customization's column by one
         'views/report_external_layout.xml',         # Shared PDF header: widen company address column (fixes wrap)
         'views/report_elegomotors_quotation.xml',   # Fully custom Quotation PDF — bike combo "same box" merging;
                                                      # redirects the default Preview/Send/Print to this template
