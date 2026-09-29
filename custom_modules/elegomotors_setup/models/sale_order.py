@@ -57,6 +57,21 @@ class SaleOrder(models.Model):
              "Sales Order number on approval.",
     )
 
+    # Lets the salesperson see, while still creating the quotation, whether
+    # this customer already owes money on past invoices — res.partner.credit
+    # is Odoo's own "Total Receivable" (unreconciled posted invoices).
+    x_outstanding_balance = fields.Monetary(
+        string='Customer Outstanding Balance', currency_field='currency_id',
+        compute='_compute_outstanding_balance',
+        help="Customer's total receivable from unreconciled posted invoices "
+             "(res.partner.credit).",
+    )
+
+    @api.depends('partner_id')
+    def _compute_outstanding_balance(self):
+        for order in self:
+            order.x_outstanding_balance = order.partner_id.credit if order.partner_id else 0.0
+
     def write(self, vals):
         result = super().write(vals)
         # Fallback only: the normal UI path assigns the Sales Order Number
@@ -594,3 +609,26 @@ class SaleOrder(models.Model):
         # the user.
         self._action_cancel()
         self.action_draft()
+
+
+class SaleOrderLineDirectReporting(models.Model):
+    _inherit = 'sale.order.line'
+
+    # The Direct Reporting screen (views/direct_reporting_views.xml) groups/
+    # filters by these — stored related fields, not a dotted path in the
+    # search view, because Odoo's group-by needs an actual field on the
+    # model being grouped, not a relation traversal.
+    x_report_partner_id = fields.Many2one(
+        'res.partner', related='order_id.partner_id', store=True,
+        string='Dealer',
+    )
+    x_report_date = fields.Datetime(
+        related='order_id.date_order', store=True, string='Order Date',
+    )
+    x_report_bike_tmpl_id = fields.Many2one(
+        'product.template', related='product_id.product_tmpl_id', store=True,
+        string='Bike Model',
+    )
+    x_report_salesperson = fields.Selection(
+        related='order_id.x_actual_salesperson', store=True, string='Handled By',
+    )

@@ -175,6 +175,19 @@
                 <attribute name="readonly">state == 'sale'</attribute>
             </xpath>
 
+            <!-- Lets the salesperson see the customer's pending/outstanding
+                 balance while still creating the quotation, instead of
+                 finding out only later at the Accounts approval step.
+                 Targets the stable 'note' field by name (not the Other Info
+                 tab's structure) so this insert doesn't depend on guessing
+                 the base view's internal layout — see sale_order.py's
+                 x_outstanding_balance for the underlying computation. -->
+            <xpath expr="//field[@name='note']" position="before">
+                <group string="Customer Outstanding">
+                    <field name="x_outstanding_balance" readonly="1"/>
+                </group>
+            </xpath>
+
         </field>
     </record>
 

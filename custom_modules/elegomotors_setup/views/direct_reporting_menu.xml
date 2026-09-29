@@ -1,0 +1,15 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+    <!--
+        Direct Reporting menu — standalone top-level app tile, same
+        no-parent pattern as Quality Control / Finance API / Access Matrix
+        (menu_quality_control_root / menu_finance_api_root /
+        menu_access_matrix_root). Visible to the salesperson login plus
+        sales managers/admin for oversight.
+    -->
+    <menuitem id="menu_direct_reporting_root"
+              name="Direct Reporting"
+              action="action_direct_reporting"
+              sequence="95"
+              groups="sales_team.group_sale_salesman,sales_team.group_sale_manager,base.group_erp_manager"/>
+</odoo>
