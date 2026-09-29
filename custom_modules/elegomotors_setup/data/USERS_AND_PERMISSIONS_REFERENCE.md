@@ -4,6 +4,40 @@ From `custom_modules/elegomotors_setup/data/`: user rules, order access, order f
 
 ---
 
+## 0. Access Matrix (Settings → Access Matrix, admin only)
+
+Since v18.0.74.0.0, Manohar no longer needs a developer to change anyone's
+permissions. **Settings → Access Matrix** (visible only to `base.group_system`,
+i.e. Manohar) is a single grid: every internal user is a row, every
+permission is a checkbox column. Tick/untick a box and it takes effect
+immediately — no module upgrade needed. New users appear on this screen
+automatically as soon as they're created (it's a live `res.users` list, not
+a hardcoded table).
+
+**Access Roles** (Settings → Access Matrix → Access Roles) are ready-made
+permission bundles — Admin, Store Manager, Purchase, Accounts, HR,
+Quality / Manufacturing, Sales / CRM — one per department below. Picking a
+role on a user (from the matrix, or the "Access Role" field on their user
+form) grants that bundle instantly. Applying a role is **additive only** —
+it adds groups, it never removes one the user already has — so it's safe to
+use for onboarding a new hire ("give them the Purchase role") and safe to
+reapply later without undoing any fine-tuning done since.
+
+Implementation: `models/res_users_access.py` (the checkbox fields, mapped to
+the same `res.groups` this document describes below) and
+`models/elegomotors_access_role.py` (the role bundles, seeded from
+`data/access_role_data.xml`).
+
+**Historical note:** before v18.0.74.0.0, `data/users_data.xml` force-reset
+every user's groups on every module upgrade (`noupdate="0"`), which meant
+manual permission changes via Settings → Users didn't survive a deploy. That
+file is now `noupdate="1"` (seeds once) and a one-time migration
+(`migrations/18.0.74.0.0/post-migrate.py`) froze the existing production
+users so this stopped retroactively. Permissions are now owned by whoever
+sets them in the Access Matrix, not by this codebase.
+
+---
+
 ## 1. Users and Permission Groups (Brief)
 
 | User | Role | Login | Key groups | Order access |

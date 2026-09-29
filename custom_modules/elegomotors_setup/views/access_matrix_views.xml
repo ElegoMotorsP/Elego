@@ -1,0 +1,142 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+    <!--
+        ElegoMotors Access Matrix — a single grid (Settings → Access Matrix,
+        admin only) where every internal user is a row and every permission
+        is an editable checkbox column, instead of opening each user's
+        Access Rights tab one at a time.
+
+        Rows come from a plain res.users search (domain below) — nothing is
+        hardcoded, so a newly created user appears here automatically.
+        Columns are the x_access_* fields on res.users
+        (models/res_users_access.py) — keep this view's column list in sync
+        with _ACCESS_MATRIX_FIELDS there.
+
+        Less-frequently-toggled columns are optional="hide" — use the column
+        picker (gear icon, top-right of the list) to show them.
+    -->
+    <record id="view_access_matrix_list" model="ir.ui.view">
+        <field name="name">res.users.access.matrix.list</field>
+        <field name="model">res.users</field>
+        <field name="arch" type="xml">
+            <list string="Access Matrix" editable="bottom">
+                <field name="name"/>
+                <field name="login"/>
+                <field name="x_access_role_id"/>
+
+                <field name="x_access_administrator"/>
+                <field name="x_access_erp_manager"/>
+
+                <field name="x_access_purchase_create"/>
+                <field name="x_access_purchase_approve"/>
+                <field name="x_access_purchase_view"/>
+                <field name="x_access_vendor_bill_view" optional="hide"/>
+
+                <field name="x_access_sale_create"/>
+                <field name="x_access_sale_approve"/>
+                <field name="x_access_sale_view"/>
+                <field name="x_access_sale_approve_only" optional="hide"/>
+
+                <field name="x_access_stock_view"/>
+                <field name="x_access_stock_manage"/>
+                <field name="x_access_inbound_operator" optional="hide"/>
+                <field name="x_access_qc_pass_operator" optional="hide"/>
+                <field name="x_access_fg_transfer_operator" optional="hide"/>
+                <field name="x_access_delivery_change_operator" optional="hide"/>
+                <field name="x_access_unbuild_rebuild_operator" optional="hide"/>
+
+                <field name="x_access_mrp_view"/>
+                <field name="x_access_mrp_manage"/>
+                <field name="x_access_mrp_routings" optional="hide"/>
+                <field name="x_access_manufacturing_operator"/>
+
+                <field name="x_access_account_full"/>
+                <field name="x_access_account_invoice"/>
+                <field name="x_access_store_billing"/>
+
+                <field name="x_access_hr_view"/>
+                <field name="x_access_hr_manage"/>
+                <field name="x_access_hr_attendance"/>
+                <field name="x_access_hr_leave_approve"/>
+
+                <field name="x_access_quality_view"/>
+                <field name="x_access_quality_manage"/>
+                <field name="x_access_warranty_manage"/>
+
+                <field name="x_access_allow_export" optional="hide"/>
+            </list>
+        </field>
+    </record>
+
+    <record id="action_access_matrix" model="ir.actions.act_window">
+        <field name="name">Access Matrix</field>
+        <field name="res_model">res.users</field>
+        <field name="view_mode">list,form</field>
+        <field name="view_id" ref="view_access_matrix_list"/>
+        <field name="domain">[('share', '=', False)]</field>
+        <field name="help">
+            Every internal user, every permission, one screen. Tick a box to
+            grant it, untick to revoke — takes effect immediately. Pick an
+            Access Role to apply a ready-made permission bundle (it only
+            adds groups, never removes any). New users show up here
+            automatically as soon as they're created.
+        </field>
+    </record>
+
+    <record id="action_access_role" model="ir.actions.act_window">
+        <field name="name">Access Roles</field>
+        <field name="res_model">elegomotors.access.role</field>
+        <field name="view_mode">list,form</field>
+        <field name="help">
+            The permission bundles offered by the Access Role picker on the
+            Access Matrix and on each user's form. Edit a role's Grants here
+            to change what it applies to everyone who is assigned it next.
+        </field>
+    </record>
+
+    <record id="view_access_role_list" model="ir.ui.view">
+        <field name="name">elegomotors.access.role.list</field>
+        <field name="model">elegomotors.access.role</field>
+        <field name="arch" type="xml">
+            <list editable="bottom">
+                <field name="sequence" widget="handle"/>
+                <field name="name"/>
+                <field name="group_ids" widget="many2many_tags"/>
+                <field name="active" invisible="1"/>
+            </list>
+        </field>
+    </record>
+
+    <record id="view_access_role_form" model="ir.ui.view">
+        <field name="name">elegomotors.access.role.form</field>
+        <field name="model">elegomotors.access.role</field>
+        <field name="arch" type="xml">
+            <form>
+                <sheet>
+                    <group>
+                        <field name="name"/>
+                        <field name="active"/>
+                    </group>
+                    <group string="Grants">
+                        <field name="group_ids" widget="many2many_tags" nolabel="1" colspan="2"/>
+                    </group>
+                </sheet>
+            </form>
+        </field>
+    </record>
+
+    <!-- Surface the Access Role picker on the standard user form too, so
+         it's available whether Manohar opens a user from here or from the
+         normal Settings → Users & Companies → Users screen. -->
+    <record id="view_users_form_access_role" model="ir.ui.view">
+        <field name="name">res.users.form.access.role</field>
+        <field name="model">res.users</field>
+        <field name="inherit_id" ref="base.view_users_form"/>
+        <field name="arch" type="xml">
+            <field name="login" position="after">
+                <field name="x_access_role_id"/>
+            </field>
+        </field>
+    </record>
+
+</odoo>

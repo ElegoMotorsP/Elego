@@ -4,8 +4,18 @@
         ElegoMotors Department Users — Production Data
 
         Seven department users with least-privilege group assignments.
-        noupdate="0" — passwords and group memberships ARE overwritten
-        on every module upgrade to match this file exactly (command 6 replaces all groups).
+
+        noupdate="1" (since v18.0.74.0.0): this file seeds each user ONCE.
+        Before that version, this block was noupdate="0" and every module
+        upgrade force-reset every user's groups_id to exactly what's written
+        below (command 6 replaces all groups) — which meant any permission
+        change the admin made via Settings → Users, or later the Access
+        Matrix (Settings → Access Matrix), was silently wiped out on the
+        next `-u elegomotors_setup`. migrations/18.0.74.0.0/post-migrate.py
+        freezes the noupdate flag on the existing production records so
+        that upgrade only happened once, retroactively. From here on, use
+        the Access Matrix / Access Roles (data/access_role_data.xml) to
+        manage permissions — this file is historical/first-install-only.
 
         SECURITY NOTE: Passwords provided here are temporary first-login
         credentials. Each user should change their password immediately
@@ -30,7 +40,7 @@
         Quality/WTY | Pratik Gund     | quality.elego23@gmail.com        | pratik@123
         Sales/CRM   | Priyanka Kul    | leads@elegomotors.com            | priyanka@123
     -->
-    <data noupdate="0">
+    <data noupdate="1">
 
         <!-- ============================================================
              1. ADMIN / APPROVALS — Manohar Kalbhor

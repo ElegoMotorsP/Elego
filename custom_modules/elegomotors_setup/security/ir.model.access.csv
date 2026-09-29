@@ -58,3 +58,5 @@ access_sales_return_wizard_accessory_line_admin,sales.return.wizard.accessory.li
 access_sales_return_billing,sales.return.billing,model_elegomotors_sales_return,elegomotors_setup.group_store_billing,1,1,1,0
 access_sales_return_admin,sales.return.admin,model_elegomotors_sales_return,base.group_erp_manager,1,1,1,1
 access_sales_return_user,sales.return.user,model_elegomotors_sales_return,base.group_user,1,0,0,0
+access_elegomotors_access_role_admin,elegomotors.access.role.admin,model_elegomotors_access_role,base.group_system,1,1,1,1
+access_elegomotors_access_role_user,elegomotors.access.role.user,model_elegomotors_access_role,base.group_user,1,0,0,0
