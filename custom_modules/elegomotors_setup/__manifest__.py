@@ -1,6 +1,6 @@
 {
     'name': 'ElegoMotors Workflow Setup',
-    'version': '18.0.74.0.0',
+    'version': '18.0.75.0.0',
     'category': 'Manufacturing',
     'summary': 'ElegoMotors EV 2-wheeler end-to-end manufacturing workflow configuration',
     'description': """
@@ -15,6 +15,9 @@
         - Security: Amit (Store) restricted to customer invoices only, prices read-only
         - Access Matrix: admin screen (Settings > Access Matrix) to grant/revoke any
           permission for any user, plus reusable Access Role templates
+        - Direct Reporting: salesperson-facing bike-sales-by-dealer report
+          (list + pivot, native Excel export)
+        - Quotation form shows the customer's outstanding balance while quoting
         - India localization (l10n_in) for GST + INR chart of accounts
     """,
     'author': 'ElegoMotors',
@@ -133,6 +136,8 @@
         'views/new_bike_model_wizard_views.xml',    # New Bike Model wizard (product + BOM, no developer needed)
         'views/access_matrix_views.xml',            # Access Matrix grid + Access Role templates + user form field
         'views/access_matrix_menu.xml',              # Access Matrix menu (admin-only)
+        'views/direct_reporting_views.xml',         # Direct Reporting: bike sales by dealer (list + pivot)
+        'views/direct_reporting_menu.xml',           # Direct Reporting menu (salesperson + managers)
     ],
     'assets': {
         'web.assets_backend': [
