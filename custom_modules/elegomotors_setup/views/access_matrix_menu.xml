@@ -1,0 +1,26 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+    <!--
+        Access Matrix menu — admin-only (base.group_system: Manohar today).
+        A standalone top-level app, same pattern as Quality Control /
+        Finance API (menu_quality_control_root / menu_finance_api_root):
+        no parent, so it appears in the apps switcher instead of nested
+        somewhere inside Odoo's own Settings menu tree.
+    -->
+    <menuitem id="menu_access_matrix_root"
+              name="Access Matrix"
+              sequence="5"
+              groups="base.group_system"/>
+
+    <menuitem id="menu_access_matrix"
+              name="Access Matrix"
+              parent="menu_access_matrix_root"
+              action="action_access_matrix"
+              sequence="10"/>
+
+    <menuitem id="menu_access_role"
+              name="Access Roles"
+              parent="menu_access_matrix_root"
+              action="action_access_role"
+              sequence="20"/>
+</odoo>

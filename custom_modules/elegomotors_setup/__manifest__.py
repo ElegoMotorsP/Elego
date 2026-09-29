@@ -1,6 +1,6 @@
 {
     'name': 'ElegoMotors Workflow Setup',
-    'version': '18.0.73.0.0',
+    'version': '18.0.74.0.0',
     'category': 'Manufacturing',
     'summary': 'ElegoMotors EV 2-wheeler end-to-end manufacturing workflow configuration',
     'description': """
@@ -13,6 +13,8 @@
         - Company settings (INR currency, 2-level PO approval)
         - Security: Produce button restricted to Manufacturing Operator group
         - Security: Amit (Store) restricted to customer invoices only, prices read-only
+        - Access Matrix: admin screen (Settings > Access Matrix) to grant/revoke any
+          permission for any user, plus reusable Access Role templates
         - India localization (l10n_in) for GST + INR chart of accounts
     """,
     'author': 'ElegoMotors',
@@ -70,6 +72,7 @@
         'data/battery_kit_data.xml',      # Base battery cells + chargers + pack kit (phantom) BOMs
         'data/combo_price_data.xml',      # Bike combo dealer prices (July-2026 list)
         'data/users_data.xml',            # department users (loaded after groups)
+        'data/access_role_data.xml',      # Access Role templates (Admin/Store Manager/Purchase/...)
         'data/quality_data.xml',         # QC control points: gate entry + FG receipt
         'data/qc_check_sheets_data.xml', # Charger + Battery QC check sheet templates
         'data/pdi_parameters_data.xml',  # PDI (Pre-Delivery Inspection) starter checklist
@@ -128,6 +131,8 @@
         'views/warranty_api_views.xml',             # Warranty API Clients + Request Log views/actions
         'views/warranty_menu.xml',                   # Warranty menu (Registrations, Claims, Policy Rules, API)
         'views/new_bike_model_wizard_views.xml',    # New Bike Model wizard (product + BOM, no developer needed)
+        'views/access_matrix_views.xml',            # Access Matrix grid + Access Role templates + user form field
+        'views/access_matrix_menu.xml',              # Access Matrix menu (admin-only)
     ],
     'assets': {
         'web.assets_backend': [

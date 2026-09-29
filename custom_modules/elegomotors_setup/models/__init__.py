@@ -1,5 +1,7 @@
 from . import ir_actions_server
 from . import res_company
+from . import elegomotors_access_role
+from . import res_users_access
 from . import qc_parameter
 from . import pdi_parameter
 from . import account_move
