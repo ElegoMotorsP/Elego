@@ -411,6 +411,32 @@ class StockPicking(models.Model):
             )
         return False
 
+    @api.model
+    def _set_move_done_qty(self, move, qty):
+        """Make the move's lines add up to exactly `qty` — never `qty` per line.
+
+        A QC backorder can carry more than one line per move (the qty-0
+        placeholder created by _auto_route_qc_items travels to the backorder,
+        and Odoo's auto-reservation of the supplier receipt can add another).
+        Writing the full quantity on every line double-counts the receipt:
+        Quantity shows 2x demand and the done move lines post 2x into stock.
+        """
+        lines = move.move_line_ids
+        if not lines:
+            move.write({'quantity': qty})
+        elif not lines.filtered('lot_id'):
+            # Plain (untracked / no lot entered) lines are interchangeable:
+            # keep one, drop the duplicates.
+            (lines - lines[:1]).unlink()
+            lines[:1].qty_done = qty
+        else:
+            # Lot-carrying lines can't be merged — spread qty across them.
+            remaining = qty
+            for ml in lines:
+                take = min(remaining, ml.qty_done)
+                ml.qty_done = take
+                remaining -= take
+
     def action_gate_entry_approve_qc(self):
         """Pratik approves QC: sets qty_done per serial based on pass/fail results,
         blacklists failed serials immediately, routes the approved goods on to
@@ -481,10 +507,7 @@ class StockPicking(models.Model):
                 # as QC Failed once approved.
                 qty = move.x_qty_qc_passed or move.x_qty_received or move.product_uom_qty
                 move.x_qty_qc_passed = qty
-                for ml in move.move_line_ids:
-                    ml.qty_done = qty
-                if not move.move_line_ids:
-                    move.write({'quantity': qty})
+                self._set_move_done_qty(move, qty)
 
         self.x_gate_entry_state = 'ready'
         amit = self.env.ref('elegomotors_setup.user_ego_amit', raise_if_not_found=False)
@@ -687,9 +710,8 @@ class StockPicking(models.Model):
                             move.location_dest_id = store_loc.id
                             qty = move.x_qty_received or move.product_uom_qty
                             move.x_qty_qc_passed = qty
-                            for ml in move.move_line_ids:
-                                ml.location_dest_id = store_loc.id
-                                ml.qty_done = qty
+                            move.move_line_ids.location_dest_id = store_loc.id
+                            picking._set_move_done_qty(move, qty)
                         picking.x_gate_entry_state = 'ready'
 
                 elif picking.x_gate_entry_state != 'ready':
