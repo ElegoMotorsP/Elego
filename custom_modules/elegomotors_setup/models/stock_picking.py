@@ -100,6 +100,58 @@ class StockPicking(models.Model):
             }))
         self.move_ids_without_package = moves
 
+    # --- GRN header carry-forward onto the QC backorder ---
+    # The PO, vendor invoice no./date (copy=False) and the Studio "Vehicle No"
+    # captured on the GRN were left blank on the backorder Odoo creates for
+    # the QC items, so Pratik had to re-enter them on the Inward QC screen
+    # (and the PO picker is readonly there, so it could never be filled).
+
+    def _ego_grn_header_field_names(self):
+        names = ['x_source_po_id', 'x_vendor_invoice_number', 'x_vendor_invoice_date']
+        # Vehicle No is a Studio field on production only — look it up by label
+        # so this works on databases where it doesn't exist.
+        names += [n for n, f in self._fields.items()
+                  if n.startswith('x_') and f.string == 'Vehicle No']
+        return names
+
+    def _ego_grn_header_vals(self):
+        """Non-empty GRN header values for this receipt, falling back up the
+        backorder chain for any that are blank here."""
+        self.ensure_one()
+        vals = {}
+        for name in self._ego_grn_header_field_names():
+            src = self
+            while src and not src[name]:
+                src = src.backorder_id
+            if src:
+                vals[name] = self._fields[name].convert_to_write(src[name], src)
+        return vals
+
+    def _ego_fill_grn_header_from_source(self):
+        """Fill only the blank GRN header fields from the backorder's source."""
+        for picking in self.filtered(lambda p: p.backorder_id and p.picking_type_code == 'incoming'):
+            vals = {
+                k: v for k, v in picking.backorder_id._ego_grn_header_vals().items()
+                if not picking[k]
+            }
+            if vals:
+                picking.write(vals)
+
+    def _create_backorder(self, *args, **kwargs):
+        backorders = super()._create_backorder(*args, **kwargs)
+        backorders._ego_fill_grn_header_from_source()
+        return backorders
+
+    @api.model
+    def _backfill_grn_header_on_backorders(self):
+        """Idempotent: fill blank GRN header fields on existing incoming
+        backorders. Called from stock_picking_types_fix.xml on every upgrade."""
+        self.search([
+            ('backorder_id', '!=', False),
+            ('picking_type_code', '=', 'incoming'),
+            ('state', '!=', 'cancel'),
+        ], order='id')._ego_fill_grn_header_from_source()
+
     # --- Issue 5/6: Gate Entry QC workflow state ---
     x_gate_entry_state = fields.Selection([
         ('pending_qc', 'Pending QC'),

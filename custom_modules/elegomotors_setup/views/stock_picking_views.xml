@@ -102,11 +102,16 @@
                 <attribute name="invisible">picking_type_code == 'incoming'</attribute>
             </xpath>
             <xpath expr="//field[@name='origin']" position="after">
+                <!-- On a QC backorder these are carried forward from the GRN
+                     (_ego_fill_grn_header_from_source) — informational there,
+                     still editable if the GRN never had them. -->
                 <field name="x_vendor_invoice_number"
                        invisible="picking_type_code != 'incoming'"
+                       readonly="backorder_id and x_vendor_invoice_number"
                        placeholder="e.g. INV-2024/001"/>
                 <field name="x_vendor_invoice_date"
-                       invisible="picking_type_code != 'incoming'"/>
+                       invisible="picking_type_code != 'incoming'"
+                       readonly="backorder_id and x_vendor_invoice_date"/>
             </xpath>
         </field>
     </record>
