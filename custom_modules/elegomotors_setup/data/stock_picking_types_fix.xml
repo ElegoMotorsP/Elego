@@ -81,5 +81,10 @@
             <field name="group_id" ref="elegomotors_setup.group_fg_transfer_operator"/>
         </record>
 
+        <!-- Backfill: QC backorders created before the GRN header
+             carry-forward existed get the GRN's PO, vendor invoice no./date
+             and Vehicle No filled in (blank fields only). Idempotent. -->
+        <function model="stock.picking" name="_backfill_grn_header_on_backorders"/>
+
     </data>
 </odoo>
