@@ -1868,7 +1868,23 @@ class ProductTemplate(models.Model):
             )
             template_boms.sudo().unlink()
 
+        # Components already on the 2.0+ variant BOMs, by name. Preferred over a
+        # plain name search: some parts exist as more than one product with the
+        # same name (e.g. FRONT GUARD BRACKET), and the search could pick — and
+        # reactivate — a duplicate instead of the one production actually uses.
+        current_by_name = {}
+        for comp in Bom.search([('product_tmpl_id', '=', tmpl.id)]).bom_line_ids.product_id:
+            current_by_name.setdefault(comp.product_tmpl_id.name, comp)
+        # Spelling fix: the BOM's FRONT GUARD "BRAKET" component is renamed in
+        # place, so its stock/MO lines carry over instead of a new product.
+        legacy = current_by_name.pop('ELEGO 2.0+ FRONT GUARD BRAKET', None)
+        if legacy:
+            legacy.product_tmpl_id.sudo().name = 'ELEGO 2.0+ FRONT GUARD BRACKET'
+            current_by_name['ELEGO 2.0+ FRONT GUARD BRACKET'] = legacy
+
         def _get_or_create_component(name):
+            if name in current_by_name:
+                return current_by_name[name]
             match = self.env['product.template'].sudo().with_context(active_test=False).search(
                 [('name', '=', name)], limit=1
             )
@@ -1968,7 +1984,7 @@ class ProductTemplate(models.Model):
             ('ELEGO 2.0+ BATTERT CLAMP', 1),
             ('ELEGO 2.0+ CHASSIS FRAME', 1),
             ('ELEGO 2.0+ FRONT BRAKE CABLE HOLDER CLAMP', 1),
-            ('ELEGO 2.0+ FRONT GUARD BRAKET', 1),
+            ('ELEGO 2.0+ FRONT GUARD BRACKET', 1),
             ('ELEGO 2.0+ FRONT RIM', 1),
             ('ELEGO 2.0+ HANDAL BAR', 1),
             ('ELEGO 2.0+ MIDDLE STAND', 1),
