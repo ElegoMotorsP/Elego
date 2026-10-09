@@ -368,6 +368,10 @@ class ProductTemplate(models.Model):
         if match:
             if not match.active:
                 match.write({'active': True})
+            # Reactivating a template does not bring back its archived variant,
+            # and BOM lines then point at an archived product (stock shows 0 in the
+            # product views). Always reactivate the variants of a BOM component.
+            match.product_variant_ids.filtered(lambda v: not v.active).write({'active': True})
             if not match.is_storable:
                 match.write({'is_storable': True})
             return match.product_variant_ids[:1]
@@ -1883,6 +1887,7 @@ class ProductTemplate(models.Model):
             if match:
                 if not match.active:
                     match.sudo().write({'active': True})
+                match.product_variant_ids.filtered(lambda v: not v.active).sudo().write({'active': True})
                 if not match.is_storable:
                     match.sudo().write({'is_storable': True})
                 return match.product_variant_ids[:1]
