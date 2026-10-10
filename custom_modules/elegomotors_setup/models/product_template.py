@@ -2032,7 +2032,7 @@ class ProductTemplate(models.Model):
             ('ELEGO 2.0+ REAR SUSPENSION', 2),
             ('ELEGO 2.0+ FRONT SUSPENSION LH', 1),
             ('ELEGO 2.0+ FRONT SUSPENSION RH', 1),
-            ('ELEGO 2.0+ TYRE 3-00-10', 2),
+            ('TYRE 3-00-10', 2),
             # Fasteners and hardware
             ('ROUND HEAD STAR BUTTON SCREW M3X25 HEAD OD 5mm', 2),
             ('ROUND HEAD STAR BUTTON SCREW M4X16 HEAD OD 8mm', 2),
