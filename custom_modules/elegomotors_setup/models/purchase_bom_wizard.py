@@ -124,6 +124,8 @@ class ElegoMotorsPurchaseBomWizard(models.TransientModel):
                 continue
             qty_mult = max(row.bike_qty or 1, 1)
             for bom_line in bom.bom_line_ids:
+                if bom_line.product_id.product_tmpl_id.x_skip_rfq_bom_load:
+                    continue
                 entry = merged.setdefault(bom_line.product_id.id, {
                     'qty': 0.0,
                     'uom_id': bom_line.product_uom_id.id,
