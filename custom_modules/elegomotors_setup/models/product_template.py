@@ -368,6 +368,10 @@ class ProductTemplate(models.Model):
         if match:
             if not match.active:
                 match.write({'active': True})
+            # Reactivating a template does not bring back its archived variant,
+            # and BOM lines then point at an archived product (stock shows 0 in the
+            # product views). Always reactivate the variants of a BOM component.
+            match.product_variant_ids.filtered(lambda v: not v.active).write({'active': True})
             if not match.is_storable:
                 match.write({'is_storable': True})
             return match.product_variant_ids[:1]
@@ -456,9 +460,9 @@ class ProductTemplate(models.Model):
                 ('1.1/1.2 FLASHER', 1, 'ELEGO 1.1 FLASHER'),
                 ('1.1 FRONT INDICATOR', 1, 'ELEGO 1.1 FRONT INDICATOR (LH)'),
                 ('1.1/1.2 HEAD LIGHT SWITCH', 1, 'ELEGO 1.1 HEAD LIGHT SWITCH'),
-                ('1.1/1.2 HEADLAMP ASSY', 1, 'ELEGO 1.1 HEADLAMP ASSY'),
+                ('1.2 HEADLAMP ASSY', 1, 'ELEGO 1.1 HEADLAMP ASSY'),
                 ('1.1/1.2 GEAR SWITCH', 1, None),
-                ('1.1/1.2 HEADLAMP BULB', 1, 'ELEGO 1.1 HEADLAMP BULB'),
+                ('1.2 HEADLAMP BULB', 1, 'ELEGO 1.1 HEADLAMP BULB'),
                 ('1.1/1.2 HORN & PARKING SWITCH COMBO', 1, None),
                 ('1.1/1.2 IGNITION LOCK', 1, 'ELEGO 1.1 IGNITION LOCK'),
                 ('1.1/1.2 INDICATOR SWITCH', 1, 'ELEGO 1.1 INDICATOR SWITCH'),
@@ -576,9 +580,9 @@ class ProductTemplate(models.Model):
                 ('1.1/1.2 FLASHER', 1, 'ELEGO 1.1 FLASHER'),
                 ('1.1 FRONT INDICATOR', 1, 'ELEGO 1.1 FRONT INDICATOR (LH)'),
                 ('1.1/1.2 HEAD LIGHT SWITCH', 1, 'ELEGO 1.1 HEAD LIGHT SWITCH'),
-                ('1.1/1.2 HEADLAMP ASSY', 1, 'ELEGO 1.1 HEADLAMP ASSY'),
+                ('1.2 HEADLAMP ASSY', 1, 'ELEGO 1.1 HEADLAMP ASSY'),
                 ('1.1/1.2 GEAR SWITCH', 1, None),
-                ('1.1/1.2 HEADLAMP BULB', 1, 'ELEGO 1.1 HEADLAMP BULB'),
+                ('1.2 HEADLAMP BULB', 1, 'ELEGO 1.1 HEADLAMP BULB'),
                 ('1.1/1.2 HORN & PARKING SWITCH COMBO', 1, None),
                 ('1.1/1.2 IGNITION LOCK', 1, 'ELEGO 1.1 IGNITION LOCK'),
                 ('1.1/1.2 INDICATOR SWITCH', 1, 'ELEGO 1.1 INDICATOR SWITCH'),
@@ -696,9 +700,9 @@ class ProductTemplate(models.Model):
                 ('1.1/1.2 FLASHER', 1, 'ELEGO 1.1 FLASHER'),
                 ('1.1 FRONT INDICATOR', 1, 'ELEGO 1.1 FRONT INDICATOR (LH)'),
                 ('1.1/1.2 HEAD LIGHT SWITCH', 1, 'ELEGO 1.1 HEAD LIGHT SWITCH'),
-                ('1.1/1.2 HEADLAMP ASSY', 1, 'ELEGO 1.1 HEADLAMP ASSY'),
+                ('1.2 HEADLAMP ASSY', 1, 'ELEGO 1.1 HEADLAMP ASSY'),
                 ('1.1/1.2 GEAR SWITCH', 1, None),
-                ('1.1/1.2 HEADLAMP BULB', 1, 'ELEGO 1.1 HEADLAMP BULB'),
+                ('1.2 HEADLAMP BULB', 1, 'ELEGO 1.1 HEADLAMP BULB'),
                 ('1.1/1.2 HORN & PARKING SWITCH COMBO', 1, None),
                 ('1.1/1.2 IGNITION LOCK', 1, 'ELEGO 1.1 IGNITION LOCK'),
                 ('1.1/1.2 INDICATOR SWITCH', 1, 'ELEGO 1.1 INDICATOR SWITCH'),
@@ -816,9 +820,9 @@ class ProductTemplate(models.Model):
                 ('1.1/1.2 FLASHER', 1, 'ELEGO 1.1 FLASHER'),
                 ('1.1 FRONT INDICATOR', 1, 'ELEGO 1.1 FRONT INDICATOR (LH)'),
                 ('1.1/1.2 HEAD LIGHT SWITCH', 1, 'ELEGO 1.1 HEAD LIGHT SWITCH'),
-                ('1.1/1.2 HEADLAMP ASSY', 1, 'ELEGO 1.1 HEADLAMP ASSY'),
+                ('1.2 HEADLAMP ASSY', 1, 'ELEGO 1.1 HEADLAMP ASSY'),
                 ('1.1/1.2 GEAR SWITCH', 1, None),
-                ('1.1/1.2 HEADLAMP BULB', 1, 'ELEGO 1.1 HEADLAMP BULB'),
+                ('1.2 HEADLAMP BULB', 1, 'ELEGO 1.1 HEADLAMP BULB'),
                 ('1.1/1.2 HORN & PARKING SWITCH COMBO', 1, None),
                 ('1.1/1.2 IGNITION LOCK', 1, 'ELEGO 1.1 IGNITION LOCK'),
                 ('1.1/1.2 INDICATOR SWITCH', 1, 'ELEGO 1.1 INDICATOR SWITCH'),
@@ -1883,6 +1887,7 @@ class ProductTemplate(models.Model):
             if match:
                 if not match.active:
                     match.sudo().write({'active': True})
+                match.product_variant_ids.filtered(lambda v: not v.active).sudo().write({'active': True})
                 if not match.is_storable:
                     match.sudo().write({'is_storable': True})
                 return match.product_variant_ids[:1]
@@ -2008,7 +2013,7 @@ class ProductTemplate(models.Model):
             ('ELEGO 2.0+ FRONT INDICATOR (RH)', 1),
             ('ELEGO 2.0+ HEAD LIGHT SWITCH', 1),
             ('ELEGO 2.0+ HEADLAMP ASSY', 1),
-            ('ELEGO 2.0+ HEADLAMP BULB', 1),
+            ('1.2 HEADLAMP BULB', 1),
             ('ELEGO 2.0+ HORN SWITCH LH', 1),
             ('ELEGO 2.0+ HORN SWITCH RH', 1),
             ('ELEGO 2.0+ IGNITION LOCK', 1),
