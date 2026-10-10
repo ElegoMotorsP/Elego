@@ -1992,7 +1992,7 @@ class ProductTemplate(models.Model):
             ('ELEGO 2.0+ SWING ARM', 1),
             # Brake / safety
             ('ELEGO 2.0+ BRAKE LEVER WITH SENSOR', 1),
-            ('ELEGO 2.0+ FRONT DISC BRAKE PUMP', 1),
+            ('ELEGO 2.0+ FRONT DISC BRAKE ASSEMBLY', 1),
             ('ELEGO 2.0+ FRONT DISC PLATE', 1),
             ('ELEGO 2.0+ GRAB HANDLE', 1),
             ('ELEGO 2.0+ GREEN CARD', 1),
