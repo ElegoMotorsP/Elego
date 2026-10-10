@@ -1982,7 +1982,7 @@ class ProductTemplate(models.Model):
             ('ELEGO 2.0+ CHASSIS FRAME', 1),
             ('ELEGO 2.0+ FRONT BRAKE CABLE HOLDER CLAMP', 1),
             ('ELEGO 2.0+ FRONT GUARD BRACKET', 1),
-            ('ELEGO 2.0+ FRONT RIM', 1),
+            ('ELEGO 2.0+ FRONT RIM 10 INCH', 1),
             ('ELEGO 2.0+ HANDAL BAR', 1),
             ('ELEGO 2.0+ MIDDLE STAND', 1),
             ('ELEGO 2.0+ MIDDLE STAND RUBBER', 1),
