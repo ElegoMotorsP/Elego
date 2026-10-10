@@ -41,6 +41,15 @@ class ProductTemplate(models.Model):
              'manually overridable at PO time.',
     )
 
+    x_skip_rfq_bom_load = fields.Boolean(
+        string="Don't load into RFQ from BOM",
+        default=False,
+        help='When ticked, this product is left out of the component list the '
+             '"Load BOM Components" wizard adds to a Purchase Order / RFQ. It '
+             'stays on the BOMs (MOs still consume it) and can still be added '
+             'to a PO by hand. Untick to load it again.',
+    )
+
     x_material_code = fields.Char(
         string='Finance API Material Code',
         index=True,
@@ -445,7 +454,7 @@ class ProductTemplate(models.Model):
                 ('1.1/1.2 FRONT DISC PLATE', 1, 'ELEGO 1.1 FRONT DISC PLATE'),
                 ('1.1 FRONT SIDE GUARD', 1, 'ELEGO 1.1 FRONT SIDE GUARD'),
                 ('1.1/1.2 GRAB HANDLE', 1, 'ELEGO 1.1 GRAB HANDLE'),
-                ('1.1/1.2 GREEN CARD', 1, 'ELEGO 1.1 GREEN CARD'),
+                ('GREEN CARD', 1, 'ELEGO 1.1 GREEN CARD'),
                 ('NUMBER PLATE', 1, '1.1/1.2 NUMBER PLATE'),
                 ('1.1/1.2 REAR BRAKE CABLE', 1, 'ELEGO 1.1 REAR BRAKE CABLE'),
                 ('1.1/1.2 REAR BRAKE DRUM PLATE', 1, 'ELEGO 1.1 REAR BRAKE DRUM PLATE'),
@@ -565,7 +574,7 @@ class ProductTemplate(models.Model):
                 ('1.1/1.2 FRONT DISC PLATE', 1, 'ELEGO 1.1 FRONT DISC PLATE'),
                 ('1.1 FRONT SIDE GUARD', 1, 'ELEGO 1.1 FRONT SIDE GUARD'),
                 ('1.1/1.2 GRAB HANDLE', 1, 'ELEGO 1.1 GRAB HANDLE'),
-                ('1.1/1.2 GREEN CARD', 1, 'ELEGO 1.1 GREEN CARD'),
+                ('GREEN CARD', 1, 'ELEGO 1.1 GREEN CARD'),
                 ('NUMBER PLATE', 1, '1.1/1.2 NUMBER PLATE'),
                 ('1.1/1.2 REAR BRAKE CABLE', 1, 'ELEGO 1.1 REAR BRAKE CABLE'),
                 ('1.1/1.2 REAR BRAKE DRUM PLATE', 1, 'ELEGO 1.1 REAR BRAKE DRUM PLATE'),
@@ -685,7 +694,7 @@ class ProductTemplate(models.Model):
                 ('1.1/1.2 FRONT DISC PLATE', 1, 'ELEGO 1.1 FRONT DISC PLATE'),
                 ('1.1 FRONT SIDE GUARD', 1, 'ELEGO 1.1 FRONT SIDE GUARD'),
                 ('1.1/1.2 GRAB HANDLE', 1, 'ELEGO 1.1 GRAB HANDLE'),
-                ('1.1/1.2 GREEN CARD', 1, 'ELEGO 1.1 GREEN CARD'),
+                ('GREEN CARD', 1, 'ELEGO 1.1 GREEN CARD'),
                 ('NUMBER PLATE', 1, '1.1/1.2 NUMBER PLATE'),
                 ('1.1/1.2 REAR BRAKE CABLE', 1, 'ELEGO 1.1 REAR BRAKE CABLE'),
                 ('1.1/1.2 REAR BRAKE DRUM PLATE', 1, 'ELEGO 1.1 REAR BRAKE DRUM PLATE'),
@@ -805,7 +814,7 @@ class ProductTemplate(models.Model):
                 ('1.1/1.2 FRONT DISC PLATE', 1, 'ELEGO 1.1 FRONT DISC PLATE'),
                 ('1.1 FRONT SIDE GUARD', 1, 'ELEGO 1.1 FRONT SIDE GUARD'),
                 ('1.1/1.2 GRAB HANDLE', 1, 'ELEGO 1.1 GRAB HANDLE'),
-                ('1.1/1.2 GREEN CARD', 1, 'ELEGO 1.1 GREEN CARD'),
+                ('GREEN CARD', 1, 'ELEGO 1.1 GREEN CARD'),
                 ('NUMBER PLATE', 1, '1.1/1.2 NUMBER PLATE'),
                 ('1.1/1.2 REAR BRAKE CABLE', 1, 'ELEGO 1.1 REAR BRAKE CABLE'),
                 ('1.1/1.2 REAR BRAKE DRUM PLATE', 1, 'ELEGO 1.1 REAR BRAKE DRUM PLATE'),
@@ -1057,7 +1066,7 @@ class ProductTemplate(models.Model):
                 ('1.1/1.2 FRONT DISC PLATE', 1, 'ELEGO 1.2 FRONT DISC PLATE'),
                 ('1.2 FRONT SIDE GUARD', 1, 'ELEGO 1.2 FRONT SIDE GUARD'),
                 ('1.1/1.2 GRAB HANDLE', 1, 'ELEGO 1.2 GRAB HANDLE'),
-                ('1.1/1.2 GREEN CARD', 1, 'ELEGO 1.2 GREEN CARD'),
+                ('GREEN CARD', 1, 'ELEGO 1.2 GREEN CARD'),
                 ('NUMBER PLATE', 1, '1.1/1.2 NUMBER PLATE'),
                 ('1.1/1.2 REAR BRAKE CABLE', 1, 'ELEGO 1.2 REAR BRAKE CABLE'),
                 ('1.1/1.2 REAR BRAKE DRUM PLATE', 1, 'ELEGO 1.2 REAR BRAKE DRUM PLATE'),
@@ -1177,7 +1186,7 @@ class ProductTemplate(models.Model):
                 ('1.1/1.2 FRONT DISC PLATE', 1, 'ELEGO 1.2 FRONT DISC PLATE'),
                 ('1.2 FRONT SIDE GUARD', 1, 'ELEGO 1.2 FRONT SIDE GUARD'),
                 ('1.1/1.2 GRAB HANDLE', 1, 'ELEGO 1.2 GRAB HANDLE'),
-                ('1.1/1.2 GREEN CARD', 1, 'ELEGO 1.2 GREEN CARD'),
+                ('GREEN CARD', 1, 'ELEGO 1.2 GREEN CARD'),
                 ('NUMBER PLATE', 1, '1.1/1.2 NUMBER PLATE'),
                 ('1.1/1.2 REAR BRAKE CABLE', 1, 'ELEGO 1.2 REAR BRAKE CABLE'),
                 ('1.1/1.2 REAR BRAKE DRUM PLATE', 1, 'ELEGO 1.2 REAR BRAKE DRUM PLATE'),
@@ -1297,7 +1306,7 @@ class ProductTemplate(models.Model):
                 ('1.1/1.2 FRONT DISC PLATE', 1, 'ELEGO 1.2 FRONT DISC PLATE'),
                 ('1.2 FRONT SIDE GUARD', 1, 'ELEGO 1.2 FRONT SIDE GUARD'),
                 ('1.1/1.2 GRAB HANDLE', 1, 'ELEGO 1.2 GRAB HANDLE'),
-                ('1.1/1.2 GREEN CARD', 1, 'ELEGO 1.2 GREEN CARD'),
+                ('GREEN CARD', 1, 'ELEGO 1.2 GREEN CARD'),
                 ('NUMBER PLATE', 1, '1.1/1.2 NUMBER PLATE'),
                 ('1.1/1.2 REAR BRAKE CABLE', 1, 'ELEGO 1.2 REAR BRAKE CABLE'),
                 ('1.1/1.2 REAR BRAKE DRUM PLATE', 1, 'ELEGO 1.2 REAR BRAKE DRUM PLATE'),
@@ -1417,7 +1426,7 @@ class ProductTemplate(models.Model):
                 ('1.1/1.2 FRONT DISC PLATE', 1, 'ELEGO 1.2 FRONT DISC PLATE'),
                 ('1.2 FRONT SIDE GUARD', 1, 'ELEGO 1.2 FRONT SIDE GUARD'),
                 ('1.1/1.2 GRAB HANDLE', 1, 'ELEGO 1.2 GRAB HANDLE'),
-                ('1.1/1.2 GREEN CARD', 1, 'ELEGO 1.2 GREEN CARD'),
+                ('GREEN CARD', 1, 'ELEGO 1.2 GREEN CARD'),
                 ('NUMBER PLATE', 1, '1.1/1.2 NUMBER PLATE'),
                 ('1.1/1.2 REAR BRAKE CABLE', 1, 'ELEGO 1.2 REAR BRAKE CABLE'),
                 ('1.1/1.2 REAR BRAKE DRUM PLATE', 1, 'ELEGO 1.2 REAR BRAKE DRUM PLATE'),
@@ -1995,7 +2004,7 @@ class ProductTemplate(models.Model):
             ('ELEGO 2.0+ FRONT DISC BRAKE ASSEMBLY', 1),
             ('ELEGO 2.0+ FRONT DISC PLATE', 1),
             ('ELEGO 2.0+ GRAB HANDLE', 1),
-            ('ELEGO 2.0+ GREEN CARD', 1),
+            ('GREEN CARD', 1),
             ('NUMBER PLATE', 1),
             ('ELEGO 2.0+ REAR BRAKE CABLE', 1),
             ('ELEGO 2.0+ REAR BRAKE DRUM PLATE', 1),
