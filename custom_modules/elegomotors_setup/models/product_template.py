@@ -2037,7 +2037,7 @@ class ProductTemplate(models.Model):
             ('ELEGO 2.0+ USB WIRE ASSY', 1),
             # Suspension / wheel
             ('CONE SET 7 PARTS', 1),
-            ('ELEGO 2.0+ FRONT FORK ASSY', 1),
+            ('ELEGO 2.0+ FRONT T FORK', 1),
             ('ELEGO 2.0+ REAR SUSPENSION', 2),
             ('ELEGO 2.0+ FRONT SUSPENSION LH', 1),
             ('ELEGO 2.0+ FRONT SUSPENSION RH', 1),
