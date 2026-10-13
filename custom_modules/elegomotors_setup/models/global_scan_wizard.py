@@ -284,7 +284,7 @@ class GlobalScanWizard(models.TransientModel):
                 ('x_controller_serial', 'Controller'),
             ]:
                 val = getattr(line, field_name)
-                existing = Lot.search([(field_name, '=', val)], limit=1)
+                existing = Lot._find_serial_holder(field_name, val)
                 if existing:
                     raise UserError(
                         f'{label} serial "{val}" is already registered on bike '

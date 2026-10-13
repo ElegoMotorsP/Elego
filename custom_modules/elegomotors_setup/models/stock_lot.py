@@ -394,3 +394,44 @@ class StockLot(models.Model):
             message_type='comment',
             subtype_xmlid='mail.mt_comment',
         )
+
+    # ------------------------------------------------------------------
+    # Component-serial uniqueness vs. unbuilt bikes
+    # ------------------------------------------------------------------
+    def _is_unbuilt(self):
+        """True when this bike serial went through a done Unbuild Order and no
+        unit of it is on hand any more - its component serials are free."""
+        self.ensure_one()
+        if not self.env['mrp.unbuild'].sudo().search_count(
+                [('lot_id', '=', self.id), ('state', '=', 'done')]):
+            return False
+        on_hand = sum(self.env['stock.quant'].sudo().search([
+            ('lot_id', '=', self.id), ('location_id.usage', '=', 'internal'),
+        ]).mapped('quantity'))
+        return on_hand <= 0
+
+    @api.model
+    def _find_serial_holder(self, field_name, value):
+        """The live bike lot that carries this component serial, or an empty
+        recordset. Bikes that were fully unbuilt are skipped: their parts
+        (recovered to Production WIP) may be built into another bike. The
+        Unbuild Order keeps its own snapshot of those serials."""
+        for lot in self.search([(field_name, '=', value)]):
+            if not lot._is_unbuilt():
+                return lot
+        return self.browse()
+
+    @api.model
+    def _release_serials_from_unbuilt(self, vals, keep_lot=None):
+        """Blank the component serials in `vals` on unbuilt bike lots that still
+        hold them, so only one lot carries each serial (traceability and the
+        warranty lookup stay unambiguous)."""
+        fields_ = ('x_chassis_serial', 'x_motor_serial', 'x_controller_serial',
+                   'x_battery_serial', 'x_charger_serial')
+        for fname in fields_:
+            value = vals.get(fname)
+            if not value:
+                continue
+            for lot in self.search([(fname, '=', value)]):
+                if lot != keep_lot and lot._is_unbuilt():
+                    lot.write({fname: False})
