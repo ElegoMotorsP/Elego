@@ -763,7 +763,7 @@ class MrpBarcodeWizard(models.TransientModel):
                 )
 
         # Chassis plate number must be globally unique
-        existing_chassis = Lot.search([('x_chassis_serial', '=', self.x_chassis_serial)], limit=1)
+        existing_chassis = Lot._find_serial_holder('x_chassis_serial', self.x_chassis_serial)
         if existing_chassis and existing_chassis != reuse_lot:
             raise UserError(
                 f'Chassis number "{self.x_chassis_serial}" is already registered on '
@@ -776,7 +776,7 @@ class MrpBarcodeWizard(models.TransientModel):
             ('x_controller_serial', 'Motor Controller'),
         ]:
             val = getattr(self, field_name)
-            existing = Lot.search([(field_name, '=', val)], limit=1)
+            existing = Lot._find_serial_holder(field_name, val)
             if existing and existing != reuse_lot:
                 raise UserError(
                     f'{label} serial "{val}" is already registered on serial '
@@ -790,7 +790,7 @@ class MrpBarcodeWizard(models.TransientModel):
         ]:
             val = getattr(self, field_name)
             if val:
-                existing = Lot.search([(field_name, '=', val)], limit=1)
+                existing = Lot._find_serial_holder(field_name, val)
                 if existing and existing != reuse_lot:
                     raise UserError(
                         f'{label} serial "{val}" is already registered on serial '
@@ -829,14 +829,20 @@ class MrpBarcodeWizard(models.TransientModel):
                     color = ptav.product_attribute_value_id.name.lower()
                     break
 
-        lot.write({
+        serial_vals = {
             'x_chassis_serial':    self.x_chassis_serial,
             'x_motor_serial':      self.x_motor_serial,
             'x_controller_serial': self.x_controller_serial,
             'x_battery_serial':    self.x_battery_serial or '',
             'x_charger_serial':    self.x_charger_serial or '',
+        }
+        # Parts recovered from an unbuilt bike may be built into this one:
+        # take the serials over from the unbuilt lot (the Unbuild Order keeps
+        # its own snapshot).
+        Lot._release_serials_from_unbuilt(serial_vals, keep_lot=lot)
+        lot.write(dict(serial_vals, **{
             'x_color':             color,
             'x_battery_type':      production.x_battery_type or '',
-        })
+        }))
         production.with_context(skip_barcode_wizard=True).button_mark_done()
         return {'type': 'ir.actions.act_window_close'}

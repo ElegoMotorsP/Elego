@@ -103,9 +103,7 @@ class ElegomotorsBulkBarcodeWizard(models.TransientModel):
             ('x_charger_serial', 'Charger'),
         ]
         for line in self.line_ids:
-            existing_chassis = Lot.search([
-                ('x_chassis_serial', '=', line.x_chassis_serial),
-            ], limit=1)
+            existing_chassis = Lot._find_serial_holder('x_chassis_serial', line.x_chassis_serial)
             if existing_chassis:
                 raise UserError(
                     f'Chassis "{line.x_chassis_serial}" is already registered on serial '
@@ -113,7 +111,7 @@ class ElegomotorsBulkBarcodeWizard(models.TransientModel):
                 )
             for field_name, label in required_fields:
                 val = getattr(line, field_name)
-                existing = Lot.search([(field_name, '=', val)], limit=1)
+                existing = Lot._find_serial_holder(field_name, val)
                 if existing:
                     raise UserError(
                         f'{label} serial "{val}" is already registered on serial '
@@ -122,7 +120,7 @@ class ElegomotorsBulkBarcodeWizard(models.TransientModel):
             for field_name, label in optional_fields:
                 val = getattr(line, field_name)
                 if val:
-                    existing = Lot.search([(field_name, '=', val)], limit=1)
+                    existing = Lot._find_serial_holder(field_name, val)
                     if existing:
                         raise UserError(
                             f'{label} serial "{val}" is already registered on serial '
