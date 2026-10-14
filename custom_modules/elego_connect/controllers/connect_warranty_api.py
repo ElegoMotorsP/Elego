@@ -249,3 +249,34 @@ class ConnectWarrantyApiExtension(http.Controller):
 
         _log(client.client_id, 'claims/reject', claim.chassis_number, claim.state)
         return _json_response({'claimNumber': claim.claim_number, 'status': claim.state})
+
+    # Read-only view of the warranty policy rules Odoo applies (duration, cycle
+    # limit, water-damage cover, per component and context). Odoo stays the only
+    # place a rule is created or changed — registration and claim eligibility
+    # read them from here — so Elego Connect only displays them (Masters →
+    # Warranty policy rules) instead of keeping a second copy that could drift.
+    @http.route(
+        '/elegomotors/warranty/policy-rules', type='http', auth='public',
+        methods=['GET'], csrf=False,
+    )
+    def policy_rules(self, **kwargs):
+        client, error_response = _require_bearer_token()
+        if error_response:
+            return error_response
+
+        rules = request.env['elegomotors.warranty.policy.rule'].sudo().with_context(
+            active_test=False
+        ).search([], order='component, context, battery_type, id')
+        _log(client.client_id, 'policy-rules', '', f'{len(rules)} rules')
+        return _json_response({
+            'rules': [{
+                'id': rule.id,
+                'component': rule.component,
+                'context': rule.context,
+                'batteryType': rule.battery_type or None,
+                'durationMonths': rule.duration_months,
+                'cycleLimit': rule.cycle_limit or 0,
+                'waterDamageCovered': bool(rule.water_damage_covered),
+                'active': bool(rule.active),
+            } for rule in rules],
+        })
