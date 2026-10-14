@@ -18,6 +18,9 @@ Serial rules (agreed with the client):
   - The same number twice in the SAME column: the first row (sheet order) keeps
     the number as it is, the second gets A, the third B, ... e.g. KIN-...518
     (first), KIN-...518A (second), KIN-...518B (third).
+  - The same goes for a motor / controller number that is ALREADY on another
+    bike in the system: this bike gets the next free letter. (A chassis number
+    already in the system is reported as a problem, never renamed.)
   - Serial formats are taken exactly as in the sheet.
 
 Run on Odoo.sh, from ~/src/user (stdin must be redirected):
@@ -93,6 +96,7 @@ for _key, _f in (('chassis', 'x_chassis_serial'), ('motor', 'x_motor_serial'), (
                     continue
                 r[_key] = value + LETTERS[i - 1 if KEEP_FIRST else i]
                 renamed.append('row %s %s %s -> %s' % (r['row'], _key, value, r[_key]))
+file_vals = {k: {r[k] for r in rows} for k, _f in (('chassis', 0), ('motor', 0), ('controller', 0))}
 if renamed:
     print('same-column duplicates given letters:')
     for line in renamed:
@@ -147,22 +151,48 @@ for r in rows:
         problem(r, 'the same number is used twice on this bike')
 
 # ---- 3. serials already in the system -----------------------------------
+def same_serial(stored, wanted):
+    """Stored value equals the wanted one, or the wanted one plus the letter a
+    previous run added because the number was already taken."""
+    return stored == wanted or (stored[:-1] == wanted and stored[-1:] in LETTERS)
+
+
+def free_letter(key, fname, value):
+    for letter in LETTERS:
+        cand = value + letter
+        if cand not in file_vals[key] and not Lot._find_serial_holder(fname, cand):
+            return cand
+    return None
+
+
 done_rows = []      # bikes already recorded by an earlier run of this script
 pending = []
+db_renamed = []
 for r in rows:
     holder = Lot._find_serial_holder('x_chassis_serial', r['chassis']) if r['chassis'] else Lot.browse()
     if holder:
-        if (holder.x_motor_serial == r['motor'] and holder.x_controller_serial == r['controller']
+        if (same_serial(holder.x_motor_serial or '', r['motor'])
+                and same_serial(holder.x_controller_serial or '', r['controller'])
                 and holder.product_id.product_tmpl_id.name == r['model']):
             done_rows.append((r, holder))
             continue
         problem(r, 'chassis already on bike %s with different details' % holder.name)
         continue
-    pending.append(r)
     for key, fname in SERIAL_FIELDS[1:]:
         other = Lot._find_serial_holder(fname, r[key]) if r[key] else Lot.browse()
         if other:
-            problem(r, '%s %s already on bike %s' % (key, r[key], other.name))
+            new = free_letter(key, fname, r[key])
+            if not new:
+                problem(r, '%s %s already on bike %s and no free letter' % (key, r[key], other.name))
+                continue
+            db_renamed.append('row %s %s %s is already on bike %s -> recorded as %s' % (
+                r['row'], key, r[key], other.name, new))
+            r[key] = new
+    pending.append(r)
+if db_renamed:
+    print('numbers already in the system given letters:')
+    for line in db_renamed:
+        print('   ', line)
 print('already recorded earlier: %d | to do: %d' % (len(done_rows), len(pending)))
 
 
