@@ -15,9 +15,9 @@ the run date.
 Serial rules (agreed with the client):
   - The same number in DIFFERENT columns (e.g. a controller number that is also
     a motor number) is fine - they are different parts.
-  - The same number twice in the SAME column gets a letter after it, in sheet
-    order: ...518 -> ...518A, ...518B, ... (KEEP_FIRST=1 leaves the first one
-    unchanged and starts the letters on the second).
+  - The same number twice in the SAME column: the first row (sheet order) keeps
+    the number as it is, the second gets A, the third B, ... e.g. KIN-...518
+    (first), KIN-...518A (second), KIN-...518B (third).
   - Serial formats are taken exactly as in the sheet.
 
 Run on Odoo.sh, from ~/src/user (stdin must be redirected):
@@ -34,7 +34,6 @@ Run on Odoo.sh, from ~/src/user (stdin must be redirected):
 Options (environment variables):
     ONLY=<model[:colour],...>   only these rows, e.g. "Elego 1.2 42Ah,Elego 1.1:Red"
     SKIP=<row,row,...>          sheet row numbers to leave out
-    KEEP_FIRST=1                same-column duplicates: first keeps the plain number
     LIMIT=<n>                   stop after n bikes
     CHUNK=<n>                   bikes per commit (default 20)
     QUIET_MAIL=0                keep the "QC required" emails (default: queued
@@ -79,7 +78,7 @@ for r in rows:
 
 # Same number twice in the SAME column -> letters A, B, C ... (decided on the
 # whole file, in sheet order, so a filtered / resumed run gives the same result).
-KEEP_FIRST = os.environ.get('KEEP_FIRST') == '1'
+KEEP_FIRST = True   # first appearance keeps the plain number; later ones get A, B, C ...
 LETTERS = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ'
 renamed = []
 for _key, _f in (('chassis', 'x_chassis_serial'), ('motor', 'x_motor_serial'), ('controller', 'x_controller_serial')):
