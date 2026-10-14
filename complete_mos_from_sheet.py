@@ -12,6 +12,14 @@ Data: complete_mos_from_sheet.csv (same folder) - row, date, model, colour,
 chassis, motor, controller. The date column is informational: MOs close with
 the run date.
 
+Serial rules (agreed with the client):
+  - The same number in DIFFERENT columns (e.g. a controller number that is also
+    a motor number) is fine - they are different parts.
+  - The same number twice in the SAME column gets a letter after it, in sheet
+    order: ...518 -> ...518A, ...518B, ... (KEEP_FIRST=1 leaves the first one
+    unchanged and starts the letters on the second).
+  - Serial formats are taken exactly as in the sheet.
+
 Run on Odoo.sh, from ~/src/user (stdin must be redirected):
 
     # 1) DRY RUN (default) - validates every row, writes nothing
@@ -25,7 +33,8 @@ Run on Odoo.sh, from ~/src/user (stdin must be redirected):
 
 Options (environment variables):
     ONLY=<model[:colour],...>   only these rows, e.g. "Elego 1.2 42Ah,Elego 1.1:Red"
-    SKIP=<row,row,...>          sheet row numbers to leave out (problem rows)
+    SKIP=<row,row,...>          sheet row numbers to leave out
+    KEEP_FIRST=1                same-column duplicates: first keeps the plain number
     LIMIT=<n>                   stop after n bikes
     CHUNK=<n>                   bikes per commit (default 20)
     QUIET_MAIL=0                keep the "QC required" emails (default: queued
@@ -33,7 +42,7 @@ Options (environment variables):
                                 cancelled; Odoo inbox notes are still posted)
 
 Apply mode stops, before changing anything, if any selected row has a problem
-(duplicate / already-used serial, unknown model or colour, not enough issued
+(serial already used on another bike, unknown model or colour, not enough issued
 MO units). Nothing is deleted; QC pass is the only step after Done.
 """
 import csv
@@ -67,6 +76,28 @@ Lot, MO = env['stock.lot'], env['mrp.production']
 rows = list(csv.DictReader(open(PATH, encoding='utf-8')))
 for r in rows:
     r['row'] = str(r['row'])
+
+# Same number twice in the SAME column -> letters A, B, C ... (decided on the
+# whole file, in sheet order, so a filtered / resumed run gives the same result).
+KEEP_FIRST = os.environ.get('KEEP_FIRST') == '1'
+LETTERS = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ'
+renamed = []
+for _key, _f in (('chassis', 'x_chassis_serial'), ('motor', 'x_motor_serial'), ('controller', 'x_controller_serial')):
+    groups = defaultdict(list)
+    for r in sorted(rows, key=lambda x: int(x['row'])):
+        if r[_key]:
+            groups[r[_key]].append(r)
+    for value, rs in groups.items():
+        if len(rs) > 1:
+            for i, r in enumerate(rs):
+                if KEEP_FIRST and i == 0:
+                    continue
+                r[_key] = value + LETTERS[i - 1 if KEEP_FIRST else i]
+                renamed.append('row %s %s %s -> %s' % (r['row'], _key, value, r[_key]))
+if renamed:
+    print('same-column duplicates given letters:')
+    for line in renamed:
+        print('   ', line)
 print('Mode: %s | file rows: %d' % ('APPLY' if APPLY else 'DRY RUN (nothing is written)', len(rows)))
 
 
@@ -110,17 +141,11 @@ for r in rows:
         if not r[key]:
             problem(r, 'blank %s' % key)
 
-# ---- 2. serials inside the file -----------------------------------------
-seen = defaultdict(list)
+# ---- 2. one number twice on the SAME bike -------------------------------
 for r in rows:
-    for key, _f in SERIAL_FIELDS:
-        if r[key]:
-            seen[r[key]].append((r['row'], key))
-for value, hits in seen.items():
-    if len(hits) > 1:
-        for rownum, key in hits:
-            r = next(x for x in rows if x['row'] == rownum)
-            problem(r, '%s %s is also used on rows %s' % (key, value, ', '.join('%s (%s)' % h for h in hits if h[0] != rownum) or 'the same row'))
+    vals = [r[k] for k, _f in SERIAL_FIELDS if r[k]]
+    if len(vals) != len(set(vals)):
+        problem(r, 'the same number is used twice on this bike')
 
 # ---- 3. serials already in the system -----------------------------------
 done_rows = []      # bikes already recorded by an earlier run of this script
@@ -230,9 +255,27 @@ quiet(env['mrp.production'].browse([m.id for m in stuck_qc]))
 env.cr.commit()
 
 todo = pending[:LIMIT] if LIMIT else pending
+
+
+def make_chunks(items, size):
+    """Sheet order, at most `size` bikes per chunk, and no number shared by two
+    bikes of one chunk (the scan wizard rejects a number that appears twice in
+    a batch, even if it is a motor on one bike and a controller on another)."""
+    chunks, cur, used = [], [], set()
+    for r in items:
+        vals = {r['chassis'], r['motor'], r['controller']}
+        if cur and (len(cur) >= size or used & vals):
+            chunks.append(cur)
+            cur, used = [], set()
+        cur.append(r)
+        used |= vals
+    if cur:
+        chunks.append(cur)
+    return chunks
+
+
 made = 0
-for i in range(0, len(todo), CHUNK):
-    chunk = todo[i:i + CHUNK]
+for chunk in make_chunks(todo, CHUNK):
     try:
         wiz = W.create({'x_scan_qty': len(chunk), 'x_auto_print': False})
         lines = wiz.line_ids.sorted('sequence')
