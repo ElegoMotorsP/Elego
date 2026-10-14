@@ -513,7 +513,7 @@ class ProductTemplate(models.Model):
                 ('1.1/1.2 HEX FLANGE NUT M3', 2, 'HEX FLANGE NUT M3'),
                 ('1.1/1.2 HEX FLANGE NUT M4', 2, 'HEX FLANGE NUT M4'),
                 ('1.1/1.2 HEX FLANGE NUT M6', 10, 'HEX FLANGE NUT M6'),
-                ('1.1/1.2 HEX FLANGE NUT M8', 2, 'HEX FLANGE NUT M8'),
+                ('HEX FLANGE NUT M8', 2, None),
                 ('1.1/1.2 HEX FLANGE NUT M10', 6, 'HEX FLANGE NUT M10'),
                 ('1.1/1.2 HEX FLANGE NUT M12', 2, 'HEX FLANGE NUT M12'),
                 ('1.1/1.2 MAIN STAND SPRING', 1, 'ELEGO 1.1 MAIN STAND SPRING'),
@@ -633,7 +633,7 @@ class ProductTemplate(models.Model):
                 ('1.1/1.2 HEX FLANGE NUT M3', 2, 'HEX FLANGE NUT M3'),
                 ('1.1/1.2 HEX FLANGE NUT M4', 2, 'HEX FLANGE NUT M4'),
                 ('1.1/1.2 HEX FLANGE NUT M6', 10, 'HEX FLANGE NUT M6'),
-                ('1.1/1.2 HEX FLANGE NUT M8', 2, 'HEX FLANGE NUT M8'),
+                ('HEX FLANGE NUT M8', 2, None),
                 ('1.1/1.2 HEX FLANGE NUT M10', 6, 'HEX FLANGE NUT M10'),
                 ('1.1/1.2 HEX FLANGE NUT M12', 2, 'HEX FLANGE NUT M12'),
                 ('1.1/1.2 MAIN STAND SPRING', 1, 'ELEGO 1.1 MAIN STAND SPRING'),
@@ -753,7 +753,7 @@ class ProductTemplate(models.Model):
                 ('1.1/1.2 HEX FLANGE NUT M3', 2, 'HEX FLANGE NUT M3'),
                 ('1.1/1.2 HEX FLANGE NUT M4', 2, 'HEX FLANGE NUT M4'),
                 ('1.1/1.2 HEX FLANGE NUT M6', 10, 'HEX FLANGE NUT M6'),
-                ('1.1/1.2 HEX FLANGE NUT M8', 2, 'HEX FLANGE NUT M8'),
+                ('HEX FLANGE NUT M8', 2, None),
                 ('1.1/1.2 HEX FLANGE NUT M10', 6, 'HEX FLANGE NUT M10'),
                 ('1.1/1.2 HEX FLANGE NUT M12', 2, 'HEX FLANGE NUT M12'),
                 ('1.1/1.2 MAIN STAND SPRING', 1, 'ELEGO 1.1 MAIN STAND SPRING'),
@@ -873,7 +873,7 @@ class ProductTemplate(models.Model):
                 ('1.1/1.2 HEX FLANGE NUT M3', 2, 'HEX FLANGE NUT M3'),
                 ('1.1/1.2 HEX FLANGE NUT M4', 2, 'HEX FLANGE NUT M4'),
                 ('1.1/1.2 HEX FLANGE NUT M6', 10, 'HEX FLANGE NUT M6'),
-                ('1.1/1.2 HEX FLANGE NUT M8', 2, 'HEX FLANGE NUT M8'),
+                ('HEX FLANGE NUT M8', 2, None),
                 ('1.1/1.2 HEX FLANGE NUT M10', 6, 'HEX FLANGE NUT M10'),
                 ('1.1/1.2 HEX FLANGE NUT M12', 2, 'HEX FLANGE NUT M12'),
                 ('1.1/1.2 MAIN STAND SPRING', 1, 'ELEGO 1.1 MAIN STAND SPRING'),
@@ -1617,6 +1617,12 @@ class ProductTemplate(models.Model):
                 color_name, lines_added, len(obsolete_lines),
             )
 
+    # The 42Ah variants reuse the base 1.1 / 1.2 component lists. Parts listed
+    # here take a different quantity on the 42Ah BOMs (the base lists keep theirs).
+    _ELEGO_42AH_QTY_OVERRIDES = {
+        'HEX FLANGE NUT M8': 6,
+    }
+
     @api.model
     def _ensure_elego_11_42ah_color_boms(self):
         """Create variant-specific BOMs for Elego 1.1 42Ah (Red, White, Gray, Black).
@@ -1650,7 +1656,8 @@ class ProductTemplate(models.Model):
 
         color_components = {
             color_name: [
-                ('1.1 42AH CHASSIS', qty, None) if name == '1.1 CHASSIS' else (name, qty, old_name)
+                ('1.1 42AH CHASSIS', qty, None) if name == '1.1 CHASSIS'
+                else (name, self._ELEGO_42AH_QTY_OVERRIDES.get(name, qty), old_name)
                 for name, qty, old_name in comp_lines
             ]
             for color_name, comp_lines in self._elego_11_bom_color_components().items()
@@ -1764,7 +1771,8 @@ class ProductTemplate(models.Model):
 
         color_components = {
             color_name: [
-                ('1.2 42AH CHASSIS', qty, None) if name == '1.2 CHASSIS' else (name, qty, old_name)
+                ('1.2 42AH CHASSIS', qty, None) if name == '1.2 CHASSIS'
+                else (name, self._ELEGO_42AH_QTY_OVERRIDES.get(name, qty), old_name)
                 for name, qty, old_name in comp_lines
             ]
             for color_name, comp_lines in self._elego_12_bom_color_components().items()
