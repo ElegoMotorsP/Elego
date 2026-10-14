@@ -39,6 +39,9 @@ Options (environment variables):
     SKIP=<row,row,...>          sheet row numbers to leave out
     LIMIT=<n>                   stop after n bikes
     CHUNK=<n>                   bikes per commit (default 20)
+    MUTE_PUSH=0                 keep sending Odoo mobile push notifications
+                                (default: skipped during the run - each one is a
+                                0.5 s call to Odoo's push server, ~8 per bike)
     QUIET_MAIL=0                keep the "QC required" emails (default: queued
                                 emails of the processed MOs / FG transfers are
                                 cancelled; Odoo inbox notes are still posted)
@@ -58,6 +61,21 @@ LIMIT = int(os.environ.get('LIMIT') or 0)
 CHUNK = int(os.environ.get('CHUNK') or 20)
 QUIET_MAIL = os.environ.get('QUIET_MAIL', '1') == '1'
 PATH = os.environ.get('CSV') or os.path.expanduser('~/src/user/complete_mos_from_sheet.csv')
+
+# Mobile push notifications are a synchronous web call per message (~0.5 s each,
+# about 8 per bike) and would buzz staff phones thousands of times: skip them.
+if os.environ.get('MUTE_PUSH', '1') == '1':
+    from odoo.addons.iap.tools import iap_tools as _iap_tools  # noqa: E402
+    if not getattr(_iap_tools, '_ego_push_muted', False):
+        _real_iap_jsonrpc = _iap_tools.iap_jsonrpc
+
+        def _iap_jsonrpc_no_push(url, *args, **kwargs):
+            if '/iap/ocn/send' in (url or ''):
+                return {}
+            return _real_iap_jsonrpc(url, *args, **kwargs)
+
+        _iap_tools.iap_jsonrpc = _iap_jsonrpc_no_push
+        _iap_tools._ego_push_muted = True
 
 # No "send immediately" emails and no field-tracking noise while bulk processing.
 env = env(context=dict(env.context, mail_notify_force_send=False, tracking_disable=True))  # noqa: F821
