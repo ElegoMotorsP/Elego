@@ -438,7 +438,7 @@ class ProductTemplate(models.Model):
                 ('1.1/1.2 VIN COVER', 1, 'ELEGO 1.1 VIN COVER'),
                 ('MIRROR SET', 1, None),
                 ('1.1/1.2 BATTERT CLAMP', 1, 'ELEGO 1.1 BATTERT CLAMP'),
-                ('1.1 CHASSIS', 1, 'ELEGO 1.1 CHASSIS FRAME'),
+                ('1.1/1.2 CHASSIS', 1, None),
                 ('1.1/1.2 FRONT BRAKE CABLE HOLDER CLAMP', 1, 'ELEGO 1.1 FRONT BRAKE CABLE HOLDER CLAMP'),
                 ('1.1 FRONT GUARD BRACKET', 1, 'ELEGO 1.1 FRONT GUARD BRAKET'),
                 ('1.1/1.2 FRONT RIM 12 INCH', 1, 'ELEGO 1.1 FRONT RIM'),
@@ -558,7 +558,7 @@ class ProductTemplate(models.Model):
                 ('1.1/1.2 VIN COVER', 1, 'ELEGO 1.1 VIN COVER'),
                 ('MIRROR SET', 1, None),
                 ('1.1/1.2 BATTERT CLAMP', 1, 'ELEGO 1.1 BATTERT CLAMP'),
-                ('1.1 CHASSIS', 1, 'ELEGO 1.1 CHASSIS FRAME'),
+                ('1.1/1.2 CHASSIS', 1, None),
                 ('1.1/1.2 FRONT BRAKE CABLE HOLDER CLAMP', 1, 'ELEGO 1.1 FRONT BRAKE CABLE HOLDER CLAMP'),
                 ('1.1 FRONT GUARD BRACKET', 1, 'ELEGO 1.1 FRONT GUARD BRAKET'),
                 ('1.1/1.2 FRONT RIM 12 INCH', 1, 'ELEGO 1.1 FRONT RIM'),
@@ -678,7 +678,7 @@ class ProductTemplate(models.Model):
                 ('1.1/1.2 VIN COVER', 1, 'ELEGO 1.1 VIN COVER'),
                 ('MIRROR SET', 1, None),
                 ('1.1/1.2 BATTERT CLAMP', 1, 'ELEGO 1.1 BATTERT CLAMP'),
-                ('1.1 CHASSIS', 1, 'ELEGO 1.1 CHASSIS FRAME'),
+                ('1.1/1.2 CHASSIS', 1, None),
                 ('1.1/1.2 FRONT BRAKE CABLE HOLDER CLAMP', 1, 'ELEGO 1.1 FRONT BRAKE CABLE HOLDER CLAMP'),
                 ('1.1 FRONT GUARD BRACKET', 1, 'ELEGO 1.1 FRONT GUARD BRAKET'),
                 ('1.1/1.2 FRONT RIM 12 INCH', 1, 'ELEGO 1.1 FRONT RIM'),
@@ -798,7 +798,7 @@ class ProductTemplate(models.Model):
                 ('1.1/1.2 VIN COVER', 1, 'ELEGO 1.1 VIN COVER'),
                 ('MIRROR SET', 1, None),
                 ('1.1/1.2 BATTERT CLAMP', 1, 'ELEGO 1.1 BATTERT CLAMP'),
-                ('1.1 CHASSIS', 1, 'ELEGO 1.1 CHASSIS FRAME'),
+                ('1.1/1.2 CHASSIS', 1, None),
                 ('1.1/1.2 FRONT BRAKE CABLE HOLDER CLAMP', 1, 'ELEGO 1.1 FRONT BRAKE CABLE HOLDER CLAMP'),
                 ('1.1 FRONT GUARD BRACKET', 1, 'ELEGO 1.1 FRONT GUARD BRAKET'),
                 ('1.1/1.2 FRONT RIM 12 INCH', 1, 'ELEGO 1.1 FRONT RIM'),
@@ -1050,7 +1050,7 @@ class ProductTemplate(models.Model):
                 ('1.1/1.2 VIN COVER', 1, 'ELEGO 1.2 VIN COVER'),
                 ('MIRROR SET', 1, None),
                 ('1.1/1.2 BATTERT CLAMP', 1, 'ELEGO 1.2 BATTERT CLAMP'),
-                ('1.2 CHASSIS', 1, 'ELEGO 1.2 CHASSIS FRAME'),
+                ('1.1/1.2 CHASSIS', 1, None),
                 ('1.1/1.2 FRONT BRAKE CABLE HOLDER CLAMP', 1, 'ELEGO 1.2 FRONT BRAKE CABLE HOLDER CLAMP'),
                 ('1.2 FRONT GUARD BRACKET', 1, 'ELEGO 1.2 FRONT GUARD BRAKET'),
                 ('1.1/1.2 FRONT RIM 12 INCH', 1, 'ELEGO 1.2 FRONT RIM'),
@@ -1170,7 +1170,7 @@ class ProductTemplate(models.Model):
                 ('1.1/1.2 VIN COVER', 1, 'ELEGO 1.2 VIN COVER'),
                 ('MIRROR SET', 1, None),
                 ('1.1/1.2 BATTERT CLAMP', 1, 'ELEGO 1.2 BATTERT CLAMP'),
-                ('1.2 CHASSIS', 1, 'ELEGO 1.2 CHASSIS FRAME'),
+                ('1.1/1.2 CHASSIS', 1, None),
                 ('1.1/1.2 FRONT BRAKE CABLE HOLDER CLAMP', 1, 'ELEGO 1.2 FRONT BRAKE CABLE HOLDER CLAMP'),
                 ('1.2 FRONT GUARD BRACKET', 1, 'ELEGO 1.2 FRONT GUARD BRAKET'),
                 ('1.1/1.2 FRONT RIM 12 INCH', 1, 'ELEGO 1.2 FRONT RIM'),
@@ -1290,7 +1290,7 @@ class ProductTemplate(models.Model):
                 ('1.1/1.2 VIN COVER', 1, 'ELEGO 1.2 VIN COVER'),
                 ('MIRROR SET', 1, None),
                 ('1.1/1.2 BATTERT CLAMP', 1, 'ELEGO 1.2 BATTERT CLAMP'),
-                ('1.2 CHASSIS', 1, 'ELEGO 1.2 CHASSIS FRAME'),
+                ('1.1/1.2 CHASSIS', 1, None),
                 ('1.1/1.2 FRONT BRAKE CABLE HOLDER CLAMP', 1, 'ELEGO 1.2 FRONT BRAKE CABLE HOLDER CLAMP'),
                 ('1.2 FRONT GUARD BRACKET', 1, 'ELEGO 1.2 FRONT GUARD BRAKET'),
                 ('1.1/1.2 FRONT RIM 12 INCH', 1, 'ELEGO 1.2 FRONT RIM'),
@@ -1410,7 +1410,7 @@ class ProductTemplate(models.Model):
                 ('1.1/1.2 VIN COVER', 1, 'ELEGO 1.2 VIN COVER'),
                 ('MIRROR SET', 1, None),
                 ('1.1/1.2 BATTERT CLAMP', 1, 'ELEGO 1.2 BATTERT CLAMP'),
-                ('1.2 CHASSIS', 1, 'ELEGO 1.2 CHASSIS FRAME'),
+                ('1.1/1.2 CHASSIS', 1, None),
                 ('1.1/1.2 FRONT BRAKE CABLE HOLDER CLAMP', 1, 'ELEGO 1.2 FRONT BRAKE CABLE HOLDER CLAMP'),
                 ('1.2 FRONT GUARD BRACKET', 1, 'ELEGO 1.2 FRONT GUARD BRAKET'),
                 ('1.1/1.2 FRONT RIM 12 INCH', 1, 'ELEGO 1.2 FRONT RIM'),
@@ -1656,7 +1656,7 @@ class ProductTemplate(models.Model):
 
         color_components = {
             color_name: [
-                ('1.1 42AH CHASSIS', qty, None) if name == '1.1 CHASSIS'
+                ('1.1 42AH CHASSIS', qty, None) if name == '1.1/1.2 CHASSIS'
                 else (name, self._ELEGO_42AH_QTY_OVERRIDES.get(name, qty), old_name)
                 for name, qty, old_name in comp_lines
             ]
@@ -1771,7 +1771,7 @@ class ProductTemplate(models.Model):
 
         color_components = {
             color_name: [
-                ('1.2 42AH CHASSIS', qty, None) if name == '1.2 CHASSIS'
+                ('1.2 42AH CHASSIS', qty, None) if name == '1.1/1.2 CHASSIS'
                 else (name, self._ELEGO_42AH_QTY_OVERRIDES.get(name, qty), old_name)
                 for name, qty, old_name in comp_lines
             ]
