@@ -162,11 +162,14 @@ for r in rows:
         if not r[key]:
             problem(r, 'blank %s' % key)
 
-# ---- 2. one number twice on the SAME bike -------------------------------
+# ---- 2. one number twice on the SAME bike (allowed, see below) -----------
+same_bike = []
 for r in rows:
     vals = [r[k] for k, _f in SERIAL_FIELDS if r[k]]
     if len(vals) != len(set(vals)):
-        problem(r, 'the same number is used twice on this bike')
+        # Allowed: it is recorded with a temporary value in the later column(s)
+        # (the scan wizard refuses a repeated number) and restored afterwards.
+        same_bike.append('row %s: %s' % (r['row'], r['chassis']))
 
 # ---- 3. serials already in the system -----------------------------------
 def same_serial(stored, wanted):
@@ -212,6 +215,8 @@ if db_renamed:
     for line in db_renamed:
         print('   ', line)
 print('already recorded earlier: %d | to do: %d' % (len(done_rows), len(pending)))
+if same_bike:
+    print('same number in two columns of ONE bike (recorded with a temporary value, restored after): %s' % same_bike)
 
 
 # ---- 4. issued MO units available per model + colour --------------------
@@ -324,17 +329,19 @@ def make_chunks(items, size):
 made = 0
 for chunk in make_chunks(todo, CHUNK):
     try:
+        restore = {}      # chassis -> {field: real number} for bikes that repeat a number
         wiz = W.create({'x_scan_qty': len(chunk), 'x_auto_print': False})
         lines = wiz.line_ids.sorted('sequence')
         assert len(lines) == len(chunk), 'scan rows %d != %d' % (len(lines), len(chunk))
         for line, r in zip(lines, chunk):
-            line.write({
-                'x_model_code': MODEL_CODE[r['model']],
-                'x_color_code': r['colour'],
-                'x_chassis_serial': r['chassis'],
-                'x_motor_serial': r['motor'],
-                'x_controller_serial': r['controller'],
-            })
+            vals = {'x_chassis_serial': r['chassis'], 'x_motor_serial': r['motor'], 'x_controller_serial': r['controller']}
+            seen_here = set()
+            for fname in ('x_chassis_serial', 'x_motor_serial', 'x_controller_serial'):
+                if vals[fname] in seen_here:
+                    restore.setdefault(r['chassis'], {})[fname] = vals[fname]
+                    vals[fname] = 'TMP%s%s' % (r['row'], fname[2:5].upper())
+                seen_here.add(vals[fname])
+            line.write(dict(vals, x_model_code=MODEL_CODE[r['model']], x_color_code=r['colour']))
         wiz.action_confirm()
         lots = wiz.generated_lot_ids
         assert len(lots) == len(chunk), 'recorded %d bikes for %d rows' % (len(lots), len(chunk))
@@ -342,6 +349,11 @@ for chunk in make_chunks(todo, CHUNK):
         assert len(mos) == len(lots) and all(m.state == 'done' for m in mos), 'MO not done'
         for mo in mos:
             mo.action_qc_pass()
+        for chassis_no, fix in restore.items():
+            lot = Lot.search([('x_chassis_serial', '=', chassis_no)])
+            assert len(lot) == 1, ('cannot find the bike to restore', chassis_no)
+            lot.write(fix)
+            print('   restored the real numbers on %s: %s' % (lot.name, fix))
         quiet(mos)
         env.cr.commit()
     except Exception as exc:  # noqa: BLE001 - report the chunk, keep earlier chunks
