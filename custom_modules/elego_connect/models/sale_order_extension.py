@@ -59,6 +59,31 @@ class SaleOrderConnectExtension(models.Model):
         order.action_confirm()
         return order, True
 
+    def connect_record_decision(self, decision, approver=None, reason=None, actor_label=None):
+        """Accounts / MD approval, or a rejection, requested from the Elego
+        Connect app. The existing approve/reject methods in elegomotors_setup
+        only accept the real approver users; this runs them as sudo (same
+        trusted-API approach as the warranty approve/reject) and notes the
+        person who actually clicked in the app on the order's chatter, so
+        Odoo's audit trail stays honest. Returns an error code or None."""
+        self.ensure_one()
+        order = self.sudo()
+        if not order.pending_approval:
+            return 'not_pending_approval'
+        if decision == 'approve':
+            if approver == 'accounts':
+                order.action_approve_accounts()
+            else:
+                order.action_approve_manohar()
+        else:
+            order._do_reject(reason)
+        if actor_label:
+            order.message_post(
+                body=f'(Requested via Elego Connect by {actor_label})',
+                message_type='comment', subtype_xmlid='mail.mt_comment',
+            )
+        return None
+
     def connect_status_payload(self):
         self.ensure_one()
         return {

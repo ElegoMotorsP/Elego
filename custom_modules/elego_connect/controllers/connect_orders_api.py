@@ -63,6 +63,70 @@ class ConnectOrdersApiController(http.Controller):
         return _json_response(payload)
 
     @http.route(
+        '/elegomotors/connect/orders/<int:odoo_sale_order_id>/approve', type='http',
+        auth='public', methods=['POST'], csrf=False,
+    )
+    def approve_order(self, odoo_sale_order_id, **kwargs):
+        """Records the Accounts or MD approval on the Sales Order - the click
+        Rajshri / Manohar otherwise make inside Odoo."""
+        client, error_response = require_connect_bearer_token()
+        if error_response:
+            return error_response
+        body, error_response = _parse_json_body()
+        if error_response:
+            return error_response
+
+        approver = (body.get('approver') or '').strip()
+        if approver not in ('accounts', 'md'):
+            return _json_response({'error': 'missing_or_invalid_fields', 'fields': ['approver']}, status=400)
+
+        order = request.env['sale.order'].sudo().browse(odoo_sale_order_id)
+        if not order.exists():
+            log_connect_call(client.client_id, 'orders/approve', str(odoo_sale_order_id), 'order_not_found')
+            return _json_response({'error': 'order_not_found'})
+
+        error = order.connect_record_decision(
+            'approve', approver=approver, actor_label=(body.get('actorLabel') or '').strip(),
+        )
+        if error:
+            log_connect_call(client.client_id, 'orders/approve', order.name, error)
+            return _json_response({'error': error})
+
+        log_connect_call(client.client_id, 'orders/approve', order.name, f'{approver} approved')
+        return _json_response(order.connect_status_payload())
+
+    @http.route(
+        '/elegomotors/connect/orders/<int:odoo_sale_order_id>/reject', type='http',
+        auth='public', methods=['POST'], csrf=False,
+    )
+    def reject_order(self, odoo_sale_order_id, **kwargs):
+        client, error_response = require_connect_bearer_token()
+        if error_response:
+            return error_response
+        body, error_response = _parse_json_body()
+        if error_response:
+            return error_response
+
+        reason = (body.get('reason') or '').strip()
+        if not reason:
+            return _json_response({'error': 'missing_or_invalid_fields', 'fields': ['reason']}, status=400)
+
+        order = request.env['sale.order'].sudo().browse(odoo_sale_order_id)
+        if not order.exists():
+            log_connect_call(client.client_id, 'orders/reject', str(odoo_sale_order_id), 'order_not_found')
+            return _json_response({'error': 'order_not_found'})
+
+        error = order.connect_record_decision(
+            'reject', reason=reason, actor_label=(body.get('actorLabel') or '').strip(),
+        )
+        if error:
+            log_connect_call(client.client_id, 'orders/reject', order.name, error)
+            return _json_response({'error': error})
+
+        log_connect_call(client.client_id, 'orders/reject', order.name, 'rejected')
+        return _json_response(order.connect_status_payload())
+
+    @http.route(
         '/elegomotors/connect/orders/<int:odoo_sale_order_id>/status', type='http',
         auth='public', methods=['GET'], csrf=False,
     )
