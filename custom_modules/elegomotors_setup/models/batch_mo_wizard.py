@@ -113,7 +113,11 @@ class BatchMoWizardLine(models.TransientModel):
     product_tmpl_id = fields.Many2one(
         'product.template',
         string='Model',
-        domain=[('sale_ok', '=', True), ('type', 'in', ('consu', 'product'))],
+        # Bike models only: the "Is Elego Bike Model" flag is what every other
+        # bike check in this module reads (a model made with the New Bike Model
+        # wizard shows up here by itself). A plain sale_ok/type filter also
+        # listed battery packs, cells and chargers.
+        domain=[('x_is_ego_bike', '=', True)],
     )
 
     # Colors available for this line's selected template (drives color dropdown domain)
