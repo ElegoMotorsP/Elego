@@ -409,6 +409,11 @@ class StockPicking(models.Model):
         non_qc_names = ', '.join(
             self.move_ids.filtered(lambda m: not m.product_id.x_qc_required).mapped('product_id.name')
         )
+        # A receipt created by hand is still a draft here: confirm it before the
+        # lines are rebuilt, or Odoo's confirm step at validation would top the
+        # lines back up to the full ordered quantity (see _set_move_done_qty).
+        if self.state == 'draft':
+            self.action_confirm()
         # Create explicit move lines: non-QC fully done → Store, QC done=0 → QC Inward (backorder)
         for move in self.move_ids:
             move.move_line_ids.unlink()
@@ -473,6 +478,16 @@ class StockPicking(models.Model):
         Writing the full quantity on every line double-counts the receipt:
         Quantity shows 2x demand and the done move lines post 2x into stock.
         """
+        picking = move.picking_id
+        if picking and picking.state == 'draft':
+            # A receipt that was created by hand stays in Draft until its final
+            # validation, and a draft has no move lines yet. Writing the quantity
+            # now only creates a line of `qty`; confirming the receipt later makes
+            # Odoo auto-reserve the supplier receipt up to the FULL ordered
+            # quantity, which tops the line back up and overwrites what was typed
+            # (200 received became 500 posted). Confirm first so Odoo reserves the
+            # ordered quantity now, then trim it down to `qty` below.
+            picking.action_confirm()
         lines = move.move_line_ids
         if not lines:
             move.write({'quantity': qty})
@@ -839,7 +854,16 @@ class StockPicking(models.Model):
                         'location_dest_id': move.location_dest_id.id,
                     })
 
-        result = super().button_validate()
+        if self and all(p.picking_type_code == 'incoming' for p in self):
+            # A receipt that is short of the ordered quantity ALWAYS creates a
+            # backorder for the rest. Without this, Odoo asks "Create backorder?"
+            # and "No Backorder" silently drops the shortfall: the PO line then
+            # reads fully received although only part of it arrived. The rest
+            # stays open for the vendor to deliver; cancel the backorder receipt
+            # if it is never coming.
+            result = super(StockPicking, self.with_context(skip_backorder=True)).button_validate()
+        else:
+            result = super().button_validate()
 
         # Post-validation hooks — run only for records that are now 'done'
         for picking in self:
