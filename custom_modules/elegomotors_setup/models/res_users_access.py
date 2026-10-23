@@ -54,6 +54,8 @@ _ACCESS_MATRIX_FIELDS = [
      'Modify Delivery (qty / serial / bike)'),
     ('x_access_unbuild_rebuild_operator', 'elegomotors_setup.group_unbuild_rebuild_operator', 'Inventory',
      'Unbuild / Rebuild bike by serial'),
+    ('x_access_scan_bike_operator', 'elegomotors_setup.group_scan_bike_operator', 'Inventory',
+     'Scan Bike Serials on deliveries'),
     ('x_access_cancel_transfer_operator', 'elegomotors_setup.group_cancel_transfer_operator', 'Inventory',
      'Cancel transfers (Cancel button)'),
 
@@ -122,6 +124,7 @@ class ResUsersAccessMatrix(models.Model):
     x_access_fg_transfer_operator = fields.Boolean(string='FG to Finished Goods transfer', compute='_compute_access_matrix', inverse='_inverse_access_matrix')
     x_access_delivery_change_operator = fields.Boolean(string='Modify Delivery (qty / serial / bike)', compute='_compute_access_matrix', inverse='_inverse_access_matrix')
     x_access_unbuild_rebuild_operator = fields.Boolean(string='Unbuild / Rebuild bike by serial', compute='_compute_access_matrix', inverse='_inverse_access_matrix')
+    x_access_scan_bike_operator = fields.Boolean(string='Scan Bike Serials on deliveries', compute='_compute_access_matrix', inverse='_inverse_access_matrix')
     x_access_cancel_transfer_operator = fields.Boolean(string='Cancel transfers (Cancel button)', compute='_compute_access_matrix', inverse='_inverse_access_matrix')
     x_access_mrp_view = fields.Boolean(string='View / Create / Confirm MOs', compute='_compute_access_matrix', inverse='_inverse_access_matrix')
     x_access_mrp_manage = fields.Boolean(string='Manufacturing Manager', compute='_compute_access_matrix', inverse='_inverse_access_matrix')
