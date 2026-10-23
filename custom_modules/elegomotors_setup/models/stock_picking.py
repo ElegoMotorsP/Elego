@@ -1340,14 +1340,20 @@ class StockPicking(models.Model):
         # an unscanned auto-reserved placeholder there must not block this
         # delivery from claiming the physical unit it's actually scanning.
         # qty_done is a non-stored compatibility alias for the real stored
-        # field (quantity) on this Odoo version — search on 'quantity'
-        # directly; searching 'qty_done' raises "Non-stored field ...
-        # cannot be searched" (confirmed live).
+        # field (quantity) on this Odoo version, and it is only > 0 once the
+        # line is picked. Searching 'qty_done' raises "Non-stored field ...
+        # cannot be searched" (confirmed live), and searching 'quantity > 0'
+        # alone also matches a mere RESERVATION (Check Availability fills
+        # quantity for the bike it picked), which then blocked every other
+        # delivery from scanning that serial ("already scanned on delivery
+        # ...") even though nobody had scanned it. A real scan is quantity > 0
+        # AND picked.
         other_ml = self.env['stock.move.line'].search([
             ('lot_id', '=', lot.id),
             ('picking_id', '!=', self.id),
             ('picking_id.picking_type_code', '=', 'outgoing'),
             ('quantity', '>', 0),
+            ('picked', '=', True),
             ('state', 'not in', ('done', 'cancel')),
         ], limit=1)
         if other_ml:
@@ -1357,14 +1363,16 @@ class StockPicking(models.Model):
                 'lot': lot,
             }
 
-        # Release any stale auto-reservation placeholder (qty_done still 0
-        # — never actually scanned) another open delivery is still holding
-        # on this exact lot, so this claim doesn't double-reserve the quant.
+        # Release any auto-reservation (never actually scanned, so not picked)
+        # that another open delivery is still holding on this exact lot, so
+        # this claim doesn't double-reserve the quant. That delivery simply
+        # loses the reservation and gets its own bike when its serial is
+        # scanned.
         self.env['stock.move.line'].search([
             ('lot_id', '=', lot.id),
             ('picking_id', '!=', self.id),
             ('picking_id.picking_type_code', '=', 'outgoing'),
-            ('quantity', '=', 0),
+            ('picked', '=', False),
             ('state', 'not in', ('done', 'cancel')),
         ]).unlink()
 
