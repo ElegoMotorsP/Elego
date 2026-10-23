@@ -100,6 +100,10 @@ class MrpUnbuild(models.Model):
         self._check_unbuild_rebuild_access()
         result = super().action_validate()
         for unbuild in self:
+            if unbuild.state == 'done' and unbuild.lot_id:
+                # The bike no longer exists: free its component serials now
+                # (the snapshot above keeps them for the rebuild MO).
+                unbuild.lot_id._release_component_serials()
             if unbuild.state == 'done' and not unbuild.x_rebuild_mo_id:
                 unbuild._create_rebuild_mo()
         return result

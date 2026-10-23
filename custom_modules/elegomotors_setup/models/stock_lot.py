@@ -42,6 +42,13 @@ class StockLot(models.Model):
         help='Set to True when this serial/lot has failed QC. Prevents sale or store transfer.',
     )
 
+    x_is_unbuilt = fields.Boolean(
+        string='Unbuilt',
+        compute='_compute_x_is_unbuilt', search='_search_x_is_unbuilt',
+        help='The bike went through a done Unbuild Order and no unit is on hand '
+             'any more. Bike Traceability hides these by default.',
+    )
+
     # --- Finance partner API (Bajaj Finance serial validation) ---
     x_bfl_validated = fields.Boolean(
         string='Finance API Validated',
@@ -273,13 +280,15 @@ class StockLot(models.Model):
     def action_export_master_report(self):
         """Download the Bike Master Traceability Report (xlsx) for the
         selected bikes, or for every ElegoMotors bike unit when nothing
-        is selected (e.g. run straight from the Action menu).
+        is selected (e.g. run straight from the Action menu). Unbuilt bikes
+        are left out of the all-bikes export.
         """
         if self:
             domain = [('id', 'in', self.ids)]
         else:
             bike_tmpls = self.env['mrp.production']._get_ego_templates()
-            domain = [('product_id.product_tmpl_id', 'in', bike_tmpls.ids)]
+            domain = [('product_id.product_tmpl_id', 'in', bike_tmpls.ids),
+                      ('x_is_unbuilt', '=', False)]
         return {
             'type': 'ir.actions.act_url',
             'url': '/elegomotors/bike_traceability/xlsx?domain=%s' % quote(json.dumps(domain)),
@@ -409,6 +418,44 @@ class StockLot(models.Model):
             ('lot_id', '=', self.id), ('location_id.usage', '=', 'internal'),
         ]).mapped('quantity'))
         return on_hand <= 0
+
+    @api.model
+    def _unbuilt_lot_ids(self):
+        """Ids of every bike lot that was unbuilt and has nothing on hand now.
+        Same rule as _is_unbuilt(), computed for all lots in two queries."""
+        unbuilds = self.env['mrp.unbuild'].sudo().search_read(
+            [('state', '=', 'done'), ('lot_id', '!=', False)], ['lot_id'])
+        lot_ids = {u['lot_id'][0] for u in unbuilds}
+        if not lot_ids:
+            return []
+        on_hand = self.env['stock.quant'].sudo()._read_group(
+            [('lot_id', 'in', list(lot_ids)), ('location_id.usage', '=', 'internal')],
+            ['lot_id'], ['quantity:sum'])
+        in_stock = {lot.id for lot, qty in on_hand if qty > 0}
+        return list(lot_ids - in_stock)
+
+    def _compute_x_is_unbuilt(self):
+        unbuilt = set(self._unbuilt_lot_ids())
+        for lot in self:
+            lot.x_is_unbuilt = lot.id in unbuilt
+
+    def _search_x_is_unbuilt(self, operator, value):
+        if operator not in ('=', '!='):
+            raise UserError('Unbuilt can only be searched with "is" / "is not".')
+        want_unbuilt = bool(value) == (operator == '=')
+        return [('id', 'in' if want_unbuilt else 'not in', self._unbuilt_lot_ids())]
+
+    def _release_component_serials(self):
+        """Free the component serials held by bikes that are fully unbuilt, so
+        the parts can go into the next bike. The Unbuild Order keeps its own
+        snapshot, which is also what a rebuild MO pre-fills from."""
+        # Only the five the Unbuild Order snapshots; cluster/frame serials are
+        # typed in by hand, never checked for reuse, and would be lost.
+        fields_ = ('x_chassis_serial', 'x_motor_serial', 'x_controller_serial',
+                   'x_battery_serial', 'x_charger_serial')
+        for lot in self:
+            if lot._is_unbuilt():
+                lot.write({f: False for f in fields_ if lot[f]})
 
     @api.model
     def _find_serial_holder(self, field_name, value):
