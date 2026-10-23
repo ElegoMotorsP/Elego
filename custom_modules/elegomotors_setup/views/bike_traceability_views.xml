@@ -105,6 +105,17 @@
                         string="Active (Not Blacklisted)"
                         domain="[('x_blacklisted', '=', False)]"/>
 
+                <separator/>
+
+                <!-- On by default: a bike that was unbuilt no longer exists.
+                     Untick it to see them, or use "Unbuilt Bikes" to see only those. -->
+                <filter name="filter_hide_unbuilt"
+                        string="Hide Unbuilt Bikes"
+                        domain="[('x_is_unbuilt', '=', False)]"/>
+                <filter name="filter_unbuilt"
+                        string="Unbuilt Bikes"
+                        domain="[('x_is_unbuilt', '=', True)]"/>
+
                 <group expand="0" string="Group By">
                     <filter name="group_by_product"
                             string="Product Variant"
@@ -127,7 +138,7 @@
         <field name="res_model">stock.lot</field>
         <field name="view_mode">list,form</field>
         <field name="domain" eval="[('product_id.product_tmpl_id.x_is_ego_bike', '=', True)]"/>
-        <field name="context">{'create': False}</field>
+        <field name="context">{'create': False, 'search_default_filter_hide_unbuilt': 1}</field>
         <field name="view_ids" eval="[(5, 0, 0),
             (0, 0, {'view_mode': 'list', 'view_id': ref('view_bike_traceability_list')}),
             (0, 0, {'view_mode': 'form', 'view_id': ref('stock.view_production_lot_form')})]"/>
