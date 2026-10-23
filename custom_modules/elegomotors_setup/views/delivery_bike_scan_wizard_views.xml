@@ -95,7 +95,7 @@
                         type="object"
                         class="btn-primary"
                         invisible="picking_type_code != 'outgoing' or state in ('done', 'cancel')"
-                        groups="elegomotors_setup.group_inbound_operator,base.group_erp_manager"/>
+                        groups="elegomotors_setup.group_scan_bike_operator,base.group_erp_manager"/>
             </xpath>
         </field>
     </record>
