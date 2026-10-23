@@ -176,6 +176,21 @@
             <field name="name">Inventory: Delivery Change Operator</field>
         </record>
 
+        <!--
+            group_cancel_transfer_operator
+                Who may press Cancel on a transfer (delivery, receipt, internal).
+                A delivery that was cancelled by mistake loses its scanned bike
+                serials and its reservations, so the button is hidden from
+                everyone without this group (view: stock_picking_form_restrict_cancel
+                in views/stock_picking_views.xml). Members: Admin only. Manohar can
+                give it to anyone else from Settings > Access Matrix.
+                Only the button is gated — transfers that the system cancels by
+                itself (an MO's own PI, a cancelled sale order) are not affected.
+        -->
+        <record id="group_cancel_transfer_operator" model="res.groups">
+            <field name="name">Inventory: Cancel Transfers</field>
+        </record>
+
         <!-- QC Routing Wizard access: all internal users may open it;
              button_validate() already restricts who reaches the wizard. -->
         <record id="access_stock_picking_qc_wizard_all" model="ir.model.access">

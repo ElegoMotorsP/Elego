@@ -340,4 +340,22 @@
         </field>
     </record>
 
+    <!-- ================================================================
+         Cancel button: only users with "Inventory: Cancel Transfers"
+         (Admin by default, grantable from Settings > Access Matrix) see it.
+         A transfer cancelled by mistake loses its scanned bike serials and
+         reservations. This hides the button only; transfers the system
+         cancels by itself are not affected.
+         ================================================================ -->
+    <record id="stock_picking_form_restrict_cancel" model="ir.ui.view">
+        <field name="name">stock.picking.form.restrict.cancel</field>
+        <field name="model">stock.picking</field>
+        <field name="inherit_id" ref="stock.view_picking_form"/>
+        <field name="arch" type="xml">
+            <xpath expr="//header/button[@name='action_cancel']" position="attributes">
+                <attribute name="groups">elegomotors_setup.group_cancel_transfer_operator</attribute>
+            </xpath>
+        </field>
+    </record>
+
 </odoo>

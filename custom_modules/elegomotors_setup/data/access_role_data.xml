@@ -35,6 +35,7 @@
                 ref('base.group_allow_export'),
                 ref('elegomotors_setup.group_unbuild_rebuild_operator'),
                 ref('elegomotors_setup.group_delivery_change_operator'),
+                ref('elegomotors_setup.group_cancel_transfer_operator'),
             ])]"/>
         </record>
 
