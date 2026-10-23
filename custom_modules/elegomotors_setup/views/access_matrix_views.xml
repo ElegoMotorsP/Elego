@@ -44,6 +44,7 @@
                 <field name="x_access_fg_transfer_operator" optional="hide"/>
                 <field name="x_access_delivery_change_operator" optional="hide"/>
                 <field name="x_access_unbuild_rebuild_operator" optional="hide"/>
+                <field name="x_access_scan_bike_operator"/>
                 <field name="x_access_cancel_transfer_operator"/>
 
                 <field name="x_access_mrp_view"/>

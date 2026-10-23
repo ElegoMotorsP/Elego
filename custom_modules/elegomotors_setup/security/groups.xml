@@ -177,6 +177,21 @@
         </record>
 
         <!--
+            group_scan_bike_operator
+                Who sees the "Scan Bike Serials" button on an outgoing delivery.
+                It used to ride on group_inbound_operator (Gate Entry + Issue to
+                Production), which meant anyone who needed to scan bikes also got
+                the Gate Entry and Issue-to-Production operation types. Now it is
+                its own permission, a column in Settings > Access Matrix.
+                Members at install: everyone who held group_inbound_operator or
+                ERP Manager (migration 18.0.135.0.0), so nobody loses the button;
+                also part of the Store Manager and Admin role templates.
+        -->
+        <record id="group_scan_bike_operator" model="res.groups">
+            <field name="name">Inventory: Scan Bike Serials (Deliveries)</field>
+        </record>
+
+        <!--
             group_cancel_transfer_operator
                 Who may press Cancel on a transfer (delivery, receipt, internal).
                 A delivery that was cancelled by mistake loses its scanned bike
