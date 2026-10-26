@@ -571,8 +571,12 @@ class StockPicking(models.Model):
                 # Default to the full received quantity (all passed) unless Pratik
                 # has explicitly entered a lower "QC Passed" value on this row while
                 # inspecting — that lower value is what makes the remainder count
-                # as QC Failed once approved.
-                qty = move.x_qty_qc_passed or move.x_qty_received or move.product_uom_qty
+                # as QC Failed once approved. A line whose Received was set to 0
+                # (nothing of it arrived) stays at 0 and goes to the backorder;
+                # it must not fall back to the full ordered quantity. Received is
+                # pre-filled with the demand when a move is created, so 0 only
+                # ever means "entered as zero".
+                qty = move.x_qty_qc_passed or move.x_qty_received
                 move.x_qty_qc_passed = qty
                 self._set_move_done_qty(move, qty)
 
