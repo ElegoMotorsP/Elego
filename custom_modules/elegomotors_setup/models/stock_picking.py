@@ -1284,10 +1284,16 @@ class StockPicking(models.Model):
             }
 
         label = lot.product_id.display_name
-        move = self.move_ids.filtered(
+        # A delivery can carry SEVERAL moves for the same product (e.g. a
+        # Change Bike split, or two SO lines of the same colour), so quota
+        # is judged across all of them, and the scan lands on whichever
+        # still has room — looking only at the first move rejected the unit
+        # as "all already scanned" while a second move of that colour was
+        # still unscanned.
+        moves = self.move_ids.filtered(
             lambda m: m.product_id == lot.product_id and m.state not in ('done', 'cancel')
-        )[:1]
-        if not move:
+        )
+        if not moves:
             return {
                 'success': False,
                 'message': f'{label} is not on this delivery — wrong model/colour for any line here.',
@@ -1301,15 +1307,19 @@ class StockPicking(models.Model):
         # reservation alone. Checking lot_id here would falsely reject the
         # very first real scan whenever it happens to match what Odoo
         # auto-reserved.
-        scanned_lines = move.move_line_ids.filtered(lambda ml: ml.qty_done > 0)
+        scanned_lines = moves.move_line_ids.filtered(lambda ml: ml.qty_done > 0)
         if lot in scanned_lines.mapped('lot_id'):
             return {
                 'success': False,
                 'message': f'Serial "{barcode}" is already scanned on this delivery.',
                 'lot': lot,
             }
-        demanded = max(1, int(move.product_uom_qty))
-        if len(scanned_lines) >= demanded:
+        demanded = sum(max(1, int(m.product_uom_qty)) for m in moves)
+        move = moves.filtered(
+            lambda m: len(m.move_line_ids.filtered(lambda ml: ml.qty_done > 0))
+            < max(1, int(m.product_uom_qty))
+        )[:1]
+        if not move:
             return {
                 'success': False,
                 'message': f'All {label} units on this delivery are already scanned ({demanded}/{demanded}).',
@@ -1415,7 +1425,7 @@ class StockPicking(models.Model):
             message_type='comment',
             subtype_xmlid='mail.mt_comment',
         )
-        scanned_count = len(move.move_line_ids.filtered(lambda ml: ml.qty_done > 0))
+        scanned_count = len(moves.move_line_ids.filtered(lambda ml: ml.qty_done > 0))
         return {
             'success': True,
             'message': f'{label}: {lot.name} scanned ({scanned_count}/{demanded}).',
