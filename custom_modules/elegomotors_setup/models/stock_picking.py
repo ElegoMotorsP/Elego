@@ -7,6 +7,7 @@ from urllib.parse import quote
 from markupsafe import Markup
 from odoo import Command, api, fields, models
 from odoo.exceptions import AccessError, UserError
+from odoo.tools import float_compare
 
 _logger = logging.getLogger(__name__)
 
@@ -99,6 +100,14 @@ class StockPicking(models.Model):
                 'company_id': self.company_id.id,
             }))
         self.move_ids_without_package = moves
+
+    def write(self, vals):
+        res = super().write(vals)
+        if vals.get('x_source_po_id'):
+            # PO chosen (or carried onto a backorder) after the lines exist:
+            # tie them to that PO's order lines so received quantities count.
+            self.move_ids._ego_link_to_source_po()
+        return res
 
     # --- GRN header carry-forward onto the QC backorder ---
     # The PO, vendor invoice no./date (copy=False) and the Studio "Vehicle No"
@@ -417,7 +426,9 @@ class StockPicking(models.Model):
         # Create explicit move lines: non-QC fully done → Store, QC done=0 → QC Inward (backorder)
         for move in self.move_ids:
             move.move_line_ids.unlink()
-            qty = move.x_qty_received or move.product_uom_qty
+            # Received is pre-filled with the demand, so 0 means "entered as
+            # zero": that line is not posted (see action_gate_entry_approve_qc).
+            qty = move.x_qty_received
             if not move.product_id.x_qc_required:
                 move.x_qty_qc_passed = qty
                 move.location_dest_id = store_loc.id
@@ -779,7 +790,7 @@ class StockPicking(models.Model):
                         store_loc = self.env.ref('elegomotors_setup.location_ego_store')
                         for move in picking.move_ids:
                             move.location_dest_id = store_loc.id
-                            qty = move.x_qty_received or move.product_uom_qty
+                            qty = move.x_qty_received
                             move.x_qty_qc_passed = qty
                             move.move_line_ids.location_dest_id = store_loc.id
                             picking._set_move_done_qty(move, qty)
@@ -857,6 +868,26 @@ class StockPicking(models.Model):
                         'location_id': move.location_id.id,
                         'location_dest_id': move.location_dest_id.id,
                     })
+
+        # A QC-approved receipt posts exactly what QC passed. Approve QC trims
+        # the lines to that quantity, but the move then waits partially
+        # available for this validation, and Odoo's reservation tops such a
+        # supplier receipt back up to the full ordered quantity (the nightly
+        # scheduler does it to every one; StockMove._action_assign now skips
+        # them). Put the approved quantity back here so a top-up can never be
+        # what gets posted. Matches only the top-up itself (lines back at the
+        # full demand while QC passed less), never a line edited by hand.
+        for picking in self:
+            if picking.picking_type_code != 'incoming' or picking.x_gate_entry_state != 'ready':
+                continue
+            for move in picking.move_ids.filtered(lambda m: m.state not in ('done', 'cancel')):
+                rounding = move.product_uom.rounding
+                reserved = sum(move.move_line_ids.mapped('quantity'))
+                if (
+                    float_compare(reserved, move.product_uom_qty, precision_rounding=rounding) == 0
+                    and float_compare(move.x_qty_qc_passed, reserved, precision_rounding=rounding) < 0
+                ):
+                    picking._set_move_done_qty(move, move.x_qty_qc_passed)
 
         if self and all(p.picking_type_code == 'incoming' for p in self):
             # A receipt that is short of the ordered quantity ALWAYS creates a

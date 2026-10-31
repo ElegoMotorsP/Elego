@@ -49,7 +49,7 @@ class StockPickingQcWizard(models.TransientModel):
             # Remove any existing lines (shouldn't exist on Draft, but be safe)
             move.move_line_ids.unlink()
 
-            qty = move.x_qty_received or move.product_uom_qty
+            qty = move.x_qty_received
 
             if not move.product_id.x_qc_required:
                 # Non-QC: mark as fully passed, route to Store
