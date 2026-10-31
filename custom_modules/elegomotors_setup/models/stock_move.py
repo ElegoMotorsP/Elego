@@ -2,6 +2,7 @@
 import re
 
 from odoo import api, fields, models
+from odoo.tools import float_compare
 
 
 class StockMove(models.Model):
@@ -178,7 +179,68 @@ class StockMove(models.Model):
         for vals in vals_list:
             if not vals.get('x_qty_received') and vals.get('product_uom_qty'):
                 vals['x_qty_received'] = vals['product_uom_qty']
-        return super().create(vals_list)
+        moves = super().create(vals_list)
+        moves._ego_link_to_source_po()
+        return moves
+
+    def _ego_link_to_source_po(self):
+        """Link receipt moves to the order line of the receipt's Purchase Order.
+
+        The PO picker on a hand-made receipt fills the operation lines through
+        an onchange that also sends purchase_line_id, but the web client keeps
+        only the fields that are in the line list view and purchase_line_id is
+        not one of them, so it was dropped on save. The receipt then posted its
+        stock but never counted towards the PO: Received stayed 0, the PO never
+        counted as fully received (so it stayed in the picker for ever) and
+        validating the receipt could not bill it. Linking here, on the server,
+        does not depend on what the browser sends.
+
+        A move goes to the first line of its product that is still open, else
+        the first line of that product; a product that is not on the PO stays
+        unlinked.
+        """
+        if 'purchase_line_id' not in self._fields:
+            return
+        for move in self:
+            picking = move.picking_id
+            po = picking.x_source_po_id
+            if not po or move.purchase_line_id or picking.picking_type_code != 'incoming':
+                continue
+            lines = po.order_line.filtered(
+                lambda l: not l.display_type and l.product_id == move.product_id
+            )
+            open_lines = lines.filtered(
+                lambda l: float_compare(
+                    l.product_qty, l.qty_received, precision_rounding=l.product_uom.rounding,
+                ) > 0
+            )
+            line = (open_lines or lines)[:1]
+            if line:
+                move.purchase_line_id = line
+
+    def _action_assign(self, force_qty=False):
+        """Never re-reserve a receipt whose quantity QC has already approved.
+
+        Approve QC trims a supplier receipt down to what passed (500 of 1000),
+        which leaves the move partially available until Amit validates it.
+        Odoo's reservation then treats the missing 500 as "not reserved yet"
+        and, because a supplier location needs no stock, simply adds it back
+        up to the full ordered quantity. The scheduler does this to every
+        partially available move, so the approved quantity silently reverted
+        to the ordered one before the receipt was validated.
+
+        Only moves that already hold their approved lines are skipped: the
+        backorder moves Odoo splits off while validating are still under this
+        receipt for a moment and have no lines yet, and those must reserve
+        normally.
+        """
+        fixed = self.filtered(
+            lambda m: m.picking_id.picking_type_code == 'incoming'
+            and m.picking_id.x_gate_entry_state == 'ready'
+            and m.state not in ('draft', 'done', 'cancel')
+            and m.move_line_ids
+        )
+        return super(StockMove, self - fixed)._action_assign(force_qty=force_qty)
 
     # Issue 10: keep x_qty_received in sync when demand qty changes (UI onchange)
     @api.onchange('product_uom_qty')
