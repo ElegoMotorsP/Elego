@@ -11,6 +11,7 @@ from . import bulk_barcode_wizard
 from . import batch_mo_wizard
 from . import product_template
 from . import purchase_order
+from . import purchase_order_line
 from . import sale_order
 from . import sale_order_reject_wizard
 from . import stock_move
