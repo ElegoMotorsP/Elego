@@ -32,6 +32,54 @@ class PurchaseOrder(models.Model):
                 for line in lines
             )
 
+    # A GRN is made by a person, never by confirming the PO. Odoo creates a
+    # full-quantity receipt as soon as a PO is confirmed; here that receipt sat
+    # untouched next to the GRN Amit then made for the real delivery (PO-160 had
+    # EGO/GRN/00218 from OdooBot beside 00219-00221), so the same quantity was
+    # asked for twice and the QC list showed several rows for one PO. The GRN is
+    # now created when Amit picks the PO on a new GRN (x_source_po_id), which
+    # fills it with what is still to receive. Pass ego_allow_po_receipt=True in
+    # the context to get Odoo's own behaviour back for a specific call.
+    def _create_picking(self):
+        if self.env.context.get('ego_allow_po_receipt'):
+            return super()._create_picking()
+        return True
+
+    # With no receipt made at confirmation, Odoo's own receipt status (worked
+    # out from the receipts' states) would read "Fully Received" as soon as the
+    # only GRN is validated, even when it covered part of the order. Work it out
+    # from the quantities instead: ordered vs received on the lines.
+    @api.depends('picking_ids', 'picking_ids.state', 'state',
+                 'order_line.qty_received', 'order_line.product_qty')
+    def _compute_receipt_status(self):
+        for order in self:
+            lines = order.order_line.filtered(
+                lambda l: not l.display_type and l.product_id.type != 'service'
+            )
+            if order.state not in ('purchase', 'done') or not lines:
+                order.receipt_status = False
+                continue
+            fully = all(
+                float_compare(
+                    line.qty_received, line.product_qty,
+                    precision_rounding=line.product_uom.rounding,
+                ) >= 0
+                for line in lines
+            )
+            any_received = any(
+                float_compare(
+                    line.qty_received, 0.0,
+                    precision_rounding=line.product_uom.rounding,
+                ) > 0
+                for line in lines
+            )
+            if fully:
+                order.receipt_status = 'full'
+            elif any_received:
+                order.receipt_status = 'partial'
+            else:
+                order.receipt_status = 'pending'
+
     @api.model_create_multi
     def create(self, vals_list):
         # group_purchase_viewer holders (Amit, Rajshri) can read POs but not

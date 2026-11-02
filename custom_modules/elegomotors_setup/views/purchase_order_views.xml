@@ -35,6 +35,27 @@
     </record>
 
     <!--
+        Ordered / Received / To Receive on the PO lines. A short delivery no
+        longer creates a backorder, so the PO itself shows what is still to
+        come: Quantity (ordered), Received (on validated GRNs) and To Receive
+        (the rest). Amit makes another GRN when the rest arrives.
+    -->
+    <record id="purchase_order_form_qty_to_receive" model="ir.ui.view">
+        <field name="name">purchase.order.form.qty.to.receive</field>
+        <field name="model">purchase.order</field>
+        <field name="inherit_id" ref="purchase.purchase_order_form"/>
+        <field name="arch" type="xml">
+
+            <xpath expr="//field[@name='order_line']//field[@name='qty_received']" position="after">
+                <field name="x_qty_remaining" string="To Receive"
+                       column_invisible="parent.state not in ('purchase', 'done')"
+                       optional="show"/>
+            </xpath>
+
+        </field>
+    </record>
+
+    <!--
         Vendor-Product restriction: once a vendor is picked on a PO, the order-line
         product picker only offers products that vendor is actually assigned to
         supply (product.supplierinfo — a product's Purchase tab > Vendor Pricelist).

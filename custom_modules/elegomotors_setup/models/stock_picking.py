@@ -58,7 +58,7 @@ class StockPicking(models.Model):
         'purchase.order',
         string='Purchase Order',
         copy=False,
-        domain="[('partner_id', '=', partner_id), ('x_receipt_complete', '=', False)]",
+        domain="[('partner_id', '=', partner_id), ('x_receipt_complete', '=', False), ('state', 'in', ('purchase', 'done'))]",
         help='Select an open Purchase Order of the vendor above — the operation '
              'lines are filled automatically with the remaining (not yet received) '
              'quantities of that PO. Fully received or closed POs are not listed.',
@@ -462,6 +462,7 @@ class StockPicking(models.Model):
             backorder_wiz.process()
         backorder = self.backorder_ids[:1]
         if backorder:
+            backorder._ego_drop_short_non_qc_lines()
             backorder.x_gate_entry_state = 'in_qc'
             backorder._create_qc_check_results()
             pratik = self.env.ref('elegomotors_setup.user_ego_pratik', raise_if_not_found=False)
@@ -478,6 +479,36 @@ class StockPicking(models.Model):
                 subtype_xmlid='mail.mt_comment',
             )
         return False
+
+    def _ego_drop_short_non_qc_lines(self):
+        """Keep only the QC items in the QC backorder.
+
+        Splitting a receipt for QC holds the QC items back in a backorder, but
+        Odoo also moves into it whatever the non-QC lines were short of the
+        ordered quantity (ordered 1000, received 500 -> 500 on the backorder).
+        That shortfall has nothing to do with QC and is not a GRN anyone asked
+        for: it is simply still to arrive. Left there, QC would later "receive"
+        it together with the QC items. Cancel those lines; the PO line keeps
+        the remainder as "To Receive" and the user makes a new GRN when it
+        comes.
+        """
+        for backorder in self:
+            short = backorder.move_ids.filtered(
+                lambda m: not m.product_id.x_qc_required and m.state not in ('done', 'cancel')
+            )
+            if not short:
+                continue
+            names = ', '.join(short.mapped('product_id.name'))
+            short.sudo()._action_cancel()
+            backorder.message_post(
+                body=Markup(
+                    f"Not carried over: <b>{names}</b> was received short of the ordered "
+                    f"quantity. The rest is still to receive on the PO — make a new GRN "
+                    f"when it arrives."
+                ),
+                message_type='comment',
+                subtype_xmlid='mail.mt_comment',
+            )
 
     @api.model
     def _set_move_done_qty(self, move, qty):
@@ -514,6 +545,60 @@ class StockPicking(models.Model):
                 take = min(remaining, ml.qty_done)
                 ml.qty_done = take
                 remaining -= take
+
+    def _ego_close_completed_po_leftovers(self):
+        """Cancel the untouched receipts still waiting for a PO line that this
+        receipt has just completed.
+
+        A partial receipt leaves a backorder for the shortfall (500 of 1000),
+        and a second GRN made for the next delivery asks for the same 500, so
+        when the line is complete the other one is a stale duplicate: left
+        open it keeps the PO in the receipts to-do list, and validating it
+        would receive the line twice. Only receipts nobody has worked on are
+        closed: still pending QC, nothing picked and Received still equal to
+        the demand. Anything with a typed quantity or started QC is left for a
+        person to decide.
+
+        Best effort: the validation that called this has already worked, so a
+        failure here is logged and must never undo it.
+        """
+        self.ensure_one()
+        try:
+            with self.env.cr.savepoint():
+                lines = self.move_ids.filtered(lambda m: m.state == 'done').mapped('purchase_line_id')
+                for line in lines:
+                    if float_compare(
+                        line.qty_received, line.product_qty,
+                        precision_rounding=line.product_uom.rounding,
+                    ) < 0:
+                        continue
+                    leftovers = line.move_ids.filtered(
+                        lambda m: m.picking_id and m.picking_id != self
+                        and m.picking_id.picking_type_code == 'incoming'
+                        and m.picking_id.x_gate_entry_state == 'pending_qc'
+                        and m.location_id.usage == 'supplier'
+                        and m.state not in ('done', 'cancel')
+                        and not m.picked
+                        and float_compare(
+                            m.x_qty_received, m.product_uom_qty,
+                            precision_rounding=m.product_uom.rounding,
+                        ) == 0
+                    )
+                    for picking in leftovers.picking_id:
+                        leftovers.filtered(lambda m: m.picking_id == picking).sudo()._action_cancel()
+                        picking.message_post(
+                            body=Markup(
+                                f"Cancelled automatically: <b>{line.product_id.display_name}</b> "
+                                f"on <b>{line.order_id.name}</b> was fully received on "
+                                f"<b>{self.name}</b>, so this receipt would have received it again."
+                            ),
+                            message_type='comment',
+                            subtype_xmlid='mail.mt_comment',
+                        )
+        except Exception:
+            _logger.exception(
+                'Closing the leftover receipts of a PO line completed by %s failed', self.name,
+            )
 
     def action_gate_entry_approve_qc(self):
         """Pratik approves QC: sets qty_done per serial based on pass/fail results,
@@ -890,13 +975,25 @@ class StockPicking(models.Model):
                     picking._set_move_done_qty(move, move.x_qty_qc_passed)
 
         if self and all(p.picking_type_code == 'incoming' for p in self):
-            # A receipt that is short of the ordered quantity ALWAYS creates a
-            # backorder for the rest. Without this, Odoo asks "Create backorder?"
-            # and "No Backorder" silently drops the shortfall: the PO line then
-            # reads fully received although only part of it arrived. The rest
-            # stays open for the vendor to deliver; cancel the backorder receipt
-            # if it is never coming.
-            result = super(StockPicking, self.with_context(skip_backorder=True)).button_validate()
+            if self.env.context.get('skip_qc_wizard'):
+                # QC routing (auto-route / the routing wizard): the QC items are
+                # held back as a backorder on purpose, so Odoo must create it
+                # without asking.
+                result = super(StockPicking, self.with_context(skip_backorder=True)).button_validate()
+            else:
+                # Final validation of a receipt: the quantity entered as
+                # Received is what is posted, and a shortfall against the
+                # ordered quantity does NOT create a backorder or a new GRN.
+                # The short remainder is cancelled on this receipt; the PO line
+                # keeps ordered vs received, so "To Receive" on the PO shows
+                # what is still to come and the user makes another GRN when it
+                # arrives. (Receipt status of the PO is worked out from the
+                # quantities — see purchase_order.py — so a partial receipt no
+                # longer reads as fully received.)
+                result = super(StockPicking, self.with_context(
+                    skip_backorder=True,
+                    picking_ids_not_to_backorder=self.ids,
+                )).button_validate()
         else:
             result = super().button_validate()
 
@@ -951,6 +1048,11 @@ class StockPicking(models.Model):
                         update_vals['invoice_date'] = picking.x_vendor_invoice_date
                     if update_vals:
                         bill.write(update_vals)
+
+            # --- A PO line this receipt completed: close the receipts still
+            #     waiting for it (the shortfall backorder / a second GRN) ---
+            if picking.picking_type_code == 'incoming':
+                picking._ego_close_completed_po_leftovers()
 
             # --- Issue 12: flag pending replacement if QC failures recorded ---
             if picking.picking_type_code == 'incoming':

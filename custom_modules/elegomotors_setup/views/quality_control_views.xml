@@ -61,10 +61,14 @@
                 <field name="x_source_po_id" string="PO No."/>
                 <!-- x_qc_serial_nos is a non-stored compute field (unsearchable) —
                      shown as a list column only; not searchable here. -->
+                <!-- A receipt that is already done or cancelled is not waiting for
+                     QC, even though its QC status was never moved on (the non-QC
+                     part of a split receipt stays "Pending QC" once validated).
+                     Hiding those stops one PO showing several "Pending" rows. -->
                 <filter name="filter_pending_qc" string="Pending QC"
-                        domain="[('x_gate_entry_state', '=', 'pending_qc')]"/>
+                        domain="[('x_gate_entry_state', '=', 'pending_qc'), ('state', 'not in', ('done', 'cancel'))]"/>
                 <filter name="filter_in_qc" string="In QC"
-                        domain="[('x_gate_entry_state', '=', 'in_qc')]"/>
+                        domain="[('x_gate_entry_state', '=', 'in_qc'), ('state', 'not in', ('done', 'cancel'))]"/>
                 <filter name="filter_ready" string="Ready (Completed)"
                         domain="[('x_gate_entry_state', '=', 'ready')]"/>
                 <group expand="0" string="Group By">
