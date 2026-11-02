@@ -91,6 +91,8 @@ class StockPickingQcWizard(models.TransientModel):
 
         backorder = picking.backorder_ids[:1]
         if backorder:
+            # Only the QC items belong here; a short non-QC line is not a GRN.
+            backorder._ego_drop_short_non_qc_lines()
             backorder.x_gate_entry_state = 'in_qc'
             backorder._create_qc_check_results()
             pratik = self.env.ref(
@@ -144,4 +146,6 @@ class StockPickingQcWizard(models.TransientModel):
                 skip_qc_wizard=True,
             ).create({'pick_ids': [(4, picking.id)]})
             backorder_wiz.process()
-        # Backorder stays in 'pending_qc' — Amit manually sends QC products later
+        # Backorder stays in 'pending_qc' — Amit manually sends QC products later.
+        # Only the QC items belong in it; a short non-QC line is not a GRN.
+        picking.backorder_ids[:1]._ego_drop_short_non_qc_lines()
