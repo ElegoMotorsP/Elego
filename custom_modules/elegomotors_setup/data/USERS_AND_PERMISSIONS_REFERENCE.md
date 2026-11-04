@@ -81,10 +81,12 @@ sets them in the Access Matrix, not by this codebase.
 
 ## 3a. Serial-Number-Wise Bike Unbuild & Rebuild
 
-Manohar can take a specific bike serial apart (Unbuild Order), recovering its components to
-EGO/Production WIP, and the system auto-creates a linked Rebuild MO that consumes those
-components straight from WIP (no Issue-to-Production picking). The rebuild may reuse the
-same bike/chassis serial (only once its stock is at zero) or be assigned a new one.
+Manohar can take a specific bike serial apart (Unbuild Order). The components go back to the
+location on the Unbuild Order (EGO/Production WIP from the serial's "Unbuild This Bike"
+button; the MO's components location, EGO/Pre-Production, from the MO's own Unbuild button),
+and their serials are freed for the next bike. **No MO is created by the unbuild**: the user
+raises a new MO when a bike is wanted. (Before version 142 a linked Rebuild MO was auto-created
+and confirmed on every unbuild; older unbuilds still show it.)
 
 - **Access**: `elegomotors_setup.group_unbuild_rebuild_operator` — Manohar only initially.
   Enforced in Python (`models/mrp_unbuild.py`) since Odoo's core `mrp.group_mrp_user`
