@@ -1,18 +1,18 @@
 # -*- coding: utf-8 -*-
-from markupsafe import Markup
 from odoo import api, fields, models, SUPERUSER_ID
 from odoo.exceptions import AccessError, UserError
 
 
 class MrpUnbuild(models.Model):
-    """Serial-Number-Wise Bike Unbuild & Rebuild.
+    """Serial-Number-Wise Bike Unbuild.
 
     Extends Odoo's native Unbuild Order to reverse a specific bike serial
-    back into its components at EGO/Production WIP, snapshot the component
-    serials that were on that bike at the time (immune to the lot's own
-    fields being overwritten on rebuild), and auto-create the rebuild MO
-    that consumes those recovered parts — fully linked for traceability:
-    Bike Serial -> Original MO -> Unbuild Order -> Rebuild MO -> New Serial.
+    back into its components, snapshot the component serials that were on
+    that bike at the time (immune to the lot's own fields being overwritten
+    later), and free those serials for the next bike. No MO is created by
+    the unbuild: the user raises a new MO when they want one. Unbuilds done
+    before that change may still carry the auto-created Rebuild MO
+    (x_rebuild_mo_id), which stays visible for traceability.
     """
     _inherit = 'mrp.unbuild'
 
@@ -24,7 +24,8 @@ class MrpUnbuild(models.Model):
     x_rebuild_mo_id = fields.Many2one(
         'mrp.production', string='Rebuild Manufacturing Order',
         readonly=True, copy=False,
-        help='The new MO auto-created to rebuild this bike from the recovered parts.',
+        help='Older unbuilds only: the MO that used to be auto-created to rebuild '
+             'this bike. Unbuilds no longer create an MO.',
     )
 
     # Snapshot of the bike's component serials at the moment of unbuild — kept
@@ -102,48 +103,11 @@ class MrpUnbuild(models.Model):
         for unbuild in self:
             if unbuild.state == 'done' and unbuild.lot_id:
                 # The bike no longer exists: free its component serials now
-                # (the snapshot above keeps them for the rebuild MO).
+                # (the snapshot above keeps them for the next bike's MO).
                 unbuild.lot_id._release_component_serials()
-            if unbuild.state == 'done' and not unbuild.x_rebuild_mo_id:
-                unbuild._create_rebuild_mo()
+            # No Manufacturing Order is created here. An unbuild only takes the
+            # bike apart and puts the parts back where the user chose; a new
+            # MO is raised by the user when a bike is actually wanted. (It used
+            # to be auto-created and confirmed on every unbuild, which left an
+            # extra open MO holding a claim on the recovered parts.)
         return result
-
-    def _create_rebuild_mo(self):
-        """Auto-create the new MO that rebuilds this bike from the components
-        just recovered to Production WIP. A fresh create() (not copy()) so
-        the rebuild MO gets genuinely new planned/completion timestamps."""
-        self.ensure_one()
-        bom = self.bom_id or self._find_bom_for_product(self.product_id)
-        production = self.env['mrp.production'].create({
-            'product_id': self.product_id.id,
-            'product_qty': 1,
-            'product_uom_id': self.product_uom_id.id,
-            'bom_id': bom.id if bom else False,
-            'company_id': self.company_id.id,
-            'x_source_unbuild_id': self.id,
-            'x_original_mo_id': self.x_original_mo_id.id,
-        })
-        production.action_confirm()
-        self.x_rebuild_mo_id = production.id
-
-        self.message_post(
-            body=Markup(
-                f"Rebuild MO <a href='/web#id={production.id}&model=mrp.production'>{production.name}</a> "
-                f"auto-created, consuming components recovered to "
-                f"<b>{self.location_dest_id.display_name or 'Production WIP'}</b>."
-            ),
-            message_type='comment',
-            subtype_xmlid='mail.mt_comment',
-        )
-        if self.x_original_mo_id:
-            self.x_original_mo_id.message_post(
-                body=Markup(
-                    f"This bike (serial <b>{self.lot_id.name}</b>) was unbuilt via "
-                    f"<a href='/web#id={self.id}&model=mrp.unbuild'>{self.name}</a> "
-                    f"and is being rebuilt as "
-                    f"<a href='/web#id={production.id}&model=mrp.production'>{production.name}</a>."
-                ),
-                message_type='comment',
-                subtype_xmlid='mail.mt_comment',
-            )
-        return production
