@@ -108,7 +108,7 @@ class StockLot(models.Model):
     )
     x_rebuild_mo_id = fields.Many2one(
         'mrp.production', string='Rebuild MO', compute='_compute_unbuild_rebuild',
-        help='The MO auto-created to rebuild this bike after it was unbuilt, if any.',
+        help='Older unbuilds only: the MO that used to be auto-created to rebuild this bike.',
     )
 
     def _compute_unbuild_rebuild(self):
