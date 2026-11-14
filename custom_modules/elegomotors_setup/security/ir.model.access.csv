@@ -61,3 +61,17 @@ access_sales_return_admin,sales.return.admin,model_elegomotors_sales_return,base
 access_sales_return_user,sales.return.user,model_elegomotors_sales_return,base.group_user,1,0,0,0
 access_elegomotors_access_role_admin,elegomotors.access.role.admin,model_elegomotors_access_role,base.group_system,1,1,1,1
 access_elegomotors_access_role_user,elegomotors.access.role.user,model_elegomotors_access_role,base.group_user,1,0,0,0
+access_ckd_kit_wizard_all,ckd.kit.wizard.all,model_elegomotors_ckd_kit_wizard,base.group_user,1,1,1,1
+access_ckd_kit_wizard_line_all,ckd.kit.wizard.line.all,model_elegomotors_ckd_kit_wizard_line,base.group_user,1,1,1,1
+access_ckd_reconciliation_all,ckd.reconciliation.all,model_elegomotors_ckd_reconciliation,base.group_user,1,1,1,1
+access_ckd_reconciliation_line_all,ckd.reconciliation.line.all,model_elegomotors_ckd_reconciliation_line,base.group_user,1,1,1,1
+access_ckd_kit_allocation_user,ckd.kit.allocation.user,model_elegomotors_ckd_kit_allocation,base.group_user,1,0,0,0
+access_ckd_kit_allocation_line_user,ckd.kit.allocation.line.user,model_elegomotors_ckd_kit_allocation_line,base.group_user,1,0,0,0
+access_bill_of_entry_purchase_manager,bill.of.entry.purchase.manager,model_elegomotors_bill_of_entry,purchase.group_purchase_manager,1,1,1,1
+access_bill_of_entry_account,bill.of.entry.account,model_elegomotors_bill_of_entry,account.group_account_user,1,1,1,1
+access_bill_of_entry_admin,bill.of.entry.admin,model_elegomotors_bill_of_entry,base.group_erp_manager,1,1,1,1
+access_bill_of_entry_purchase_user,bill.of.entry.purchase.user,model_elegomotors_bill_of_entry,purchase.group_purchase_user,1,0,0,0
+access_bill_of_entry_line_purchase_manager,bill.of.entry.line.purchase.manager,model_elegomotors_bill_of_entry_line,purchase.group_purchase_manager,1,1,1,1
+access_bill_of_entry_line_account,bill.of.entry.line.account,model_elegomotors_bill_of_entry_line,account.group_account_user,1,1,1,1
+access_bill_of_entry_line_admin,bill.of.entry.line.admin,model_elegomotors_bill_of_entry_line,base.group_erp_manager,1,1,1,1
+access_bill_of_entry_line_purchase_user,bill.of.entry.line.purchase.user,model_elegomotors_bill_of_entry_line,purchase.group_purchase_user,1,0,0,0

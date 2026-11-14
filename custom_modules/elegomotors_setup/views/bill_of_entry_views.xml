@@ -1,0 +1,148 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+    <data>
+
+        <record id="view_bill_of_entry_form" model="ir.ui.view">
+            <field name="name">elegomotors.bill.of.entry.form</field>
+            <field name="model">elegomotors.bill.of.entry</field>
+            <field name="arch" type="xml">
+                <form string="Bill of Entry">
+                    <header>
+                        <button name="action_create_landed_cost" type="object"
+                                string="Create Landed Cost" class="btn-primary"
+                                invisible="state != 'draft'"/>
+                        <button name="action_validate_landed_cost" type="object"
+                                string="Post Landed Cost" class="btn-primary"
+                                invisible="state != 'landed'"/>
+                        <button name="action_create_igst_entry" type="object"
+                                string="Create IGST Entry"
+                                invisible="igst_move_id or state == 'cancel'"/>
+                        <button name="action_cancel" type="object" string="Cancel"
+                                invisible="state in ('done', 'cancel')"/>
+                        <button name="action_reset_draft" type="object" string="Set to Draft"
+                                invisible="state != 'cancel'"/>
+                        <field name="state" widget="statusbar" statusbar_visible="draft,landed,done"/>
+                    </header>
+                    <sheet>
+                        <div class="oe_button_box" name="button_box">
+                            <button name="action_view_landed_cost" type="object"
+                                    class="oe_stat_button" icon="fa-cubes" invisible="not landed_cost_id">
+                                <div class="o_stat_info">
+                                    <span class="o_stat_text">Landed Cost</span>
+                                </div>
+                            </button>
+                        </div>
+                        <div class="oe_title">
+                            <h1><field name="name" readonly="1"/></h1>
+                        </div>
+                        <group>
+                            <group>
+                                <field name="boe_number" readonly="state != 'draft'"/>
+                                <field name="date" readonly="state != 'draft'"/>
+                                <field name="order_ids" widget="many2many_tags"
+                                       readonly="state != 'draft'" options="{'no_create': True}"/>
+                                <field name="picking_ids" widget="many2many_tags"
+                                       readonly="state != 'draft'" options="{'no_create': True}"/>
+                            </group>
+                            <group>
+                                <field name="supplier_invoice_ref" readonly="state != 'draft'"/>
+                                <field name="exchange_rate" readonly="state != 'draft'"/>
+                                <field name="assessable_value" readonly="state != 'draft'"/>
+                                <field name="company_id" invisible="1"/>
+                                <field name="currency_id" invisible="1"/>
+                            </group>
+                        </group>
+                        <div class="alert alert-warning" role="alert" invisible="not costing_warning">
+                            <field name="costing_warning" nolabel="1"/>
+                        </div>
+                        <notebook>
+                            <page string="Duties and Costs" name="lines">
+                                <field name="line_ids" readonly="state != 'draft'">
+                                    <list editable="bottom">
+                                        <field name="sequence" widget="handle"/>
+                                        <field name="kind"/>
+                                        <field name="name"/>
+                                        <field name="product_id" options="{'no_create': True}"/>
+                                        <field name="amount" sum="Total"/>
+                                        <field name="capitalise"/>
+                                        <field name="split_method" optional="hide"/>
+                                        <field name="currency_id" column_invisible="1"/>
+                                    </list>
+                                </field>
+                                <group class="oe_subtotal_footer">
+                                    <field name="duty_total"/>
+                                    <field name="capitalised_total"/>
+                                    <field name="igst_total"/>
+                                </group>
+                                <p class="text-muted">
+                                    Lines ticked <b>Add to Part Value</b> are spread over the received parts of the chosen
+                                    GRNs by Odoo's Landed Cost. Import IGST is input credit — it is not added to the parts;
+                                    book it with <b>Create IGST Entry</b> (set the accounts on the Import IGST tab).
+                                </p>
+                            </page>
+                            <page string="Import IGST" name="igst">
+                                <group>
+                                    <field name="igst_journal_id" readonly="igst_move_id"/>
+                                    <field name="igst_debit_account_id" readonly="igst_move_id"/>
+                                    <field name="igst_credit_account_id" readonly="igst_move_id"/>
+                                    <field name="igst_move_id"/>
+                                </group>
+                            </page>
+                        </notebook>
+                    </sheet>
+                    <chatter/>
+                </form>
+            </field>
+        </record>
+
+        <record id="view_bill_of_entry_list" model="ir.ui.view">
+            <field name="name">elegomotors.bill.of.entry.list</field>
+            <field name="model">elegomotors.bill.of.entry</field>
+            <field name="arch" type="xml">
+                <list string="Bills of Entry" decoration-muted="state == 'cancel'">
+                    <field name="name"/>
+                    <field name="boe_number"/>
+                    <field name="date"/>
+                    <field name="order_ids" widget="many2many_tags"/>
+                    <field name="duty_total" sum="Duty"/>
+                    <field name="capitalised_total" sum="Added to Part Value"/>
+                    <field name="igst_total" sum="IGST"/>
+                    <field name="state" widget="badge"
+                           decoration-success="state == 'done'"
+                           decoration-info="state == 'landed'"
+                           decoration-danger="state == 'cancel'"/>
+                    <field name="currency_id" column_invisible="1"/>
+                </list>
+            </field>
+        </record>
+
+        <record id="view_bill_of_entry_search" model="ir.ui.view">
+            <field name="name">elegomotors.bill.of.entry.search</field>
+            <field name="model">elegomotors.bill.of.entry</field>
+            <field name="arch" type="xml">
+                <search string="Bills of Entry">
+                    <field name="name"/>
+                    <field name="boe_number"/>
+                    <field name="order_ids"/>
+                    <filter string="Draft" name="filter_draft" domain="[('state', '=', 'draft')]"/>
+                    <filter string="Landed Cost Created" name="filter_landed" domain="[('state', '=', 'landed')]"/>
+                    <filter string="Posted" name="filter_done" domain="[('state', '=', 'done')]"/>
+                </search>
+            </field>
+        </record>
+
+        <record id="action_bill_of_entry" model="ir.actions.act_window">
+            <field name="name">Bills of Entry</field>
+            <field name="res_model">elegomotors.bill.of.entry</field>
+            <field name="view_mode">list,form</field>
+        </record>
+
+        <menuitem id="menu_bill_of_entry"
+                  name="Bill of Entry"
+                  parent="purchase.menu_purchase_root"
+                  action="action_bill_of_entry"
+                  groups="purchase.group_purchase_manager,account.group_account_user,base.group_erp_manager"
+                  sequence="47"/>
+
+    </data>
+</odoo>

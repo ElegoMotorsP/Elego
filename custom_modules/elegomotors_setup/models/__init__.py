@@ -32,3 +32,8 @@ from . import res_partner
 from . import finance_api
 from . import warranty
 from . import new_bike_model_wizard
+from . import po_tracking
+from . import ckd_kit
+from . import ckd_kit_wizard
+from . import bill_of_entry
+from . import ckd_reconciliation

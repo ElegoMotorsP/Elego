@@ -82,6 +82,11 @@ class StockPicking(models.Model):
         for line in po.order_line:
             if line.display_type or line.product_id.type == 'service':
                 continue
+            kit_commands = self._ego_kit_component_commands(line)
+            if kit_commands is not None:
+                # CKD kit line: receive the individual parts, not the kit.
+                moves.extend(kit_commands)
+                continue
             qty_remaining = line.product_qty - line.qty_received
             if qty_remaining <= 0:
                 continue
@@ -100,6 +105,47 @@ class StockPicking(models.Model):
                 'company_id': self.company_id.id,
             }))
         self.move_ids_without_package = moves
+
+    def _ego_kit_component_commands(self, line):
+        """GRN lines for a CKD kit PO line: one per kit PART, for what is still
+        to receive of THAT part (ordered kits x parts per kit, less what earlier
+        GRNs already received of it), so a part that arrived short is asked for
+        again next time and one that arrived in full is not.
+
+        Returns None when the line is not a CKD kit (the caller then handles it
+        like any other line). Each part carries purchase_line_id, bom_line_id
+        and cost_share so Odoo prices it from the kit price (purchase_mrp)."""
+        self.ensure_one()
+        bom = line._ckd_kit_bom()
+        if not bom:
+            return None
+        kits = line.product_uom._compute_quantity(line.product_qty, bom.product_uom_id)
+        _boms_done, lines_done = bom.sudo().explode(
+            line.product_id, kits / (bom.product_qty or 1.0))
+        received = {}
+        for move in line.move_ids:
+            if move.state == 'done' and move.bom_line_id and move.location_id.usage == 'supplier':
+                received[move.bom_line_id.id] = received.get(move.bom_line_id.id, 0.0) + \
+                    move.product_uom._compute_quantity(move.quantity, move.bom_line_id.product_uom_id)
+        commands = []
+        for bom_line, data in lines_done:
+            remaining = data['qty'] - received.get(bom_line.id, 0.0)
+            if float_compare(remaining, 0.0, precision_rounding=bom_line.product_uom_id.rounding) <= 0:
+                continue
+            commands.append(Command.create({
+                'name': bom_line.product_id.display_name,
+                'product_id': bom_line.product_id.id,
+                'product_uom': bom_line.product_uom_id.id,
+                'product_uom_qty': remaining,
+                'purchase_line_id': line.id,
+                'bom_line_id': bom_line.id,
+                'cost_share': line._ckd_cost_share_for(bom_line, data.get('line_cost_share')) or 0.0,
+                'location_id': self.location_id.id,
+                'location_dest_id': self.location_dest_id.id,
+                'picking_type_id': self.picking_type_id.id,
+                'company_id': self.company_id.id,
+            }))
+        return commands
 
     def write(self, vals):
         res = super().write(vals)

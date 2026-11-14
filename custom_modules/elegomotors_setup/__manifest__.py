@@ -1,6 +1,6 @@
 {
     'name': 'ElegoMotors Workflow Setup',
-    'version': '18.0.144.0.0',
+    'version': '18.0.145.0.0',
     'category': 'Manufacturing',
     'summary': 'ElegoMotors EV 2-wheeler end-to-end manufacturing workflow configuration',
     'description': """
@@ -26,6 +26,8 @@
         'stock',
         'mrp',
         'purchase',
+        'purchase_mrp',         # kit (phantom) PO lines explode on receipt, priced by cost share (CKD import kits)
+        'stock_landed_costs',   # landed cost: customs duty / charges added to received parts (Bill of Entry)
         'account',
         'sale_management',
         'base_automation',      # base.automation — workflow notification rules
@@ -84,6 +86,7 @@
         'data/finance_material_codes_data.xml', # Default materialCode per bike model (Finance API)
         'data/warranty_claim_sequence_data.xml', # Warranty Claim Number sequence (WC-YYMM-NNNN)
         'data/ego_bike_flag_seed_data.xml', # x_is_ego_bike/x_serial_prefix seed for the 7 pre-existing models
+        'data/ckd_data.xml',                # CKD Kits product category + Bill of Entry sequence
         'data/bike_invoice_policy_seed_data.xml', # invoice_policy='delivery' on bikes + accessories; Outgoing Delivery Changes
         # View overrides (loaded last so base views exist)
         'views/account_move_views.xml',
@@ -134,6 +137,10 @@
         'views/warranty_api_views.xml',             # Warranty API Clients + Request Log views/actions
         'views/warranty_menu.xml',                   # Warranty menu (Registrations, Claims, Policy Rules, API)
         'views/new_bike_model_wizard_views.xml',    # New Bike Model wizard (product + BOM, no developer needed)
+        'views/po_tracking_views.xml',              # All Purchase Order Tracking Report (+ Domestic/Import on the PO)
+        'views/ckd_kit_views.xml',                  # CKD kits: BoM approval, New CKD Kit wizard, PO reconciliation button
+        'views/bill_of_entry_views.xml',            # Bill of Entry: customs duty + landed cost + Import IGST
+        'views/ckd_reconciliation_views.xml',       # CKD cost and quantity reconciliation screen
         'views/access_matrix_views.xml',            # Access Matrix grid + Access Role templates + user form field
         'views/access_matrix_menu.xml',              # Access Matrix menu (admin-only)
         'views/direct_reporting_views.xml',         # Direct Reporting: bike sales by dealer (list + pivot)
