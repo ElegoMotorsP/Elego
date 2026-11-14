@@ -16,8 +16,11 @@ from odoo import _, api, fields, models
 from odoo.exceptions import UserError
 from odoo.tools import float_compare, float_round
 
-# Parts the supplier invoices as their own PO lines, not inside the kit.
-_SEPARATE_LINE_RE = re.compile(r'battery|charger|\bcell\b', re.IGNORECASE)
+# Parts the supplier invoices as their own PO lines, not inside the kit: battery
+# packs / cells and chargers by NAME (a "battery connection wire" is NOT one), plus
+# anything ticked "Bought Separately" on the product itself.
+_SEPARATE_LINE_RE = re.compile(
+    r'\bchargers?\b|\bbattery[\s\-\u2013\u2014]*(?:pack|cell)s?\b|\bcells?\b', re.IGNORECASE)
 
 
 class CkdKitWizard(models.TransientModel):
@@ -78,6 +81,12 @@ class CkdKitWizard(models.TransientModel):
                 ', '.join(no_duty.mapped('product_id.display_name')[:12]),
             ) if no_duty else False
 
+    @staticmethod
+    def _is_separate_part(product):
+        return bool(
+            product.product_tmpl_id.x_ckd_separate_line
+            or _SEPARATE_LINE_RE.search(product.name or ''))
+
     def _variant(self):
         self.ensure_one()
         tmpl = self.bike_tmpl_id
@@ -136,6 +145,8 @@ class CkdKitWizard(models.TransientModel):
         self.ensure_one()
         kit = self.kit_bom_id
         tmpl = self.bike_tmpl_id
+        if kit:
+            self.kit_name = kit.product_tmpl_id.name
         bike_bom = self.env['mrp.bom']
         if kit and tmpl and (self.colour_value_id or not self.valid_colour_ids):
             bike_bom = self._find_source_bom()
@@ -170,7 +181,7 @@ class CkdKitWizard(models.TransientModel):
             rows.append({
                 'product_id': pid, 'product_qty': bike_line.product_qty, 'old_qty': 0.0,
                 'uom_id': bike_line.product_uom_id.id,
-                'include': not _SEPARATE_LINE_RE.search(bike_line.product_id.name or ''),
+                'include': not self._is_separate_part(bike_line.product_id),
                 'cost_share': 0.0, 'fixed': False, 'status': 'new', 'kit_line_id': False,
             })
         self._spread_rest_rows(rows)
@@ -209,7 +220,7 @@ class CkdKitWizard(models.TransientModel):
                 'product_id': bom_line.product_id.id,
                 'product_qty': bom_line.product_qty,
                 'uom_id': bom_line.product_uom_id.id,
-                'include': not _SEPARATE_LINE_RE.search(bom_line.product_id.name or ''),
+                'include': not self._is_separate_part(bom_line.product_id),
             })
         included = [r for r in rows if r['include']]
         for row in rows:

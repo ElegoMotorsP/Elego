@@ -178,9 +178,37 @@ class GlobalScanWizard(models.TransientModel):
         )[:1] or None
 
     @api.model
+    def _color_attribute_names(self):
+        attr = self.env.ref('elegomotors_setup.attr_ego_color', raise_if_not_found=False)
+        return attr.sudo().value_ids.mapped('name') if attr else []
+
+    @api.model
     def _resolve_color_code(self, code):
-        """Return the canonical colour name ('Red', …) for a scanned code."""
-        return COLOR_CODE_MAP.get(_normalize_code(code))
+        """Return the canonical colour name ('Red', …) for a scanned code.
+
+        The printed-label aliases (GREY -> Gray ...) come first; otherwise any
+        colour of the shared Color attribute scans by its own name, so a colour
+        added together with a new bike model (New Bike Model wizard) works with
+        no code change."""
+        normalized = _normalize_code(code)
+        name = COLOR_CODE_MAP.get(normalized)
+        if name:
+            return name
+        for value_name in self._color_attribute_names():
+            if normalized and _normalize_code(value_name) == normalized:
+                return value_name
+        return None
+
+    @api.model
+    def _valid_model_codes_text(self):
+        codes = {_normalize_code(t.x_serial_prefix) for t in self.env['product.template'].search([
+            ('x_is_ego_bike', '=', True), ('x_serial_prefix', '!=', False)])}
+        return ', '.join(sorted(codes | set(MODEL_CODE_MAP)))
+
+    @api.model
+    def _valid_color_codes_text(self):
+        return ', '.join(sorted(
+            set(COLOR_CODE_MAP) | {_normalize_code(n) for n in self._color_attribute_names()}))
 
     @api.model
     def _resolve_variant(self, tmpl, color_name):
@@ -261,14 +289,13 @@ class GlobalScanWizard(models.TransientModel):
             if not tmpl:
                 raise UserError(
                     f'Row {line.sequence}: unknown model code '
-                    f'"{line.x_model_code}". Valid codes: EGOS1, ELEGO11, '
-                    f'ELEGO12, ELEGO20P, ELEGO30.'
+                    f'"{line.x_model_code}". Valid codes: {self._valid_model_codes_text()}.'
                 )
             color = self._resolve_color_code(line.x_color_code)
             if not color:
                 raise UserError(
                     f'Row {line.sequence}: unknown colour code '
-                    f'"{line.x_color_code}". Valid codes: RED, BLACK, GRAY, WHITE.'
+                    f'"{line.x_color_code}". Valid codes: {self._valid_color_codes_text()}.'
                 )
             for val in (line.x_chassis_serial, line.x_motor_serial,
                         line.x_controller_serial):

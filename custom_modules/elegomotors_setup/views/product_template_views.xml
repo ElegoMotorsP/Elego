@@ -37,6 +37,7 @@
                     <group string="Kit Purchase">
                         <field name="x_kit_price_default"/>
                         <field name="x_skip_rfq_bom_load"/>
+                        <field name="x_ckd_separate_line"/>
                     </group>
                     <group string="Finance API">
                         <field name="x_material_code"/>
