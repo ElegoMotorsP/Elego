@@ -76,8 +76,10 @@ class CkdKitWizard(models.TransientModel):
             no_duty = included.filtered(
                 lambda l: l.product_id and l.cost_method not in ('average', 'fifo'))
             wiz.warning = _(
-                'Import duty / landed cost can only be added to parts with Average or FIFO '
-                'costing. These parts use another costing method and would be skipped: %s',
+                'These parts use Standard costing: a receipt is valued at the part\'s fixed '
+                'standard cost (0 if none is set) instead of the PO price, and import duty '
+                'cannot be added to them. Put them in an Average-cost category (e.g. Imported '
+                'CKD Components) before this kit is ordered: %s',
                 ', '.join(no_duty.mapped('product_id.display_name')[:12]),
             ) if no_duty else False
 

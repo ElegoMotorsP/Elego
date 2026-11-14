@@ -474,11 +474,15 @@ class TestCkdFlow(TransactionCase):
             'bom_file': base64.b64encode(csv_text.encode()), 'bom_filename': 'bom.csv',
         })
         model_wiz.action_check()
+        model_wiz.new_part_categ_id = self.category          # Average costing
         model_wiz.line_ids.filtered(
             lambda l: not l.product_tmpl_id and not l.create_new).write({'create_new': True})
         model_wiz.action_create()
         bike = self.env['product.template'].search([('name', '=', 'ZZ Dynamic Bike 9.9')])
         self.assertTrue(bike.x_is_ego_bike, 'The new model is a bike model')
+        new_part = self.env['product.product'].search([('name', '=', 'ZZ DYN CHASSIS')])
+        self.assertEqual(new_part.categ_id, self.category, 'New parts go to the chosen category')
+        self.assertEqual(new_part.cost_method, 'average')
 
         teal = bike.attribute_line_ids.value_ids.filtered(lambda v: v.name == 'TealX')
         kit_wiz = self.env['elegomotors.ckd.kit.wizard'].create({
@@ -507,6 +511,11 @@ class TestCkdFlow(TransactionCase):
         po.button_confirm()
         self.assertEqual(po.state, 'purchase')
         self.assertTrue(po.order_line._ckd_allocation())
+        # receive it: every part is valued from the PO price (not 0), 5 kits x 1000
+        picking = self._grn(po)
+        self._receive(picking)
+        layers = self.env['stock.valuation.layer'].search([('stock_move_id', 'in', picking.move_ids.ids)])
+        self.assertAlmostEqual(sum(layers.mapped('value')), 5000.0, places=2)
         # the other colour has its own kit, no clash
         magenta = bike.attribute_line_ids.value_ids.filtered(lambda v: v.name == 'MagentaX')
         other = self.env['elegomotors.ckd.kit.wizard'].create({

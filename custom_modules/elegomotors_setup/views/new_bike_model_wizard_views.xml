@@ -68,6 +68,9 @@
                         <div class="alert alert-info" role="alert">
                             <field name="review_summary" nolabel="1"/>
                         </div>
+                        <group>
+                            <field name="new_part_categ_id" options="{'no_create': True, 'no_open': True}"/>
+                        </group>
                         <div class="alert alert-warning" role="alert" invisible="undecided_count == 0">
                             <field name="undecided_count" nolabel="1" class="oe_inline"/>
                             component(s) still need a decision. For each one, pick the
