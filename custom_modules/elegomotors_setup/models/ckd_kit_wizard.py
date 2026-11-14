@@ -131,14 +131,15 @@ class CkdKitWizard(models.TransientModel):
         self.line_ids = commands
 
     @staticmethod
-    def _spread_equally(rows):
-        """Equal cost share over `rows` (dicts), last one takes the rounding."""
+    def _spread_equally(rows, total=100.0):
+        """Equal cost share over `rows` (dicts) adding up to `total`; the last
+        one takes the rounding."""
         if not rows:
             return
-        each = float_round(100.0 / len(rows), precision_digits=2)
+        each = float_round(total / len(rows), precision_digits=2)
         for row in rows[:-1]:
             row['cost_share'] = each
-        rows[-1]['cost_share'] = float_round(100.0 - each * (len(rows) - 1), precision_digits=2)
+        rows[-1]['cost_share'] = float_round(total - each * (len(rows) - 1), precision_digits=2)
 
     # ------------------------------------------------------------------
     # Share helpers (buttons)
@@ -157,6 +158,32 @@ class CkdKitWizard(models.TransientModel):
         included = self.line_ids.filtered('include')
         rows = [{'rec': l} for l in included]
         self._spread_equally(rows)
+        for row in rows:
+            row['rec'].cost_share = row.pop('cost_share')
+        (self.line_ids - included).write({'cost_share': 0.0})
+        self.line_ids.write({'fixed': False})
+        return self._reopen()
+
+    def action_spread_rest(self):
+        """Keep the shares typed on the "Keep" parts (e.g. chassis 18, motor 15,
+        controller 7) and share what is left of the 100% equally over the other
+        ticked parts (e.g. the remaining 60% over everything else)."""
+        self.ensure_one()
+        included = self.line_ids.filtered('include')
+        kept = included.filtered('fixed')
+        others = included - kept
+        rest = float_round(100.0 - sum(kept.mapped('cost_share')), precision_digits=2)
+        if rest < 0:
+            raise UserError(_('The shares you kept already add up to %.2f%% — more than 100%%.',
+                              100.0 - rest))
+        if not others:
+            if rest:
+                raise UserError(_('Every ticked part is marked "Keep" and they total %.2f%%. '
+                                  'Untick "Keep" on the parts that should share the remaining %.2f%%.',
+                                  100.0 - rest, rest))
+            return self._reopen()
+        rows = [{'rec': l} for l in others]
+        self._spread_equally(rows, total=rest)
         for row in rows:
             row['rec'].cost_share = row.pop('cost_share')
         (self.line_ids - included).write({'cost_share': 0.0})
@@ -179,6 +206,7 @@ class CkdKitWizard(models.TransientModel):
         for row in rows:
             row['rec'].cost_share = row['cost_share']
         (self.line_ids - included).write({'cost_share': 0.0})
+        self.line_ids.write({'fixed': False})
         return self._reopen()
 
     # ------------------------------------------------------------------
@@ -259,9 +287,17 @@ class CkdKitWizardLine(models.TransientModel):
     product_qty = fields.Float(string='Qty per Kit', default=1.0, digits='Product Unit of Measure')
     uom_id = fields.Many2one('uom.uom', string='Unit')
     cost_share = fields.Float(string='Cost Share (%)', digits=(5, 2))
+    fixed = fields.Boolean(
+        string='Keep', default=False,
+        help='Ticked automatically when you type a cost share. "Spread Rest" keeps '
+             'these shares and splits what is left over the parts that are not kept.')
     cost_method = fields.Selection(related='product_id.cost_method', string='Costing')
 
     @api.onchange('product_id')
     def _onchange_product_id(self):
         if self.product_id:
             self.uom_id = self.product_id.uom_id
+
+    @api.onchange('cost_share')
+    def _onchange_cost_share(self):
+        self.fixed = True

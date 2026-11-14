@@ -270,6 +270,58 @@ class TestCkdFlow(TransactionCase):
         self.assertAlmostEqual(rec.value_difference, 0.0, places=1)
         self.assertAlmostEqual(rec.inventory_value, 11000.0, places=1)
 
+    def test_wizard_keeps_typed_shares_and_spreads_the_rest(self):
+        bike = self.env['product.template'].search([('x_is_ego_bike', '=', True)], limit=1)
+        if not bike:
+            self.skipTest('No bike model on this database')
+        extra = self.env['product.product'].create({
+            'name': 'ZZ Test Extra Part', 'type': 'consu', 'is_storable': True,
+            'categ_id': self.category.id})
+        parts = [
+            (self.chassis, 18.0, True),      # typed -> kept
+            (self.motor, 15.0, True),        # typed -> kept
+            (self.suspension, 0.0, False),   # share the rest
+            (extra, 0.0, False),
+        ]
+        wiz = self.env['elegomotors.ckd.kit.wizard'].create({
+            'bike_tmpl_id': bike.id,
+            'kit_name': 'ZZ Test Wizard Kit',
+            'line_ids': [Command.create({
+                'product_id': p.id, 'product_qty': 1.0, 'uom_id': p.uom_id.id,
+                'include': True, 'cost_share': share, 'fixed': fixed,
+            }) for p, share, fixed in parts],
+        })
+        wiz.action_spread_rest()
+        shares = {l.product_id: l.cost_share for l in wiz.line_ids}
+        self.assertAlmostEqual(shares[self.chassis], 18.0)
+        self.assertAlmostEqual(shares[self.motor], 15.0)
+        self.assertAlmostEqual(shares[self.suspension], 33.5)
+        self.assertAlmostEqual(shares[extra], 33.5)
+        self.assertAlmostEqual(wiz.total_share, 100.0)
+        wiz.action_create()
+        bom = self.env['mrp.bom'].search([('product_tmpl_id.name', '=', 'ZZ Test Wizard Kit')])
+        self.assertTrue(bom.x_is_ckd_kit)
+        self.assertFalse(bom.x_cost_share_approved, 'A new kit waits for approval')
+        self.assertAlmostEqual(bom.x_cost_share_total, 100.0)
+
+    def test_spread_rest_refuses_more_than_100(self):
+        bike = self.env['product.template'].search([('x_is_ego_bike', '=', True)], limit=1)
+        if not bike:
+            self.skipTest('No bike model on this database')
+        wiz = self.env['elegomotors.ckd.kit.wizard'].create({
+            'bike_tmpl_id': bike.id, 'kit_name': 'ZZ Test Wizard Kit 2',
+            'line_ids': [
+                Command.create({'product_id': self.chassis.id, 'uom_id': self.chassis.uom_id.id,
+                                'include': True, 'cost_share': 70.0, 'fixed': True}),
+                Command.create({'product_id': self.motor.id, 'uom_id': self.motor.uom_id.id,
+                                'include': True, 'cost_share': 50.0, 'fixed': True}),
+                Command.create({'product_id': self.suspension.id, 'uom_id': self.suspension.uom_id.id,
+                                'include': True, 'cost_share': 0.0, 'fixed': False}),
+            ],
+        })
+        with self.assertRaises(UserError):
+            wiz.action_spread_rest()
+
     def test_bill_of_entry_needs_receipts_and_amounts(self):
         boe = self.env['elegomotors.bill.of.entry'].create({'boe_number': 'TEST-BOE-2'})
         with self.assertRaises(UserError):
