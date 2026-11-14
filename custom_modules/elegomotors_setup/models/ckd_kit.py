@@ -89,12 +89,15 @@ class MrpBomCkd(models.Model):
                 'x_cost_share_approved_by': self.env.user.id,
                 'x_cost_share_approved_on': fields.Datetime.now(),
             })
+            lines = bom.bom_line_ids.sorted('cost_share', reverse=True)
+            shown = ', '.join(
+                '%s %.2f%%' % (l.product_id.display_name, l.cost_share) for l in lines[:6])
             bom.message_post(body=_(
-                'Cost allocation version %(v)s approved by %(user)s: %(rows)s',
-                v=version, user=self.env.user.name,
-                rows=', '.join(
-                    '%s %.2f%%' % (l.product_id.display_name, l.cost_share)
-                    for l in bom.bom_line_ids)))
+                'Cost allocation version %(v)s approved by %(user)s: %(n)s parts, total %(total).2f%%. '
+                'Largest shares: %(rows)s%(more)s',
+                v=version, user=self.env.user.name, n=len(lines),
+                total=bom.x_cost_share_total, rows=shown,
+                more=_(' … and %s more', len(lines) - 6) if len(lines) > 6 else ''))
         return True
 
     def action_update_from_bike(self):
@@ -106,6 +109,7 @@ class MrpBomCkd(models.Model):
             raise AccessError(_('Only a Purchase Manager or an Administrator can update a CKD kit.'))
         wizard = self.env['elegomotors.ckd.kit.wizard'].create({
             'mode': 'update',
+            'kit_name': self.product_tmpl_id.name,
             'kit_bom_id': self.id,
             'bike_tmpl_id': self.x_ckd_bike_tmpl_id.id or False,
             'colour_value_id': self.x_ckd_colour_id.id or False,
@@ -133,6 +137,17 @@ class MrpBomCkd(models.Model):
                 'It must be approved again before the kit can go on a new PO. '
                 'Purchase Orders already confirmed keep the allocation they were frozen with.',
                 v=bom.x_cost_share_version, why=reason))
+
+
+class ProductTemplateCkd(models.Model):
+    _inherit = 'product.template'
+
+    x_ckd_separate_line = fields.Boolean(
+        string='Bought Separately (not in CKD kits)', copy=False,
+        help='Tick for a part the supplier invoices as its own PO line — a battery, '
+             'a charger — so the New CKD Kit wizard leaves it out of every kit. '
+             'Parts named like a battery pack / cell or a charger are left out '
+             'automatically; use this for any other part, e.g. a new battery type.')
 
 
 class MrpBomLineCkd(models.Model):

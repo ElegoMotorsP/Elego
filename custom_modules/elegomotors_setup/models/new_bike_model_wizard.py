@@ -102,6 +102,14 @@ class NewBikeModelWizard(models.TransientModel):
         string='Matched automatically', domain=[('match_type', '=', 'exact')])
     review_summary = fields.Text(readonly=True)
     undecided_count = fields.Integer(compute='_compute_undecided_count')
+    new_part_categ_id = fields.Many2one(
+        'product.category', string='Category for NEW parts',
+        default=lambda self: self._default_new_part_categ(),
+        help='The product category given to the parts this wizard creates. Parts that '
+             'are imported / used in a CKD kit should be in an Average-cost category '
+             '(e.g. Imported CKD Components): then the PO price becomes the part\'s value '
+             'and import duty can be added to it. A category with Standard costing values '
+             'every receipt at the part\'s fixed standard cost instead.')
 
     @api.depends('decision_line_ids.product_tmpl_id', 'decision_line_ids.create_new')
     def _compute_undecided_count(self):
@@ -395,13 +403,26 @@ class NewBikeModelWizard(models.TransientModel):
             tmpl.write({'is_storable': True})
         return tmpl.product_variant_ids[:1]
 
+    @api.model
+    def _default_new_part_categ(self):
+        """Imported CKD Components if the company has it, else any Average-cost
+        category; empty (Odoo's default category) when there is neither."""
+        Category = self.env['product.category']
+        return (
+            Category.search([('name', '=', 'Imported CKD Components')], limit=1)
+            or Category.search([('property_cost_method', '=', 'average')], order='id', limit=1)
+        )
+
     def _create_component(self, name):
-        tmpl = self.env['product.template'].sudo().create({
+        vals = {
             'name': name,
             'is_storable': True,
             'purchase_ok': True,
             'sale_ok': False,
-        })
+        }
+        if self.new_part_categ_id:
+            vals['categ_id'] = self.new_part_categ_id.id
+        tmpl = self.env['product.template'].sudo().create(vals)
         return tmpl.product_variant_ids[:1]
 
     @staticmethod

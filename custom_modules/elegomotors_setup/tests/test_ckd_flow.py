@@ -428,6 +428,104 @@ class TestCkdFlow(TransactionCase):
             ['line_ids', 'igst_debit_account_id', 'igst_journal_id'])
         self.assertEqual(len(res['line_ids']), 8)
 
+    def test_kit_wizard_leaves_out_battery_and_charger_but_not_wires(self):
+        Wizard = self.env['elegomotors.ckd.kit.wizard']
+        Product = self.env['product.product']
+        names = {
+            'ZZ Battery Pack \u2014 Lead Acid 60V32Ah': True,
+            'ZZ Battery Cell \u2014 Lead 12V32AH': True,
+            'ZZ Lead charger 60v4amp': True,
+            'ZZ BATTERY CONNECTION BIG WIRE': False,
+            'ZZ 1.1/1.2 BATTERT CLAMP': False,
+        }
+        for name, separate in names.items():
+            product = Product.create({'name': name, 'type': 'consu'})
+            self.assertEqual(Wizard._is_separate_part(product), separate, name)
+        # any other part can be marked "bought separately" by hand, no code needed
+        odd = Product.create({'name': 'ZZ BAT-60-30 (new battery type)', 'type': 'consu'})
+        self.assertFalse(Wizard._is_separate_part(odd))
+        odd.product_tmpl_id.x_ckd_separate_line = True
+        self.assertTrue(Wizard._is_separate_part(odd))
+
+    def test_production_scan_knows_a_colour_added_later(self):
+        Scan = self.env['elegomotors.global.scan.wizard']
+        self.assertEqual(Scan._resolve_color_code('grey'), 'Gray', 'printed-label aliases still work')
+        self.assertIsNone(Scan._resolve_color_code('Chartreuse'))
+        attr = self.env.ref('elegomotors_setup.attr_ego_color')
+        self.env['product.attribute.value'].create({'attribute_id': attr.id, 'name': 'Chartreuse'})
+        self.assertEqual(Scan._resolve_color_code('CHARTREUSE'), 'Chartreuse')
+        self.assertIn('CHARTREUSE', Scan._valid_color_codes_text())
+
+    def test_new_bike_model_and_its_ckd_kit_need_no_developer(self):
+        """A brand-new model with brand-new colours, made only through the wizards:
+        New Bike Model (with a part list) -> New CKD Kit -> approve -> on a PO."""
+        import base64
+        csv_text = (
+            'Component Name,Quantity,Colour\n'
+            'ZZ DYN CHASSIS,1,\n'
+            'ZZ DYN MOTOR,1,\n'
+            'ZZ DYN WIRE,2,\n'
+            'ZZ DYN PANEL TEALX,1,TealX\n'
+            'ZZ DYN PANEL MAGENTAX,1,MagentaX\n'
+        )
+        model_wiz = self.env['elegomotors.new.bike.model.wizard'].create({
+            'mode': 'new_model', 'name': 'ZZ Dynamic Bike 9.9', 'x_serial_prefix': 'ZZDYN99',
+            'colour_names': 'TealX, MagentaX',
+            'bom_file': base64.b64encode(csv_text.encode()), 'bom_filename': 'bom.csv',
+        })
+        model_wiz.action_check()
+        model_wiz.new_part_categ_id = self.category          # Average costing
+        model_wiz.line_ids.filtered(
+            lambda l: not l.product_tmpl_id and not l.create_new).write({'create_new': True})
+        model_wiz.action_create()
+        bike = self.env['product.template'].search([('name', '=', 'ZZ Dynamic Bike 9.9')])
+        self.assertTrue(bike.x_is_ego_bike, 'The new model is a bike model')
+        new_part = self.env['product.product'].search([('name', '=', 'ZZ DYN CHASSIS')])
+        self.assertEqual(new_part.categ_id, self.category, 'New parts go to the chosen category')
+        self.assertEqual(new_part.cost_method, 'average')
+
+        teal = bike.attribute_line_ids.value_ids.filtered(lambda v: v.name == 'TealX')
+        kit_wiz = self.env['elegomotors.ckd.kit.wizard'].create({
+            'bike_tmpl_id': bike.id, 'colour_value_id': teal.id})
+        kit_wiz._reload_parts()
+        self.assertEqual(kit_wiz.kit_name, 'ZZ Dynamic Bike 9.9 CKD Kit \u2013 TealX')
+        parts = kit_wiz.line_ids.mapped('product_id.name')
+        self.assertEqual(sorted(parts), ['ZZ DYN CHASSIS', 'ZZ DYN MOTOR', 'ZZ DYN PANEL TEALX', 'ZZ DYN WIRE'],
+                         'Common parts plus the Teal-only panel, and not the Magenta panel')
+        # type the shares we know, spread the rest, create, approve
+        for line in kit_wiz.line_ids:
+            if line.product_id.name == 'ZZ DYN CHASSIS':
+                line.write({'cost_share': 40.0, 'fixed': True})
+        kit_wiz.action_spread_rest()
+        self.assertAlmostEqual(kit_wiz.total_share, 100.0)
+        kit_wiz.action_create()
+        kit = self.env['mrp.bom'].search([('x_ckd_bike_tmpl_id', '=', bike.id), ('x_ckd_colour_id', '=', teal.id)])
+        self.assertEqual(len(kit), 1)
+        kit.action_approve_cost_share()
+        po = self.env['purchase.order'].create({
+            'partner_id': self.vendor.id,
+            'order_line': [Command.create({
+                'product_id': kit.product_tmpl_id.product_variant_id.id, 'product_qty': 5,
+                'price_unit': 1000.0, 'name': kit.product_tmpl_id.name})],
+        })
+        po.button_confirm()
+        self.assertEqual(po.state, 'purchase')
+        self.assertTrue(po.order_line._ckd_allocation())
+        # receive it: every part is valued from the PO price (not 0), 5 kits x 1000
+        picking = self._grn(po)
+        self._receive(picking)
+        layers = self.env['stock.valuation.layer'].search([('stock_move_id', 'in', picking.move_ids.ids)])
+        self.assertAlmostEqual(sum(layers.mapped('value')), 5000.0, places=2)
+        # the other colour has its own kit, no clash
+        magenta = bike.attribute_line_ids.value_ids.filtered(lambda v: v.name == 'MagentaX')
+        other = self.env['elegomotors.ckd.kit.wizard'].create({
+            'bike_tmpl_id': bike.id, 'colour_value_id': magenta.id})
+        other._reload_parts()
+        self.assertIn('ZZ DYN PANEL MAGENTAX', other.line_ids.mapped('product_id.name'))
+        # the model's colours scan in the production wizard too
+        self.assertEqual(
+            self.env['elegomotors.global.scan.wizard']._resolve_color_code('tealx'), 'TealX')
+
     def test_bill_of_entry_needs_receipts_and_amounts(self):
         boe = self.env['elegomotors.bill.of.entry'].create({'boe_number': 'TEST-BOE-2'})
         with self.assertRaises(UserError):
