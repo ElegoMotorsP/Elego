@@ -7,50 +7,123 @@
             <field name="model">elegomotors.new.bike.model.wizard</field>
             <field name="arch" type="xml">
                 <form string="New Bike Model">
-                    <div class="alert alert-info" role="alert">
-                        Create a brand-new bike model, or add new colour
-                        variant(s) — each with its own Bill of Materials — to
-                        a model that already exists. Either way it's live
-                        everywhere a bike model is expected (Bike
-                        Traceability, Quality Control, Add Bike Combo, ...)
-                        the moment you confirm below — no developer or module
-                        upgrade needed.
+                    <field name="state" invisible="1"/>
+
+                    <!-- ===================== STEP 1: SETUP ===================== -->
+                    <div invisible="state != 'setup'">
+                        <div class="alert alert-info" role="alert">
+                            Create a brand-new bike model, or add new colour
+                            variant(s) — each with its own Bill of Materials — to
+                            a model that already exists. You upload the component
+                            list, check it against the parts already in Odoo, and
+                            only then is anything created.
+                        </div>
+                        <group>
+                            <field name="mode" widget="radio"/>
+                        </group>
+                        <group string="1. New Model" invisible="mode != 'new_model'">
+                            <field name="name" required="mode == 'new_model' and state == 'setup'"/>
+                            <field name="x_serial_prefix" placeholder="EL40" required="mode == 'new_model' and state == 'setup'"/>
+                            <field name="list_price"/>
+                            <field name="standard_price"/>
+                            <field name="x_material_code"/>
+                        </group>
+                        <group string="1. Existing Model" invisible="mode != 'add_variant'">
+                            <field name="product_tmpl_id" required="mode == 'add_variant' and state == 'setup'"/>
+                        </group>
+                        <group string="2. Colour(s)">
+                            <field name="colour_names" placeholder="Red, Black, White, Gray"
+                                   required="mode == 'add_variant' and state == 'setup'"/>
+                            <p class="text-muted" colspan="2" invisible="mode != 'new_model'">
+                                Leave empty for a model with no colour options.
+                                Note: the Global Production Scan only accepts the
+                                colour codes RED, BLACK, GRAY and WHITE.
+                            </p>
+                        </group>
+                        <group string="3. Bill of Materials">
+                            <field name="bom_file" filename="bom_filename"
+                                   required="state == 'setup'"/>
+                            <field name="bom_filename" invisible="1"/>
+                            <div colspan="2">
+                                <a href="/elegomotors/bom_template.xlsx"
+                                   download="Elego BOM Import Template.xlsx"
+                                   class="btn btn-secondary" role="button"
+                                   title="Download the Excel template for the BOM">
+                                    <i class="fa fa-download" title="Download"/> Download BOM template (Excel)
+                                </a>
+                                <p class="text-muted mt-2">
+                                    Fill in the template: one row per component —
+                                    <b>Component Name, Quantity, Colour</b>. Pick the
+                                    name from the drop-down so it matches Odoo exactly.
+                                    Leave Colour blank for a component common to every
+                                    colour; pick a colour for a component only that
+                                    colour should include. CSV files also work.
+                                </p>
+                            </div>
+                        </group>
                     </div>
-                    <group>
-                        <field name="mode" widget="radio"/>
-                    </group>
-                    <group string="1. New Model" invisible="mode != 'new_model'">
-                        <field name="name" required="mode == 'new_model'"/>
-                        <field name="x_serial_prefix" placeholder="EL40" required="mode == 'new_model'"/>
-                        <field name="list_price"/>
-                        <field name="standard_price"/>
-                        <field name="x_material_code"/>
-                    </group>
-                    <group string="1. Existing Model" invisible="mode != 'add_variant'">
-                        <field name="product_tmpl_id" required="mode == 'add_variant'"/>
-                    </group>
-                    <group string="2. Colour(s)">
-                        <field name="colour_names" placeholder="Red, Black, White, Gray"/>
-                    </group>
-                    <group string="3. Bill of Materials">
-                        <field name="bom_file" filename="bom_filename"/>
-                        <field name="bom_filename" invisible="1"/>
-                        <p class="text-muted" colspan="2">
-                            CSV columns: <b>Component Name, Quantity, Colour</b>.
-                            Leave Colour blank for a component common to every
-                            colour above; name a specific colour (matching one
-                            entered above, exactly) for a component only that
-                            colour's BOM should include. Save an Excel sheet as
-                            CSV first if needed.
-                        </p>
-                    </group>
+
+                    <!-- ===================== STEP 2: REVIEW ===================== -->
+                    <div invisible="state != 'review'">
+                        <div class="alert alert-info" role="alert">
+                            <field name="review_summary" nolabel="1"/>
+                        </div>
+                        <div class="alert alert-warning" role="alert" invisible="undecided_count == 0">
+                            <field name="undecided_count" nolabel="1" class="oe_inline"/>
+                            component(s) still need a decision. For each one, pick the
+                            existing part it is, or tick <b>Create as new part</b>.
+                        </div>
+                        <div class="alert alert-success" role="alert"
+                             invisible="undecided_count != 0 or not decision_line_ids">
+                            All decisions made — press <b>Create</b>.
+                        </div>
+
+                        <separator string="Check these" invisible="not decision_line_ids"/>
+                        <field name="decision_line_ids" nolabel="1" invisible="not decision_line_ids">
+                            <list editable="bottom" create="0" delete="0"
+                                  decoration-warning="match_type == 'similar' and not product_tmpl_id and not create_new"
+                                  decoration-success="product_tmpl_id or create_new">
+                                <field name="sheet_name"/>
+                                <field name="used_in" optional="show"/>
+                                <field name="qty_text" optional="show"/>
+                                <field name="match_type" widget="badge"
+                                       decoration-warning="match_type == 'similar'"
+                                       decoration-info="match_type == 'new'"/>
+                                <field name="suggestions"/>
+                                <button name="action_use_top" type="object" icon="fa-check"
+                                        title="Use the first similar part"
+                                        invisible="not top_tmpl_id or product_tmpl_id"/>
+                                <field name="product_tmpl_id"
+                                       options="{'no_create': True, 'no_open': True}"/>
+                                <field name="create_new"/>
+                                <field name="top_tmpl_id" column_invisible="1"/>
+                            </list>
+                        </field>
+
+                        <separator string="Matched automatically (same name in Odoo)" invisible="not auto_line_ids"/>
+                        <field name="auto_line_ids" nolabel="1" invisible="not auto_line_ids">
+                            <list create="0" delete="0" edit="0">
+                                <field name="sheet_name"/>
+                                <field name="used_in"/>
+                                <field name="qty_text"/>
+                                <field name="product_tmpl_id"/>
+                            </list>
+                        </field>
+                    </div>
+
                     <footer>
+                        <button name="action_check" type="object"
+                                string="Check Components" class="btn-primary"
+                                invisible="state != 'setup'"/>
                         <button name="action_create" type="object"
                                 string="Create Model" class="btn-primary"
-                                invisible="mode != 'new_model'"/>
+                                invisible="state != 'review' or mode != 'new_model'"/>
                         <button name="action_create" type="object"
                                 string="Add Colour Variant(s)" class="btn-primary"
-                                invisible="mode != 'add_variant'"/>
+                                invisible="state != 'review' or mode != 'add_variant'"/>
+                        <button name="action_back" type="object"
+                                string="Back" class="btn-secondary"
+                                invisible="state != 'review'"/>
                         <button string="Cancel" class="btn-secondary" special="cancel"/>
                     </footer>
                 </form>
@@ -62,6 +135,7 @@
             <field name="res_model">elegomotors.new.bike.model.wizard</field>
             <field name="view_mode">form</field>
             <field name="target">new</field>
+            <field name="context">{'dialog_size': 'extra-large'}</field>
         </record>
 
         <!-- Parented directly under the app root, not menu_mrp_configuration:

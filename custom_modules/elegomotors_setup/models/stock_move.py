@@ -204,7 +204,14 @@ class StockMove(models.Model):
         for move in self:
             picking = move.picking_id
             po = picking.x_source_po_id
-            if not po or move.purchase_line_id or picking.picking_type_code != 'incoming':
+            if not po or picking.picking_type_code != 'incoming':
+                continue
+            if move.purchase_line_id:
+                # Already on a PO line: if that line is a CKD kit and this move
+                # is one of its parts, make sure it also carries the BoM line
+                # and cost share the kit pricing needs (the web client drops
+                # those two fields on save just like it drops purchase_line_id).
+                move._ego_complete_kit_component()
                 continue
             lines = po.order_line.filtered(
                 lambda l: not l.display_type and l.product_id == move.product_id
@@ -217,6 +224,58 @@ class StockMove(models.Model):
             line = (open_lines or lines)[:1]
             if line:
                 move.purchase_line_id = line
+            else:
+                move._ego_link_kit_component(po)
+
+    def _ego_link_kit_component(self, po):
+        """A part of a CKD kit that is on the PO as a kit line: tie the move to
+        that kit line (preferring one that still has kits to receive)."""
+        self.ensure_one()
+        kit_lines = po.order_line.filtered(lambda l: l._ckd_kit_bom())
+        candidates = []
+        for line in kit_lines:
+            bom_line = line._ckd_kit_bom().bom_line_ids.filtered(
+                lambda bl: bl.product_id == self.product_id
+            )[:1]
+            if bom_line:
+                candidates.append((line, bom_line))
+        if not candidates:
+            return
+        open_ones = [
+            c for c in candidates
+            if float_compare(
+                c[0].product_qty, c[0].qty_received, precision_rounding=c[0].product_uom.rounding,
+            ) > 0
+        ]
+        line, bom_line = (open_ones or candidates)[0]
+        self.write({
+            'purchase_line_id': line.id,
+            'bom_line_id': bom_line.id,
+            'cost_share': line._ckd_cost_share_for(bom_line, bom_line.cost_share) or 0.0,
+        })
+
+    def _ego_complete_kit_component(self):
+        """Fill bom_line_id / cost_share on a part move already linked to its
+        CKD kit PO line."""
+        self.ensure_one()
+        line = self.purchase_line_id
+        if not line or line.product_id == self.product_id:
+            return
+        bom = line._ckd_kit_bom()
+        if not bom:
+            return
+        bom_line = self.bom_line_id or bom.bom_line_ids.filtered(
+            lambda bl: bl.product_id == self.product_id
+        )[:1]
+        if not bom_line:
+            return
+        vals = {}
+        if not self.bom_line_id:
+            vals['bom_line_id'] = bom_line.id
+        if not self.cost_share:
+            vals['cost_share'] = line._ckd_cost_share_for(bom_line, bom_line.cost_share) or 0.0
+        if vals:
+            self.write(vals)
 
     def _action_assign(self, force_qty=False):
         """Never re-reserve a receipt whose quantity QC has already approved.

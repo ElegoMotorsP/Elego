@@ -1,0 +1,102 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+    <data>
+
+        <!-- ───────── All Purchase Order Tracking Report ───────── -->
+        <record id="view_po_tracking_list" model="ir.ui.view">
+            <field name="name">purchase.order.tracking.list</field>
+            <field name="model">purchase.order</field>
+            <field name="priority">90</field>
+            <field name="arch" type="xml">
+                <list string="All Purchase Order Tracking" create="0" delete="0"
+                      decoration-muted="x_trk_stage == 'cancelled'"
+                      decoration-warning="x_trk_stage in ('quality', 'partial_qc')"
+                      decoration-success="x_trk_stage == 'completed'">
+                    <field name="name" string="PO No."/>
+                    <field name="x_po_type" string="Type"/>
+                    <field name="partner_id" string="Supplier / Vendor"/>
+                    <field name="date_order" string="PO Date" widget="date" optional="show"/>
+                    <field name="x_trk_po_qty" sum="PO Qty"/>
+                    <field name="x_trk_invoice_refs" string="Supplier Invoice No. / Date"/>
+                    <field name="x_trk_grn_refs"/>
+                    <field name="x_trk_received_qty" sum="Received"/>
+                    <field name="x_trk_pending_qty" sum="Pending"/>
+                    <field name="x_trk_qc_refs"/>
+                    <field name="x_trk_qc_passed_qty" sum="QC Pass"/>
+                    <field name="x_trk_qc_rejected_qty" sum="QC Reject"/>
+                    <field name="x_trk_qc_pending_qty" sum="QC Pending" optional="show"/>
+                    <field name="x_trk_stock_qty" sum="Stock"/>
+                    <field name="x_trk_stage" widget="badge"
+                           decoration-success="x_trk_stage == 'completed'"
+                           decoration-warning="x_trk_stage in ('quality', 'partial_qc', 'partial')"
+                           decoration-danger="x_trk_stage == 'cancelled'"
+                           decoration-info="x_trk_stage in ('rfq', 'awaiting')"/>
+                    <field name="state" optional="hide"/>
+                </list>
+            </field>
+        </record>
+
+        <record id="view_po_tracking_search" model="ir.ui.view">
+            <field name="name">purchase.order.tracking.search</field>
+            <field name="model">purchase.order</field>
+            <field name="priority">90</field>
+            <field name="arch" type="xml">
+                <search string="PO Tracking">
+                    <field name="name" string="PO No."/>
+                    <field name="partner_id" string="Supplier"/>
+                    <filter string="PO Date" name="filter_po_date" date="date_order"/>
+                    <separator/>
+                    <filter string="Domestic" name="filter_domestic" domain="[('x_po_type', '=', 'domestic')]"/>
+                    <filter string="Import" name="filter_import" domain="[('x_po_type', '=', 'import')]"/>
+                    <separator/>
+                    <filter string="Cancelled" name="filter_cancelled" domain="[('x_trk_stage', '=', 'cancelled')]"/>
+                    <filter string="Open (not completed / cancelled)" name="filter_open"
+                            domain="[('x_trk_stage', 'not in', ('completed', 'cancelled'))]"/>
+                    <filter string="Awaiting Delivery" name="filter_awaiting" domain="[('x_trk_stage', '=', 'awaiting')]"/>
+                    <filter string="Partial" name="filter_partial" domain="[('x_trk_stage', 'in', ('partial', 'partial_qc'))]"/>
+                    <filter string="Quality Pending" name="filter_quality" domain="[('x_trk_stage', '=', 'quality')]"/>
+                    <filter string="Completed" name="filter_completed" domain="[('x_trk_stage', '=', 'completed')]"/>
+                    <group expand="0" string="Group By">
+                        <filter string="Supplier" name="groupby_supplier" context="{'group_by': 'partner_id'}"/>
+                        <filter string="Domestic / Import" name="groupby_type" context="{'group_by': 'x_po_type'}"/>
+                        <filter string="Current Stage" name="groupby_stage" context="{'group_by': 'x_trk_stage'}"/>
+                        <filter string="PO Month" name="groupby_month" context="{'group_by': 'date_order:month'}"/>
+                    </group>
+                </search>
+            </field>
+        </record>
+
+        <!-- Cancelled POs are NOT hidden: no default filter. -->
+        <record id="action_po_tracking" model="ir.actions.act_window">
+            <field name="name">All Purchase Order Tracking</field>
+            <field name="res_model">purchase.order</field>
+            <field name="view_mode">list,form</field>
+            <field name="search_view_id" ref="view_po_tracking_search"/>
+            <field name="domain">[]</field>
+            <field name="context">{'create': False}</field>
+            <field name="view_ids" eval="[(5, 0, 0),
+                (0, 0, {'view_mode': 'list', 'view_id': ref('view_po_tracking_list')}),
+                (0, 0, {'view_mode': 'form', 'view_id': ref('purchase.purchase_order_form')})]"/>
+        </record>
+
+        <menuitem id="menu_po_tracking"
+                  name="PO Tracking"
+                  parent="purchase.menu_purchase_root"
+                  action="action_po_tracking"
+                  groups="purchase.group_purchase_user,purchase.group_purchase_manager,elegomotors_setup.group_purchase_viewer,account.group_account_user,stock.group_stock_manager,base.group_erp_manager"
+                  sequence="45"/>
+
+        <!-- Domestic / Import on the PO form -->
+        <record id="purchase_order_form_po_type" model="ir.ui.view">
+            <field name="name">purchase.order.form.po.type</field>
+            <field name="model">purchase.order</field>
+            <field name="inherit_id" ref="purchase.purchase_order_form"/>
+            <field name="arch" type="xml">
+                <xpath expr="//field[@name='partner_ref']" position="after">
+                    <field name="x_po_type"/>
+                </xpath>
+            </field>
+        </record>
+
+    </data>
+</odoo>

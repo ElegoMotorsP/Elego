@@ -1,0 +1,163 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+    <data>
+
+        <!-- ───────── Kit BoM: CKD flag + cost allocation approval ───────── -->
+        <record id="mrp_bom_form_ckd_kit" model="ir.ui.view">
+            <field name="name">mrp.bom.form.ckd.kit</field>
+            <field name="model">mrp.bom</field>
+            <field name="inherit_id" ref="mrp.mrp_bom_form_view"/>
+            <field name="arch" type="xml">
+                <xpath expr="//sheet" position="before">
+                    <header>
+                        <button name="action_update_from_bike" type="object"
+                                string="Update from Bike BoM" class="btn-secondary"
+                                invisible="not x_is_ckd_kit"/>
+                        <button name="action_approve_cost_share" type="object"
+                                string="Approve Cost Allocation" class="btn-primary"
+                                invisible="not x_is_ckd_kit or x_cost_share_approved or type != 'phantom'"/>
+                        <button name="action_withdraw_cost_share_approval" type="object"
+                                string="Withdraw Approval"
+                                invisible="not x_is_ckd_kit or not x_cost_share_approved"/>
+                    </header>
+                </xpath>
+                <xpath expr="//sheet/group" position="after">
+                    <group string="CKD Kit Cost Allocation" invisible="type != 'phantom'">
+                        <group>
+                            <field name="x_is_ckd_kit"/>
+                            <field name="x_ckd_bike_tmpl_id" invisible="not x_is_ckd_kit"
+                                   options="{'no_create': True}"/>
+                            <field name="x_ckd_colour_id" invisible="not x_is_ckd_kit"
+                                   options="{'no_create': True, 'no_open': True}"/>
+                            <field name="x_cost_share_total" invisible="not x_is_ckd_kit"/>
+                        </group>
+                        <group invisible="not x_is_ckd_kit">
+                            <field name="x_cost_share_approved"/>
+                            <field name="x_cost_share_version"/>
+                            <field name="x_cost_share_approved_by"/>
+                            <field name="x_cost_share_approved_on"/>
+                        </group>
+                        <div class="text-muted" colspan="2" invisible="not x_is_ckd_kit">
+                            The parts' Cost Share (%) must total exactly 100 and the allocation must be
+                            approved before this kit can be put on a Purchase Order. Changing a part
+                            withdraws the approval; orders already confirmed keep the allocation they
+                            were frozen with.
+                        </div>
+                    </group>
+                </xpath>
+                <xpath expr="//field[@name='bom_line_ids']/list//field[@name='cost_share']" position="attributes">
+                    <attribute name="optional">show</attribute>
+                </xpath>
+            </field>
+        </record>
+
+        <!-- ───────── New CKD Kit wizard ───────── -->
+        <record id="view_ckd_kit_wizard_form" model="ir.ui.view">
+            <field name="name">elegomotors.ckd.kit.wizard.form</field>
+            <field name="model">elegomotors.ckd.kit.wizard</field>
+            <field name="arch" type="xml">
+                <form string="New CKD Kit">
+                    <div class="alert alert-info" role="alert">
+                        Makes the kit product and its Kit BoM for one model and colour. The parts are
+                        copied from the bike's own BoM for that colour; battery, charger and cells are
+                        left out (the supplier order carries them as separate lines). Untick or add parts,
+                        then set the Cost Share (%): type the shares you know (e.g. chassis 18, motor 15,
+                        controller 7 — they are marked <b>Keep</b>) and press <b>Spread Rest</b> to share the
+                        remaining % equally over all the other parts. The total must be exactly 100. The
+                        kit's cost allocation is approved afterwards on its BoM.
+                    </div>
+                    <group>
+                        <field name="mode" widget="radio" options="{'horizontal': true}"/>
+                    </group>
+                    <group>
+                        <group>
+                            <field name="kit_bom_id" invisible="mode != 'update'"
+                                   required="mode == 'update'" options="{'no_create': True}"/>
+                            <field name="bike_tmpl_id" required="1" options="{'no_create': True}"/>
+                            <field name="valid_colour_ids" invisible="1"/>
+                            <field name="colour_value_id" options="{'no_create': True, 'no_open': True}"
+                                   invisible="not valid_colour_ids" required="valid_colour_ids"/>
+                        </group>
+                        <group>
+                            <field name="kit_name" required="mode == 'new'" readonly="mode == 'update'"/>
+                            <field name="source_bom_id" string="Compared With / Copied From"/>
+                        </group>
+                    </group>
+                    <div class="alert alert-secondary" role="alert" invisible="mode != 'update'">
+                        The kit's parts are compared with the bike's current BoM. <b>New</b> parts come in
+                        with no share, parts the bike no longer has are unticked, changed quantities are
+                        updated. Shares of the parts that stay are kept; press <b>Spread Rest</b> to share
+                        what is left over the new parts. The cost allocation has to be approved again afterwards.
+                    </div>
+                    <div class="alert alert-warning" role="alert" invisible="not warning">
+                        <field name="warning" nolabel="1"/>
+                    </div>
+                    <field name="line_ids" nolabel="1">
+                        <list editable="bottom" decoration-muted="not include">
+                            <field name="include"/>
+                            <field name="product_id" options="{'no_create': True}"/>
+                            <field name="status" widget="badge" optional="show"
+                                   decoration-success="status == 'new'"
+                                   decoration-warning="status in ('qty', 'removed')"/>
+                            <field name="old_qty" optional="hide"/>
+                            <field name="product_qty"/>
+                            <field name="uom_id" optional="hide"/>
+                            <field name="cost_share"/>
+                            <field name="fixed"/>
+                            <field name="cost_method" optional="show"/>
+                        </list>
+                    </field>
+                    <group>
+                        <group/>
+                        <group>
+                            <field name="included_count"/>
+                            <field name="total_share"/>
+                        </group>
+                    </group>
+                    <footer>
+                        <button name="action_create" type="object" string="Create Kit" class="btn-primary"
+                                invisible="mode != 'new'"/>
+                        <button name="action_create" type="object" string="Update Kit" class="btn-primary"
+                                invisible="mode != 'update'"/>
+                        <button name="action_spread_rest" type="object" string="Spread Rest" class="btn-secondary"
+                                help="Keep the shares marked Keep and split the remaining % equally over the other parts"/>
+                        <button name="action_equal_split" type="object" string="Equal Split" class="btn-secondary"/>
+                        <button name="action_split_by_cost" type="object" string="Split by Cost" class="btn-secondary"/>
+                        <button string="Cancel" class="btn-secondary" special="cancel"/>
+                    </footer>
+                </form>
+            </field>
+        </record>
+
+        <record id="action_ckd_kit_wizard" model="ir.actions.act_window">
+            <field name="name">New CKD Kit</field>
+            <field name="res_model">elegomotors.ckd.kit.wizard</field>
+            <field name="view_mode">form</field>
+            <field name="target">new</field>
+            <field name="context">{'dialog_size': 'extra-large'}</field>
+        </record>
+
+        <menuitem id="menu_ckd_kit_wizard"
+                  name="New CKD Kit"
+                  parent="purchase.menu_purchase_root"
+                  action="action_ckd_kit_wizard"
+                  groups="purchase.group_purchase_manager,base.group_erp_manager"
+                  sequence="46"/>
+
+        <!-- ───────── Purchase Order: reconciliation button ───────── -->
+        <record id="purchase_order_form_ckd_reconciliation" model="ir.ui.view">
+            <field name="name">purchase.order.form.ckd.reconciliation</field>
+            <field name="model">purchase.order</field>
+            <field name="inherit_id" ref="purchase.purchase_order_form"/>
+            <field name="arch" type="xml">
+                <xpath expr="//header/button[@name='button_confirm']" position="before">
+                    <field name="x_has_ckd_kit" invisible="1"/>
+                    <button name="action_open_ckd_reconciliation" type="object"
+                            string="CKD Reconciliation" class="btn-secondary"
+                            invisible="not x_has_ckd_kit or state not in ('purchase', 'done')"/>
+                </xpath>
+            </field>
+        </record>
+
+    </data>
+</odoo>
