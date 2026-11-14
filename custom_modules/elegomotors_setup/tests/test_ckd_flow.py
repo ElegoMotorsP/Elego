@@ -66,16 +66,19 @@ class TestCkdFlow(TransactionCase):
         po.button_confirm()
         return po
 
-    def _grn(self, po, drop_links=True):
+    def _grn(self, po, drop_links=True, picking_type=None):
         """A receipt filled the way the GRN screen does: the picker's parts —
         with the PO link fields dropped, as the web client drops them."""
         Picking = self.env['stock.picking']
-        picking_type = self.warehouse.in_type_id
+        picking_type = picking_type or self.warehouse.in_type_id
+        dest = (picking_type.default_location_dest_id
+                if picking_type != self.warehouse.in_type_id and picking_type.default_location_dest_id
+                else self.warehouse.lot_stock_id)
         draft = Picking.new({
             'picking_type_id': picking_type.id,
             'partner_id': self.vendor.id,
             'location_id': self.env.ref('stock.stock_location_suppliers').id,
-            'location_dest_id': self.warehouse.lot_stock_id.id,
+            'location_dest_id': dest.id,
             'x_source_po_id': po.id,
         })
         draft._onchange_x_source_po_id()
@@ -321,6 +324,36 @@ class TestCkdFlow(TransactionCase):
         })
         with self.assertRaises(UserError):
             wiz.action_spread_rest()
+
+    def test_gate_entry_qc_shows_in_tracking(self):
+        """Goods booked at Gate Entry count as Received while QC is open; after QC
+        the pass / reject figures are in kits (limiting part)."""
+        gate = self.env.ref('elegomotors_setup.picking_type_gate_entry', raise_if_not_found=False)
+        if not gate:
+            self.skipTest('No Gate Entry operation type')
+        self.chassis.product_tmpl_id.x_qc_required = True
+        self.motor.product_tmpl_id.x_qc_required = True
+        po = self._approved_confirmed_po(kits=10, price=1000.0)
+        picking = self._grn(po, picking_type=gate)
+        picking.action_confirm()
+        po.invalidate_recordset()
+        self.assertAlmostEqual(po.x_trk_received_qty, 10.0, msg='Booked at the gate = received')
+        self.assertAlmostEqual(po.x_trk_pending_qty, 0.0)
+        self.assertAlmostEqual(po.x_trk_qc_pending_qty, 10.0)
+        self.assertEqual(po.x_trk_stage, 'quality')
+        self.assertIn(picking.name, po.x_trk_qc_refs)
+        # QC: 8 of 10 chassis pass, 9 of 10 motors pass
+        for move in picking.move_ids:
+            if move.product_id == self.chassis:
+                move.x_qty_qc_passed = 8.0
+            elif move.product_id == self.motor:
+                move.x_qty_qc_passed = 9.0
+        picking.action_gate_entry_approve_qc()
+        po.invalidate_recordset()
+        self.assertAlmostEqual(po.x_trk_qc_passed_qty, 8.0, msg='limited by the part with fewest passed')
+        self.assertAlmostEqual(po.x_trk_qc_rejected_qty, 2.0)
+        self.assertAlmostEqual(po.x_trk_qc_pending_qty, 0.0)
+        self.assertEqual(po.x_trk_stage, 'partial_qc', 'Rejected parts wait for replacement')
 
     def test_bill_of_entry_needs_receipts_and_amounts(self):
         boe = self.env['elegomotors.bill.of.entry'].create({'boe_number': 'TEST-BOE-2'})

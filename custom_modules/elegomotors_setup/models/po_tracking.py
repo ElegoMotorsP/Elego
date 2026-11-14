@@ -9,6 +9,11 @@ Everything the report shows is stored on the PO (or built on demand from the
 PO's own receipts and bills), so the standard list filters, grouping and the
 native Export work on it. The list itself is views/po_tracking_views.xml.
 
+"Received" is what Store booked on the GRN at the gate (the Received column of a
+Gate Entry), exactly as the report's own sample rows read (GRN received 60, QC
+pass 55, reject 5) - NOT only what has been validated into stock after QC. On
+receipts that do not go through Gate Entry it is the validated quantity.
+
 Units: every quantity is in the PO line's own unit. For a CKD kit line that is
 KITS, so a kit PO reads "100 ordered / 60 received / 55 QC passed", not a mix
 of kits and individual parts (see _trk_line_figures).
@@ -111,22 +116,24 @@ class PurchaseOrderTracking(models.Model):
         return self.env.ref('elegomotors_setup.picking_type_gate_entry', raise_if_not_found=False)
 
     def _trk_move_figures(self, move, gate_type):
-        """(passed, failed, pending, stock, is_qc) for one receipt move, in
-        the move's own unit."""
+        """(received, passed, failed, pending, stock, is_qc) for one receipt
+        move, in the move's own unit."""
         picking = move.picking_id
-        is_qc = bool(
-            gate_type and picking and picking.picking_type_id == gate_type
-            and move.product_id.x_qc_required
-        )
+        is_gate = bool(gate_type and picking and picking.picking_type_id == gate_type)
+        is_qc = is_gate and bool(move.product_id.x_qc_required)
+        if is_gate:
+            received = move.x_qty_received
+        else:
+            received = move.quantity if move.state == 'done' else 0.0
         if is_qc:
             decided = picking.x_gate_entry_state == 'ready'
             passed = move.x_qty_qc_passed if decided else 0.0
             failed = move.x_qty_qc_failed if decided else 0.0
             pending = 0.0 if decided else move.x_qty_received
             stock = move.x_qty_final if decided else 0.0
-            return passed, failed, pending, stock, True
+            return received, passed, failed, pending, stock, True
         stock = move.quantity if move.state == 'done' else 0.0
-        return 0.0, 0.0, 0.0, stock, False
+        return received, 0.0, 0.0, 0.0, stock, False
 
     def _trk_line_figures(self, line, gate_type, kit_bom):
         """Figures of one PO line, in the line's own unit (kits for a kit)."""
@@ -134,14 +141,16 @@ class PurchaseOrderTracking(models.Model):
             lambda m: m.state != 'cancel' and m.location_id.usage == 'supplier'
         )
         if not kit_bom:
-            passed = failed = pending = stock = 0.0
+            received = passed = failed = pending = stock = 0.0
             for move in moves:
-                p, f, q, s, _is_qc = self._trk_move_figures(move, gate_type)
+                r, p, f, q, s, _is_qc = self._trk_move_figures(move, gate_type)
+                received += r
                 passed += p
                 failed += f
                 pending += q
                 stock += s
-            return passed, failed, pending, stock
+            # Odoo's own received quantity covers receipts booked without a Gate Entry
+            return max(received, line.qty_received), passed, failed, pending, stock
 
         # Kit line: the receipt is in individual parts. Convert every part to
         # "kits worth" with its BoM quantity, then take the limiting part
@@ -152,26 +161,31 @@ class PurchaseOrderTracking(models.Model):
             per_kit[bom_line.id] = (
                 (bom_line.product_qty / kit_bom.product_qty) if kit_bom.product_qty else bom_line.product_qty
             ) or 1.0
-        acc = defaultdict(lambda: [0.0, 0.0, 0.0, 0.0, False])
+        acc = defaultdict(lambda: [0.0, 0.0, 0.0, 0.0, 0.0, False])
         for move in moves:
             if not move.bom_line_id or move.bom_line_id.id not in per_kit:
                 continue
-            p, f, q, s, is_qc = self._trk_move_figures(move, gate_type)
+            r, p, f, q, s, is_qc = self._trk_move_figures(move, gate_type)
             row = acc[move.bom_line_id.id]
-            row[0] += p
-            row[1] += f
-            row[2] += q
-            row[3] += s
-            row[4] = row[4] or is_qc
-        qc_rows = [(bid, r) for bid, r in acc.items() if r[4]]
-        passed = min((r[0] / per_kit[bid] for bid, r in qc_rows), default=0.0)
-        failed = max((r[1] / per_kit[bid] for bid, r in qc_rows), default=0.0)
-        pending = max((r[2] / per_kit[bid] for bid, r in qc_rows), default=0.0)
-        stock = min(
-            (acc[bid][3] / per_kit[bid] if bid in acc else 0.0 for bid in per_kit),
+            row[0] += r
+            row[1] += p
+            row[2] += f
+            row[3] += q
+            row[4] += s
+            row[5] = row[5] or is_qc
+        qc_rows = [(bid, r) for bid, r in acc.items() if r[5]]
+        received = min(
+            (acc[bid][0] / per_kit[bid] if bid in acc else 0.0 for bid in per_kit),
             default=0.0,
         )
-        return passed, failed, pending, stock
+        passed = min((r[1] / per_kit[bid] for bid, r in qc_rows), default=0.0)
+        failed = max((r[2] / per_kit[bid] for bid, r in qc_rows), default=0.0)
+        pending = max((r[3] / per_kit[bid] for bid, r in qc_rows), default=0.0)
+        stock = min(
+            (acc[bid][4] / per_kit[bid] if bid in acc else 0.0 for bid in per_kit),
+            default=0.0,
+        )
+        return max(received, line.qty_received), passed, failed, pending, stock
 
     @api.depends(
         'state',
@@ -189,13 +203,13 @@ class PurchaseOrderTracking(models.Model):
                 lambda l: not l.display_type and l.product_id and l.product_id.type != 'service'
             )
             ordered = sum(lines.mapped('product_qty'))
-            received = sum(lines.mapped('qty_received'))
-            passed = failed = pending = stock = 0.0
+            received = passed = failed = pending = stock = 0.0
             if po.state in ('purchase', 'done'):
                 kit_boms = po._trk_kit_boms(lines)
                 for line in lines:
-                    p, f, q, s = po._trk_line_figures(
+                    r, p, f, q, s = po._trk_line_figures(
                         line, gate_type, kit_boms.get(line.product_id) or self.env['mrp.bom'])
+                    received += r
                     passed += p
                     failed += f
                     pending += q
@@ -207,9 +221,9 @@ class PurchaseOrderTracking(models.Model):
             po.x_trk_qc_rejected_qty = failed
             po.x_trk_qc_pending_qty = pending
             po.x_trk_stock_qty = stock
-            po.x_trk_stage = po._trk_stage(ordered, received, pending)
+            po.x_trk_stage = po._trk_stage(ordered, received, pending, failed)
 
-    def _trk_stage(self, ordered, received, qc_pending):
+    def _trk_stage(self, ordered, received, qc_pending, qc_rejected=0.0):
         self.ensure_one()
         if self.state == 'cancel':
             return 'cancelled'
@@ -220,6 +234,8 @@ class PurchaseOrderTracking(models.Model):
         fully = float_compare(received, ordered, precision_digits=4) >= 0
         if qc_pending > 0:
             return 'quality' if fully else 'partial_qc'
+        if qc_rejected > 0:
+            return 'partial_qc'  # rejected goods are waiting for replacement
         return 'completed' if fully else 'partial'
 
     # ------------------------------------------------------------------
