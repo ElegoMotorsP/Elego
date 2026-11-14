@@ -355,6 +355,79 @@ class TestCkdFlow(TransactionCase):
         self.assertAlmostEqual(po.x_trk_qc_pending_qty, 0.0)
         self.assertEqual(po.x_trk_stage, 'partial_qc', 'Rejected parts wait for replacement')
 
+    def _bike_with_bom(self):
+        bike = self.env['product.template'].create({
+            'name': 'ZZ Test Bike', 'type': 'consu', 'is_storable': True,
+            'x_is_ego_bike': True, 'x_serial_prefix': 'ZZTB'})
+        bom = self.env['mrp.bom'].create({
+            'product_tmpl_id': bike.id, 'type': 'normal', 'product_qty': 1.0,
+            'bom_line_ids': [
+                Command.create({'product_id': self.chassis.id, 'product_qty': 1.0}),
+                Command.create({'product_id': self.motor.id, 'product_qty': 1.0}),
+                Command.create({'product_id': self.suspension.id, 'product_qty': 2.0}),
+            ]})
+        return bike, bom
+
+    def test_kit_is_linked_to_its_bike_and_can_be_updated_from_it(self):
+        bike, bike_bom = self._bike_with_bom()
+        Wizard = self.env['elegomotors.ckd.kit.wizard']
+        wiz = Wizard.create({'bike_tmpl_id': bike.id, 'kit_name': 'ZZ Test Bike CKD Kit'})
+        wiz._reload_parts()
+        shares = {self.chassis: 50.0, self.motor: 30.0, self.suspension: 20.0}
+        for line in wiz.line_ids:
+            line.cost_share = shares[line.product_id]
+        wiz.action_create()
+        kit = self.env['mrp.bom'].search([('x_ckd_bike_tmpl_id', '=', bike.id)])
+        self.assertEqual(len(kit), 1, 'The new kit remembers which bike it is for')
+        self.assertTrue(kit.x_is_ckd_kit)
+        kit.action_approve_cost_share()
+        self.assertTrue(kit.x_cost_share_approved)
+
+        # a second kit for the same bike + colour is refused: update the existing one
+        again = Wizard.create({'bike_tmpl_id': bike.id, 'kit_name': 'ZZ Test Bike CKD Kit 2'})
+        again._reload_parts()
+        with self.assertRaises(UserError):
+            again.action_create()
+
+        # the bike's BoM changes: suspension gone, motor x2, a new part
+        extra = self.env['product.product'].create({
+            'name': 'ZZ Test New Part', 'type': 'consu', 'is_storable': True,
+            'categ_id': self.category.id})
+        bike_bom.bom_line_ids.filtered(lambda l: l.product_id == self.suspension).unlink()
+        bike_bom.bom_line_ids.filtered(lambda l: l.product_id == self.motor).product_qty = 2.0
+        bike_bom.write({'bom_line_ids': [Command.create({'product_id': extra.id, 'product_qty': 1.0})]})
+
+        upd = Wizard.create({'mode': 'update', 'kit_bom_id': kit.id, 'bike_tmpl_id': bike.id})
+        upd._reload_for_update()
+        status = {l.product_id: (l.status, l.include, l.cost_share) for l in upd.line_ids}
+        self.assertEqual(status[self.chassis][0], 'same')
+        self.assertEqual(status[self.motor][0], 'qty')
+        self.assertEqual(status[self.suspension][:2], ('removed', False))
+        self.assertEqual(status[extra][:2], ('new', True))
+        self.assertAlmostEqual(status[extra][2], 20.0, msg='What is left of 100% goes to the new part')
+        self.assertAlmostEqual(upd.total_share, 100.0)
+        upd.action_create()
+        parts = {l.product_id: (l.product_qty, l.cost_share) for l in kit.bom_line_ids}
+        self.assertEqual(set(parts), {self.chassis, self.motor, extra})
+        self.assertEqual(parts[self.motor][0], 2.0)
+        self.assertAlmostEqual(parts[self.chassis][1], 50.0)
+        self.assertAlmostEqual(parts[extra][1], 20.0)
+        self.assertFalse(kit.x_cost_share_approved, 'A changed kit must be approved again')
+
+    def test_update_button_opens_the_wizard_on_the_kit(self):
+        bike, _bike_bom = self._bike_with_bom()
+        self.bom.write({'x_ckd_bike_tmpl_id': bike.id})
+        action = self.bom.action_update_from_bike()
+        wiz = self.env['elegomotors.ckd.kit.wizard'].browse(action['res_id'])
+        self.assertEqual(wiz.mode, 'update')
+        self.assertEqual(wiz.kit_bom_id, self.bom)
+        self.assertTrue(wiz.line_ids, 'The comparison with the bike BoM is already loaded')
+
+    def test_bill_of_entry_defaults_do_not_break(self):
+        res = self.env['elegomotors.bill.of.entry'].default_get(
+            ['line_ids', 'igst_debit_account_id', 'igst_journal_id'])
+        self.assertEqual(len(res['line_ids']), 8)
+
     def test_bill_of_entry_needs_receipts_and_amounts(self):
         boe = self.env['elegomotors.bill.of.entry'].create({'boe_number': 'TEST-BOE-2'})
         with self.assertRaises(UserError):

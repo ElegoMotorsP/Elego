@@ -32,6 +32,13 @@ class MrpBomCkd(models.Model):
              'individual parts. Needs an approved cost allocation before it can '
              'be put on a Purchase Order.',
     )
+    x_ckd_bike_tmpl_id = fields.Many2one(
+        'product.template', string='For Bike Model', copy=False,
+        domain=[('x_is_ego_bike', '=', True)],
+        help='The bike this kit is made for. "Update from Bike BoM" compares the kit '
+             'with that bike\'s current Manufacturing BoM.')
+    x_ckd_colour_id = fields.Many2one(
+        'product.attribute.value', string='For Colour', copy=False)
     x_cost_share_total = fields.Float(
         string='Total Cost Share (%)', compute='_compute_x_cost_share_total',
         digits=(5, 2))
@@ -89,6 +96,22 @@ class MrpBomCkd(models.Model):
                     '%s %.2f%%' % (l.product_id.display_name, l.cost_share)
                     for l in bom.bom_line_ids)))
         return True
+
+    def action_update_from_bike(self):
+        """Open the New CKD Kit wizard in "update" mode for this kit: its parts
+        are compared with the bike's current BoM so new / removed / changed
+        parts can be reviewed before they are applied."""
+        self.ensure_one()
+        if not self._ckd_user_can_approve():
+            raise AccessError(_('Only a Purchase Manager or an Administrator can update a CKD kit.'))
+        wizard = self.env['elegomotors.ckd.kit.wizard'].create({
+            'mode': 'update',
+            'kit_bom_id': self.id,
+            'bike_tmpl_id': self.x_ckd_bike_tmpl_id.id or False,
+            'colour_value_id': self.x_ckd_colour_id.id or False,
+        })
+        wizard._reload_for_update()
+        return wizard._reopen()
 
     def action_withdraw_cost_share_approval(self):
         if not self._ckd_user_can_approve():

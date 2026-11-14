@@ -10,6 +10,9 @@
             <field name="arch" type="xml">
                 <xpath expr="//sheet" position="before">
                     <header>
+                        <button name="action_update_from_bike" type="object"
+                                string="Update from Bike BoM" class="btn-secondary"
+                                invisible="not x_is_ckd_kit"/>
                         <button name="action_approve_cost_share" type="object"
                                 string="Approve Cost Allocation" class="btn-primary"
                                 invisible="not x_is_ckd_kit or x_cost_share_approved or type != 'phantom'"/>
@@ -22,6 +25,10 @@
                     <group string="CKD Kit Cost Allocation" invisible="type != 'phantom'">
                         <group>
                             <field name="x_is_ckd_kit"/>
+                            <field name="x_ckd_bike_tmpl_id" invisible="not x_is_ckd_kit"
+                                   options="{'no_create': True}"/>
+                            <field name="x_ckd_colour_id" invisible="not x_is_ckd_kit"
+                                   options="{'no_create': True, 'no_open': True}"/>
                             <field name="x_cost_share_total" invisible="not x_is_ckd_kit"/>
                         </group>
                         <group invisible="not x_is_ckd_kit">
@@ -60,17 +67,28 @@
                         kit's cost allocation is approved afterwards on its BoM.
                     </div>
                     <group>
+                        <field name="mode" widget="radio" options="{'horizontal': true}"/>
+                    </group>
+                    <group>
                         <group>
-                            <field name="bike_tmpl_id" options="{'no_create': True}"/>
+                            <field name="kit_bom_id" invisible="mode != 'update'"
+                                   required="mode == 'update'" options="{'no_create': True}"/>
+                            <field name="bike_tmpl_id" required="1" options="{'no_create': True}"/>
                             <field name="valid_colour_ids" invisible="1"/>
                             <field name="colour_value_id" options="{'no_create': True, 'no_open': True}"
                                    invisible="not valid_colour_ids" required="valid_colour_ids"/>
                         </group>
                         <group>
-                            <field name="kit_name"/>
-                            <field name="source_bom_id"/>
+                            <field name="kit_name" required="mode == 'new'" readonly="mode == 'update'"/>
+                            <field name="source_bom_id" string="Compared With / Copied From"/>
                         </group>
                     </group>
+                    <div class="alert alert-secondary" role="alert" invisible="mode != 'update'">
+                        The kit's parts are compared with the bike's current BoM. <b>New</b> parts come in
+                        with no share, parts the bike no longer has are unticked, changed quantities are
+                        updated. Shares of the parts that stay are kept; press <b>Spread Rest</b> to share
+                        what is left over the new parts. The cost allocation has to be approved again afterwards.
+                    </div>
                     <div class="alert alert-warning" role="alert" invisible="not warning">
                         <field name="warning" nolabel="1"/>
                     </div>
@@ -78,6 +96,10 @@
                         <list editable="bottom" decoration-muted="not include">
                             <field name="include"/>
                             <field name="product_id" options="{'no_create': True}"/>
+                            <field name="status" widget="badge" optional="show"
+                                   decoration-success="status == 'new'"
+                                   decoration-warning="status in ('qty', 'removed')"/>
+                            <field name="old_qty" optional="hide"/>
                             <field name="product_qty"/>
                             <field name="uom_id" optional="hide"/>
                             <field name="cost_share"/>
@@ -93,7 +115,10 @@
                         </group>
                     </group>
                     <footer>
-                        <button name="action_create" type="object" string="Create Kit" class="btn-primary"/>
+                        <button name="action_create" type="object" string="Create Kit" class="btn-primary"
+                                invisible="mode != 'new'"/>
+                        <button name="action_create" type="object" string="Update Kit" class="btn-primary"
+                                invisible="mode != 'update'"/>
                         <button name="action_spread_rest" type="object" string="Spread Rest" class="btn-secondary"
                                 help="Keep the shares marked Keep and split the remaining % equally over the other parts"/>
                         <button name="action_equal_split" type="object" string="Equal Split" class="btn-secondary"/>

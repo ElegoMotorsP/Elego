@@ -24,8 +24,16 @@ class CkdKitWizard(models.TransientModel):
     _name = 'elegomotors.ckd.kit.wizard'
     _description = 'New CKD Kit'
 
+    mode = fields.Selection(
+        [('new', 'Create a new kit'), ('update', 'Update an existing kit')],
+        default='new', required=True)
+    kit_bom_id = fields.Many2one(
+        'mrp.bom', string='Kit to Update', domain=[('x_is_ckd_kit', '=', True)],
+        help='Its parts are compared with the bike\'s current BoM: new parts are '
+             'added, parts the bike no longer has are dropped, changed quantities '
+             'are updated. The kit\'s cost allocation must then be approved again.')
     bike_tmpl_id = fields.Many2one(
-        'product.template', string='Bike Model', required=True,
+        'product.template', string='Bike Model',
         domain=[('x_is_ego_bike', '=', True)])
     valid_colour_ids = fields.Many2many(
         'product.attribute.value', compute='_compute_valid_colour_ids')
@@ -33,7 +41,7 @@ class CkdKitWizard(models.TransientModel):
         'product.attribute.value', string='Colour',
         domain="[('id', 'in', valid_colour_ids)]")
     kit_name = fields.Char(
-        string='Kit Name', required=True,
+        string='Kit Name',
         help='The product that goes on the Purchase Order, e.g. "Elego 1.1 CKD Kit – Red".')
     source_bom_id = fields.Many2one('mrp.bom', string='Copied From', readonly=True)
     line_ids = fields.One2many('elegomotors.ckd.kit.wizard.line', 'wizard_id', string='Parts')
@@ -93,6 +101,24 @@ class CkdKitWizard(models.TransientModel):
             ('product_tmpl_id', '=', self.bike_tmpl_id.id), ('type', '=', 'normal'),
             ('product_id', '=', False)], limit=1)
 
+    @api.onchange('mode')
+    def _onchange_mode(self):
+        self.kit_bom_id = False
+        self.line_ids = [(5, 0, 0)]
+        if self.mode == 'new':
+            self._reload_parts()
+
+    @api.onchange('kit_bom_id')
+    def _onchange_kit_bom_id(self):
+        kit = self.kit_bom_id
+        if kit:
+            self.kit_name = kit.product_tmpl_id.name
+            if kit.x_ckd_bike_tmpl_id:
+                self.bike_tmpl_id = kit.x_ckd_bike_tmpl_id
+            if kit.x_ckd_colour_id:
+                self.colour_value_id = kit.x_ckd_colour_id
+        self._reload_for_update()
+
     @api.onchange('bike_tmpl_id')
     def _onchange_bike_tmpl_id(self):
         self.colour_value_id = False
@@ -102,8 +128,70 @@ class CkdKitWizard(models.TransientModel):
     def _onchange_colour_value_id(self):
         self._reload_parts()
 
+    def _reload_for_update(self):
+        """Update mode: line up the kit's current parts against the bike's
+        current BoM. Kept parts keep their cost share ("Keep"); parts new in the
+        bike BoM come in with no share; parts the bike no longer has are
+        unticked. What is left of the 100% is spread over the new parts."""
+        self.ensure_one()
+        kit = self.kit_bom_id
+        tmpl = self.bike_tmpl_id
+        bike_bom = self.env['mrp.bom']
+        if kit and tmpl and (self.colour_value_id or not self.valid_colour_ids):
+            bike_bom = self._find_source_bom()
+        self.source_bom_id = bike_bom
+        if not (kit and bike_bom):
+            self.line_ids = [(5, 0, 0)]
+            return
+        bike_lines = {l.product_id.id: l for l in bike_bom.bom_line_ids}
+        kit_lines = {l.product_id.id: l for l in kit.bom_line_ids}
+        rows = []
+        for pid, kit_line in kit_lines.items():
+            bike_line = bike_lines.get(pid)
+            if bike_line:
+                qty = bike_line.product_qty
+                changed = abs(qty - kit_line.product_qty) > 1e-9
+                rows.append({
+                    'product_id': pid, 'product_qty': qty, 'old_qty': kit_line.product_qty,
+                    'uom_id': bike_line.product_uom_id.id, 'include': True,
+                    'cost_share': kit_line.cost_share, 'fixed': True,
+                    'status': 'qty' if changed else 'same', 'kit_line_id': kit_line.id,
+                })
+            else:
+                rows.append({
+                    'product_id': pid, 'product_qty': kit_line.product_qty,
+                    'old_qty': kit_line.product_qty, 'uom_id': kit_line.product_uom_id.id,
+                    'include': False, 'cost_share': kit_line.cost_share, 'fixed': False,
+                    'status': 'removed', 'kit_line_id': kit_line.id,
+                })
+        for pid, bike_line in bike_lines.items():
+            if pid in kit_lines:
+                continue
+            rows.append({
+                'product_id': pid, 'product_qty': bike_line.product_qty, 'old_qty': 0.0,
+                'uom_id': bike_line.product_uom_id.id,
+                'include': not _SEPARATE_LINE_RE.search(bike_line.product_id.name or ''),
+                'cost_share': 0.0, 'fixed': False, 'status': 'new', 'kit_line_id': False,
+            })
+        self._spread_rest_rows(rows)
+        self.line_ids = [(5, 0, 0)] + [(0, 0, row) for row in rows]
+
+    @classmethod
+    def _spread_rest_rows(cls, rows):
+        """Keep the shares of the "fixed" ticked rows and spread what is left
+        of 100% equally over the other ticked rows (no-op if nothing is left
+        to spread or nothing to spread it over)."""
+        included = [r for r in rows if r['include']]
+        kept = [r for r in included if r.get('fixed')]
+        others = [r for r in included if not r.get('fixed')]
+        rest = float_round(100.0 - sum(r['cost_share'] for r in kept), precision_digits=2)
+        if others and rest >= 0:
+            cls._spread_equally(others, total=rest)
+
     def _reload_parts(self):
         self.ensure_one()
+        if self.mode == 'update':
+            return self._reload_for_update()
         tmpl = self.bike_tmpl_id
         if not tmpl:
             self.kit_name = False
@@ -148,7 +236,8 @@ class CkdKitWizard(models.TransientModel):
     def _reopen(self):
         self.ensure_one()
         return {
-            'type': 'ir.actions.act_window', 'name': _('New CKD Kit'),
+            'type': 'ir.actions.act_window',
+            'name': _('Update CKD Kit') if self.mode == 'update' else _('New CKD Kit'),
             'res_model': self._name, 'res_id': self.id, 'view_mode': 'form',
             'target': 'new', 'context': {'dialog_size': 'extra-large'},
         }
@@ -219,8 +308,14 @@ class CkdKitWizard(models.TransientModel):
         # administrators; the wizard's own menu is the access gate (same approach
         # as the New Bike Model wizard).
         self = self.sudo()
+        if not self.bike_tmpl_id:
+            raise UserError(_('Choose the bike model the kit is for.'))
+        if self.valid_colour_ids and not self.colour_value_id:
+            raise UserError(_('Choose the colour the kit is for.'))
         included = self.line_ids.filtered('include')
         name = (self.kit_name or '').strip()
+        if self.mode == 'update':
+            return self._action_update(included)
         if not name:
             raise UserError(_('Enter the kit name.'))
         if not included:
@@ -239,6 +334,18 @@ class CkdKitWizard(models.TransientModel):
                               'Use "Equal Split" or "Split by Cost", or adjust the figures.',
                               self.total_share))
         Template = self.env['product.template']
+        existing = self.env['mrp.bom'].search([
+            ('x_is_ckd_kit', '=', True),
+            ('x_ckd_bike_tmpl_id', '=', self.bike_tmpl_id.id),
+            ('x_ckd_colour_id', '=', self.colour_value_id.id or False),
+        ], limit=1)
+        if existing:
+            raise UserError(_(
+                'A CKD kit for %(bike)s%(colour)s already exists: "%(kit)s". '
+                'Choose "Update an existing kit" to refresh it from the bike\'s BoM.',
+                bike=self.bike_tmpl_id.name,
+                colour=_(' – %s', self.colour_value_id.name) if self.colour_value_id else '',
+                kit=existing.product_tmpl_id.name))
         if Template.with_context(active_test=False).search_count([('name', '=', name)]):
             raise UserError(_('A product named "%s" already exists.', name))
 
@@ -259,6 +366,8 @@ class CkdKitWizard(models.TransientModel):
             'type': 'phantom',
             'product_qty': 1.0,
             'x_is_ckd_kit': True,
+            'x_ckd_bike_tmpl_id': self.bike_tmpl_id.id,
+            'x_ckd_colour_id': self.colour_value_id.id or False,
             'bom_line_ids': [(0, 0, {
                 'product_id': line.product_id.id,
                 'product_qty': line.product_qty,
@@ -272,6 +381,77 @@ class CkdKitWizard(models.TransientModel):
         return {
             'type': 'ir.actions.act_window', 'name': kit.name,
             'res_model': 'mrp.bom', 'res_id': bom.id, 'view_mode': 'form', 'target': 'current',
+        }
+
+
+    def _action_update(self, included):
+        """Apply the reviewed parts to the existing kit: add the new parts,
+        drop the ones that are unticked, update quantity / share where they
+        changed. The approval is withdrawn by the BoM-line hooks, so the new
+        allocation has to be approved again; confirmed POs keep their frozen
+        copy."""
+        kit = self.kit_bom_id
+        if not kit:
+            raise UserError(_('Choose the kit to update.'))
+        if not included:
+            raise UserError(_('Tick at least one part for the kit.'))
+        if included.filtered(lambda l: not l.product_id or l.product_qty <= 0):
+            raise UserError(_('Every ticked part needs a product and a quantity above 0.'))
+        if len(included.mapped('product_id')) != len(included):
+            raise UserError(_('A part is listed twice. Merge the quantities into one line.'))
+        zero = included.filtered(lambda l: l.cost_share <= 0)
+        if zero:
+            raise UserError(_('Every ticked part needs a cost share above 0%%: %s',
+                              ', '.join(zero.mapped('product_id.display_name'))))
+        if float_compare(self.total_share, 100.0, precision_digits=2) != 0:
+            raise UserError(_('The cost shares total %.2f%% — they must total exactly 100%%. '
+                              'Use "Spread Rest", "Equal Split" or adjust the figures.',
+                              self.total_share))
+        existing = {l.product_id.id: l for l in kit.bom_line_ids}
+        keep_ids = set(included.product_id.ids)
+        commands, added, changed, removed = [], [], [], []
+        for line in included:
+            current = existing.get(line.product_id.id)
+            if not current:
+                commands.append((0, 0, {
+                    'product_id': line.product_id.id,
+                    'product_qty': line.product_qty,
+                    'product_uom_id': line.uom_id.id or line.product_id.uom_id.id,
+                    'cost_share': line.cost_share,
+                }))
+                added.append(line.product_id.display_name)
+                continue
+            vals = {}
+            if abs(current.product_qty - line.product_qty) > 1e-9:
+                vals['product_qty'] = line.product_qty
+            if line.uom_id and current.product_uom_id != line.uom_id:
+                vals['product_uom_id'] = line.uom_id.id
+            if abs(current.cost_share - line.cost_share) > 0.004:
+                vals['cost_share'] = line.cost_share
+            if vals:
+                commands.append((1, current.id, vals))
+                changed.append(line.product_id.display_name)
+        for pid, current in existing.items():
+            if pid not in keep_ids:
+                commands.append((2, current.id))
+                removed.append(current.product_id.display_name)
+        was_approved = kit.x_cost_share_approved
+        kit.write({
+            'bom_line_ids': commands,
+            'x_ckd_bike_tmpl_id': self.bike_tmpl_id.id,
+            'x_ckd_colour_id': self.colour_value_id.id or False,
+        })
+        kit.message_post(body=_(
+            'Kit updated from %(src)s by %(user)s. Added: %(added)s. Removed: %(removed)s. '
+            'Changed: %(changed)s.%(approval)s',
+            src=self.source_bom_id.display_name or _('the bike BoM'), user=self.env.user.name,
+            added=', '.join(added) or _('none'), removed=', '.join(removed) or _('none'),
+            changed=', '.join(changed) or _('none'),
+            approval=_(' Cost allocation must be approved again before the kit can go on a new PO.')
+            if was_approved or kit.x_is_ckd_kit else ''))
+        return {
+            'type': 'ir.actions.act_window', 'name': kit.product_tmpl_id.name,
+            'res_model': 'mrp.bom', 'res_id': kit.id, 'view_mode': 'form', 'target': 'current',
         }
 
 
@@ -292,6 +472,11 @@ class CkdKitWizardLine(models.TransientModel):
         help='Ticked automatically when you type a cost share. "Spread Rest" keeps '
              'these shares and splits what is left over the parts that are not kept.')
     cost_method = fields.Selection(related='product_id.cost_method', string='Costing')
+    status = fields.Selection(
+        [('same', 'Same'), ('new', 'New in bike BoM'), ('qty', 'Quantity changed'),
+         ('removed', 'Not in bike BoM any more')], default='same', string='Change')
+    old_qty = fields.Float(string='Kit Qty Now', digits='Product Unit of Measure')
+    kit_line_id = fields.Many2one('mrp.bom.line', string='Kit Line')
 
     @api.onchange('product_id')
     def _onchange_product_id(self):

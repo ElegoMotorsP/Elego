@@ -38,6 +38,18 @@ SPLIT_METHODS = [
 ]
 # What a fresh Bill of Entry starts with (amounts left at 0 are ignored).
 DEFAULT_KINDS = ['bcd', 'sws', 'igst', 'freight', 'insurance', 'port', 'cha', 'transport']
+# Words that find the landed-cost product of each line in the existing product
+# list (Basic Customs Duty (BCD), Social Welfare Surcharge, Ocean Freight,
+# Marine Insurance, CFS Charges, CHA Charges ...), so nobody has to pick them.
+LANDED_PRODUCT_HINTS = {
+    'bcd': ('basic customs duty', 'bcd'),
+    'sws': ('social welfare',),
+    'freight': ('freight',),
+    'insurance': ('insurance',),
+    'port': ('cfs',),
+    'cha': ('cha charges',),
+    'transport': ('transport',),
+}
 
 
 class BillOfEntry(models.Model):
@@ -95,16 +107,54 @@ class BillOfEntry(models.Model):
     # ------------------------------------------------------------------
 
     @api.model
+    def _default_landed_products(self):
+        """{kind: landed-cost product id} found by name among the products
+        marked "Is a Landed Cost"."""
+        Product = self.env['product.product'].sudo()
+        found = {}
+        for kind, hints in LANDED_PRODUCT_HINTS.items():
+            for hint in hints:
+                product = Product.search(
+                    [('landed_cost_ok', '=', True), ('name', 'ilike', hint)], limit=1)
+                if product:
+                    found[kind] = product.id
+                    break
+        return found
+
+    @api.model
+    def _default_igst_account(self):
+        """The Input IGST account: the one the purchase IGST taxes post their
+        tax amount to (IGST Receivable), so it follows the company's own setup."""
+        tax = self.env['account.tax'].sudo().search([
+            ('type_tax_use', '=', 'purchase'), ('company_id', '=', self.env.company.id),
+            ('name', 'ilike', 'igst'), ('name', 'not ilike', ' RC'), ('amount', '>', 0),
+        ], order='amount desc', limit=1)
+        repartition = tax.invoice_repartition_line_ids.filtered(
+            lambda r: r.repartition_type == 'tax' and r.account_id)[:1]
+        return repartition.account_id
+
+    @api.model
     def default_get(self, fields_list):
         res = super().default_get(fields_list)
         if 'line_ids' in fields_list and not res.get('line_ids'):
             labels = dict(KINDS)
+            products = self._default_landed_products()
             res['line_ids'] = [(0, 0, {
                 'kind': kind,
                 'name': labels[kind],
+                'product_id': products.get(kind, False),
                 'capitalise': kind != 'igst',
                 'amount': 0.0,
             }) for kind in DEFAULT_KINDS]
+        if 'igst_debit_account_id' in fields_list and not res.get('igst_debit_account_id'):
+            account = self._default_igst_account()
+            if account:
+                res['igst_debit_account_id'] = account.id
+        if 'igst_journal_id' in fields_list and not res.get('igst_journal_id'):
+            journal = self.env['account.journal'].sudo().search(
+                [('type', '=', 'general'), ('company_id', '=', self.env.company.id)], limit=1)
+            if journal:
+                res['igst_journal_id'] = journal.id
         return res
 
     @api.model_create_multi
