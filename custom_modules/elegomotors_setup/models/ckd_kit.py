@@ -16,6 +16,8 @@ What this file adds:
     later BoM edit never changes the price of parts already on order;
   * that frozen share is what the exploded receipt moves are priced with.
 """
+from collections import defaultdict
+
 from odoo import _, api, fields, models
 from odoo.exceptions import AccessError, UserError
 from odoo.tools import float_compare, float_is_zero
@@ -256,6 +258,60 @@ class PurchaseOrderLineCkd(models.Model):
             if share is not None:
                 return share
         return explode_share
+
+    # Odoo's own kit "qty_received" (purchase_mrp's _compute_kit_quantities)
+    # recomputes only on move_ids.state/product_uom/quantity — never on
+    # move_ids.bom_line_id or move_ids.picked, both of which this line's
+    # parts go through on their own schedule during the Gate Entry -> QC ->
+    # Store receipt. The stored field can get stuck on whatever it last
+    # computed mid-flow (seen live: a kit line reading "2 received" while
+    # every part of it shows 100/100 received and QC-passed) and never
+    # catches up. Recompute it ourselves from the parts, the same way the
+    # PO Tracking report already does reliably.
+    @api.depends(
+        'move_ids.state', 'move_ids.quantity', 'move_ids.picked',
+        'move_ids.bom_line_id', 'move_ids.x_qty_received',
+        'move_ids.picking_id.picking_type_id',
+    )
+    def _compute_qty_received(self):
+        kit_lines = self.filtered(lambda l: l._ckd_kit_bom())
+        super(PurchaseOrderLineCkd, self - kit_lines)._compute_qty_received()
+        for line in kit_lines:
+            line.qty_received = line._ckd_kit_qty_received()
+
+    def _ckd_kit_qty_received(self):
+        """Kits received: convert each part's own received quantity to "kits
+        worth" with the live BoM's quantity-per-kit, then keep the scarcest
+        part — a half-received kit is not counted whole. Gate Entry parts use
+        the gate's own Received figure (booked before QC, like the PO
+        Tracking report); any other receipt uses the move's picked quantity."""
+        self.ensure_one()
+        bom = self._ckd_kit_bom()
+        if not bom or not bom.product_qty:
+            return 0.0
+        moves = self.move_ids.filtered(lambda m: m.state != 'cancel' and m.bom_line_id)
+        if not moves:
+            return 0.0
+        gate_type = self.env.ref(
+            'elegomotors_setup.picking_type_gate_entry', raise_if_not_found=False)
+        per_kit = {
+            bom_line.id: (bom_line.product_qty / bom.product_qty) or 1.0
+            for bom_line in bom.bom_line_ids
+        }
+        totals = defaultdict(float)
+        for move in moves:
+            if move.bom_line_id.id not in per_kit:
+                continue
+            is_gate = bool(gate_type and move.picking_id.picking_type_id == gate_type)
+            if is_gate:
+                qty = move.x_qty_received
+            else:
+                qty = move.quantity if move.picked else 0.0
+            totals[move.bom_line_id.id] += qty
+        return min(
+            (totals.get(bid, 0.0) / per_kit[bid] for bid in per_kit),
+            default=0.0,
+        )
 
 
 class PurchaseOrderCkd(models.Model):
