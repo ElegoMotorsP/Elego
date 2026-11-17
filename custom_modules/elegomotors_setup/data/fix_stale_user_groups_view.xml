@@ -1,0 +1,23 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+    <!--
+        Odoo caches the "Access Rights" tab of the user form (base.user_groups_view,
+        with its in_group_NNN / sel_groups_A_B_C fields) and only regenerates it when
+        a res.groups record is created, written or unlinked (see GroupsView in
+        odoo/addons/base/models/res_users.py). If nothing touches res.groups during
+        an upgrade, that cached arch is left exactly as it was computed last time,
+        in a possibly different database state.
+
+        access_matrix_views.xml below adds its own (tiny, unrelated) extension of
+        base.view_users_form. Loading it makes Odoo validate the full combined
+        architecture for that view, including the cached Access Rights sub-view,
+        and on a database where that cache has drifted, validation fails with
+        "Field 'sel_groups_X_Y' does not exist in model res.users" and the whole
+        module refuses to load (seen on production 17 Nov 2026, module elegomotors_setup
+        18.0.147.0.0 build). No group, permission or workflow is changed by this,
+        it only asks Odoo to redraw its own cached view from the groups that exist
+        right now, before our view is loaded. Not noupdate, so it keeps itself
+        correct on every future upgrade too.
+    -->
+    <function model="res.groups" name="_update_user_groups_view"/>
+</odoo>

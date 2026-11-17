@@ -1,6 +1,6 @@
 {
     'name': 'ElegoMotors Workflow Setup',
-    'version': '18.0.147.0.0',
+    'version': '18.0.148.0.0',
     'category': 'Manufacturing',
     'summary': 'ElegoMotors EV 2-wheeler end-to-end manufacturing workflow configuration',
     'description': """
@@ -141,6 +141,7 @@
         'views/ckd_kit_views.xml',                  # CKD kits: BoM approval, New CKD Kit wizard, PO reconciliation button
         'views/bill_of_entry_views.xml',            # Bill of Entry: customs duty + landed cost + Import IGST
         'views/ckd_reconciliation_views.xml',       # CKD cost and quantity reconciliation screen
+        'data/fix_stale_user_groups_view.xml',      # refresh Odoo's cached Access Rights sub-view before we extend it below
         'views/access_matrix_views.xml',            # Access Matrix grid + Access Role templates + user form field
         'views/access_matrix_menu.xml',              # Access Matrix menu (admin-only)
         'views/direct_reporting_views.xml',         # Direct Reporting: bike sales by dealer (list + pivot)
