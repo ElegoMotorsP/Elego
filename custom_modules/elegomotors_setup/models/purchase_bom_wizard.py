@@ -1,6 +1,11 @@
 from markupsafe import Markup
 from odoo import api, fields, models
 
+# Row label for a model that has no Color attribute (e.g. a model made with the
+# New Bike Model wizard and no colours): one row stands in for its single
+# variant, so such a model can still be loaded onto a PO.
+NO_COLOUR = 'No colour'
+
 
 class ElegoMotorsPurchaseBomWizardLine(models.TransientModel):
     _name = 'elegomotors.purchase.bom.wizard.line'
@@ -83,6 +88,8 @@ class ElegoMotorsPurchaseBomWizard(models.TransientModel):
                 lambda l, ca=color_attr: l.attribute_id == ca
             )
             colors = color_line.value_ids.mapped('name')
+        if not colors:
+            colors = [NO_COLOUR]
         self.color_line_ids = [(0, 0, {
             'color': color,
             'selected': existing.get(color, (False, 1))[0],
@@ -137,6 +144,8 @@ class ElegoMotorsPurchaseBomWizard(models.TransientModel):
         tmpl = self.product_tmpl_id
         if not tmpl:
             return self.env['product.product']
+        if color == NO_COLOUR:
+            return tmpl.with_context(active_test=False).product_variant_ids[:1]
         color_attr = self.env.ref('elegomotors_setup.attr_ego_color', raise_if_not_found=False)
         if not color_attr:
             return self.env['product.product']
@@ -159,10 +168,22 @@ class ElegoMotorsPurchaseBomWizard(models.TransientModel):
         variant = self._find_variant(color)
         if not variant:
             return False
-        return self.env['mrp.bom'].search([
+        Bom = self.env['mrp.bom']
+        # The variant's own BOM first, then a BOM set on the model as a whole
+        # (no variant) — the same order Odoo, the batch MO wizard and the
+        # consolidated PI use. A model with no colours has only the latter.
+        return Bom.search([
             ('product_tmpl_id', '=', tmpl.id),
             ('product_id', '=', variant.id),
+        ], limit=1) or Bom.search([
+            ('product_tmpl_id', '=', tmpl.id),
+            ('product_id', '=', False),
+            ('type', '=', 'normal'),
         ], limit=1)
+
+    def _row_label(self, row):
+        name = self.product_tmpl_id.name
+        return name if row.color == NO_COLOUR else f'{name} ({row.color})'
 
     def _add_or_merge_po_line(self, po, product, qty, price_unit):
         existing = po.order_line.filtered(lambda l: l.product_id == product)
@@ -181,7 +202,6 @@ class ElegoMotorsPurchaseBomWizard(models.TransientModel):
     def action_load_components(self):
         self.ensure_one()
         po = self.purchase_order_id
-        model_name = self.product_tmpl_id.name
         summary_lines = []
 
         if self.purchase_mode == 'components':
@@ -201,7 +221,7 @@ class ElegoMotorsPurchaseBomWizard(models.TransientModel):
                 if not bom:
                     continue
                 summary_lines.append(
-                    f"{model_name} ({row.color}) × {row.bike_qty} — "
+                    f"{self._row_label(row)} × {row.bike_qty} — "
                     f"{len(bom.bom_line_ids)} components added/updated"
                 )
         else:
@@ -213,7 +233,7 @@ class ElegoMotorsPurchaseBomWizard(models.TransientModel):
                 self._add_or_merge_po_line(po, variant, row.bike_qty, self.kit_price)
                 subtotal = row.bike_qty * self.kit_price
                 summary_lines.append(
-                    f"{model_name} ({row.color}) × {row.bike_qty} — "
+                    f"{self._row_label(row)} × {row.bike_qty} — "
                     f"Kit price {symbol}{self.kit_price:,.2f}/unit, "
                     f"Subtotal {symbol}{subtotal:,.2f}"
                 )
