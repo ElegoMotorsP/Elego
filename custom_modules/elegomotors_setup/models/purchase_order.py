@@ -1,11 +1,19 @@
 # -*- coding: utf-8 -*-
-from odoo import api, fields, models
+from odoo import Command, api, fields, models
 from odoo.exceptions import AccessError
 from odoo.tools import float_compare
 
 
 class PurchaseOrder(models.Model):
     _inherit = 'purchase.order'
+
+    # Read through the PO so Prashant, who raises POs but cannot edit vendors,
+    # and the PO form (to hide the Taxes column) can see it. See
+    # purchase_order_line.py for how the "no tax" rule is applied.
+    x_overseas_supplier = fields.Boolean(
+        string='Overseas Supplier',
+        related='partner_id.x_overseas_supplier',
+    )
 
     # Gate Entry PO dropdown: a PO is "closed" for receiving once every stockable
     # line is fully received. Stored so it can be used in the search domain of
@@ -94,6 +102,42 @@ class PurchaseOrder(models.Model):
                 'Ask Prashant (Purchase) or Manohar (Admin) to raise the PO.'
             )
         return super().create(vals_list)
+
+    # Overseas vendors: a PO with no tax at all. Picking an overseas vendor on the
+    # form takes the taxes off the lines at once, so the totals shown before
+    # saving are already right. Only when the vendor IS overseas: for any other
+    # vendor, changing the vendor leaves the lines' taxes alone, as before.
+    @api.onchange('partner_id')
+    def _onchange_partner_id_ego_overseas(self):
+        if self.partner_id.x_overseas_supplier:
+            for line in self.order_line.filtered(lambda l: not l.display_type):
+                line.taxes_id = [Command.clear()]
+
+    def write(self, vals):
+        res = super().write(vals)
+        # The same change made without the form (an import, code): the vendor of
+        # a saved PO was switched to an overseas one.
+        if 'partner_id' in vals:
+            self.filtered(
+                lambda po: po.state in ('draft', 'sent', 'to approve')
+            )._ego_strip_overseas_taxes()
+        return res
+
+    def _ego_strip_overseas_taxes(self):
+        """Take the taxes off the lines of these orders whose vendor is overseas.
+        The caller passes only orders that may still be changed (draft / sent /
+        to approve): confirmed and done POs are never touched here."""
+        for order in self:
+            if not order.partner_id.x_overseas_supplier:
+                continue
+            taxed = order.order_line.filtered('taxes_id')
+            if not taxed:
+                continue
+            taxed.write({'taxes_id': [Command.clear()]})
+            order.message_post(body=(
+                'Taxes were removed from the order lines because %s is marked as '
+                'an Overseas Supplier (no GST or other tax on its purchase orders).'
+            ) % order.partner_id.display_name)
 
     # Issue 2: block non-inbound-operators from navigating to Gate Entry receipts via PO
     def action_view_picking(self):

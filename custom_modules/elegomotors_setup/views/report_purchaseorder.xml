@@ -38,6 +38,21 @@
             </td>
         </xpath>
 
+        <!--
+            Overseas vendor: the PO has no tax, so the Taxes column is dropped
+            from the printout (its totals block then shows only Untaxed Amount and
+            Total, because no line has a tax). The cell has no id or name to anchor
+            on; it is the only one in the line row that prints the tax labels.
+            (The "Request for Quotation" printout, purchase.report_purchasequotation,
+            has no tax column or tax totals at all, so it needs nothing.)
+        -->
+        <xpath expr="//th[@name='th_taxes']" position="attributes">
+            <attribute name="t-if">not o.x_overseas_supplier</attribute>
+        </xpath>
+        <xpath expr="//td[span[contains(@t-out, 'invoice_label')]]" position="attributes">
+            <attribute name="t-if">not o.x_overseas_supplier</attribute>
+        </xpath>
+
     </template>
 
 </odoo>
