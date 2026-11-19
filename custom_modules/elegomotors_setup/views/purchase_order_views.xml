@@ -79,4 +79,35 @@
         </field>
     </record>
 
+    <!--
+        Overseas vendor: the PO carries no tax at all. The taxes themselves are
+        removed in Python (models/purchase_order_line.py); here the Taxes column
+        on the lines is hidden so nobody is invited to pick one, and a note says
+        why. With no taxes on any line Odoo's totals block shows no SGST / CGST /
+        IGST rows, only Untaxed Amount and Total, so nothing more is needed there.
+    -->
+    <record id="purchase_order_form_overseas_no_tax" model="ir.ui.view">
+        <field name="name">purchase.order.form.overseas.no.tax</field>
+        <field name="model">purchase.order</field>
+        <field name="inherit_id" ref="purchase.purchase_order_form"/>
+        <field name="arch" type="xml">
+
+            <xpath expr="//field[@name='partner_id']" position="after">
+                <field name="x_overseas_supplier" invisible="1"/>
+            </xpath>
+
+            <xpath expr="//sheet" position="before">
+                <div class="alert alert-info mb-0" role="alert" invisible="not x_overseas_supplier">
+                    <strong>Overseas supplier.</strong> This order carries no GST or any other
+                    tax. The import IGST is booked through the Bill of Entry.
+                </div>
+            </xpath>
+
+            <xpath expr="//field[@name='order_line']/list//field[@name='taxes_id']" position="attributes">
+                <attribute name="column_invisible">parent.x_overseas_supplier</attribute>
+            </xpath>
+
+        </field>
+    </record>
+
 </odoo>

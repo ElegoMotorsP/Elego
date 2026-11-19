@@ -25,5 +25,25 @@
                 </xpath>
             </field>
         </record>
+
+        <!--
+            "Overseas Supplier" sits in the Purchase group of the Sales & Purchase
+            tab (the group Odoo's own purchase module also extends). Two copies of
+            the field: the admin gets the editable one, everyone else the
+            read-only one. The real lock is in res.partner.create/write
+            (models/res_partner.py); hiding it here is only so nobody is offered a
+            box they cannot use.
+        -->
+        <record id="res_partner_form_overseas_supplier" model="ir.ui.view">
+            <field name="name">res.partner.form.overseas.supplier</field>
+            <field name="model">res.partner</field>
+            <field name="inherit_id" ref="base.view_partner_form"/>
+            <field name="arch" type="xml">
+                <group name="purchase" position="inside">
+                    <field name="x_overseas_supplier" groups="base.group_erp_manager"/>
+                    <field name="x_overseas_supplier" readonly="1" groups="!base.group_erp_manager"/>
+                </group>
+            </field>
+        </record>
     </data>
 </odoo>
