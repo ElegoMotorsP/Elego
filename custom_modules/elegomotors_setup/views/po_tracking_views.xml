@@ -12,6 +12,13 @@
                       decoration-muted="x_trk_stage == 'cancelled'"
                       decoration-warning="x_trk_stage in ('quality', 'partial_qc')"
                       decoration-success="x_trk_stage == 'completed'">
+                    <!-- Always visible (not only with rows ticked): downloads the
+                         report as the client's Excel, for the ticked POs or for the
+                         filters of the window it opens -->
+                    <header>
+                        <button name="action_open_client_export" type="object" display="always"
+                                string="Download Excel" class="btn-primary"/>
+                    </header>
                     <field name="name" string="PO No."/>
                     <field name="x_po_type" string="Type"/>
                     <field name="partner_id" string="Supplier / Vendor"/>
@@ -94,6 +101,54 @@
                   action="action_po_tracking"
                   groups="purchase.group_purchase_user,purchase.group_purchase_manager,elegomotors_setup.group_purchase_viewer,account.group_account_user,stock.group_stock_manager,base.group_erp_manager"
                   sequence="45"/>
+
+        <!-- ───────── Download the report as the client's Excel ───────── -->
+        <record id="view_po_tracking_export_form" model="ir.ui.view">
+            <field name="name">elegomotors.po.tracking.export.form</field>
+            <field name="model">elegomotors.po.tracking.export</field>
+            <field name="arch" type="xml">
+                <form string="Download PO Tracking (Excel)">
+                    <field name="order_ids" invisible="1"/>
+                    <div class="alert alert-info" role="alert" invisible="not order_ids">
+                        Only the <field name="order_count" class="oe_inline"/> purchase order(s)
+                        ticked in the report are downloaded.
+                    </div>
+                    <group invisible="order_ids">
+                        <group>
+                            <field name="date_from"/>
+                            <field name="date_to"/>
+                            <field name="po_type"/>
+                        </group>
+                        <group>
+                            <field name="partner_id"/>
+                            <field name="include_cancelled"/>
+                        </group>
+                    </group>
+                    <group>
+                        <field name="include_parts"/>
+                    </group>
+                    <footer>
+                        <button name="action_download" type="object" string="Download Excel"
+                                class="btn-primary" data-hotkey="q"/>
+                        <button string="Cancel" special="cancel" data-hotkey="x"/>
+                    </footer>
+                </form>
+            </field>
+        </record>
+
+        <record id="action_po_tracking_export" model="ir.actions.act_window">
+            <field name="name">Download PO Tracking (Excel)</field>
+            <field name="res_model">elegomotors.po.tracking.export</field>
+            <field name="view_mode">form</field>
+            <field name="target">new</field>
+        </record>
+
+        <menuitem id="menu_po_tracking_export"
+                  name="PO Tracking Excel"
+                  parent="purchase.menu_purchase_root"
+                  action="action_po_tracking_export"
+                  groups="purchase.group_purchase_user,purchase.group_purchase_manager,elegomotors_setup.group_purchase_viewer,account.group_account_user,stock.group_stock_manager,base.group_erp_manager"
+                  sequence="46"/>
 
         <!-- Domestic / Import on the PO form -->
         <record id="purchase_order_form_po_type" model="ir.ui.view">

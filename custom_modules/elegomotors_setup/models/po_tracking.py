@@ -177,18 +177,13 @@ class PurchaseOrderTracking(models.Model):
         # Odoo's own received quantity covers receipts booked without a Gate Entry
         return max(received, line.qty_received), passed, failed, pending, stock
 
-    def _trk_kit_figures(self, line, gate_type, kit_bom):
-        """(received, passed, failed, pending, stock) of a kit line, in kits.
+    def _trk_kit_parts(self, line, gate_type, kit_bom):
+        """The per-part figures of a kit line, in the PARTS' own unit.
 
-        The receipt is in individual parts. Convert every part to "kits worth"
-        with its BoM quantity, then take the limiting part (min for what is good,
-        max for what is bad / undecided) so the figures stay in kits and a
-        half-received kit is not counted whole.
-
-        Received of a part is what _trk_move_figures says: the validated
-        quantity for an ordinary receipt (so a receipt that is only QC-approved
-        and still waiting for Store to validate it does not count yet), and the
-        gate's own Received figure for the module's Gate Entry type."""
+        Returns (per_kit, acc): per_kit is {BoM line id: quantity of that part in
+        one kit}, acc is {BoM line id: [received, passed, failed, pending, stock,
+        is_qc]} summed over the part's receipt moves. A part with no receipt move
+        has no entry in acc."""
         moves = line.move_ids.filtered(
             lambda m: m.state != 'cancel' and m.location_id.usage == 'supplier'
         )
@@ -209,6 +204,21 @@ class PurchaseOrderTracking(models.Model):
             row[3] += q
             row[4] += s
             row[5] = row[5] or is_qc
+        return per_kit, acc
+
+    def _trk_kit_figures(self, line, gate_type, kit_bom):
+        """(received, passed, failed, pending, stock) of a kit line, in kits.
+
+        The receipt is in individual parts. Convert every part to "kits worth"
+        with its BoM quantity, then take the limiting part (min for what is good,
+        max for what is bad / undecided) so the figures stay in kits and a
+        half-received kit is not counted whole.
+
+        Received of a part is what _trk_move_figures says: the validated
+        quantity for an ordinary receipt (so a receipt that is only QC-approved
+        and still waiting for Store to validate it does not count yet), and the
+        gate's own Received figure for the module's Gate Entry type."""
+        per_kit, acc = self._trk_kit_parts(line, gate_type, kit_bom)
         qc_rows = [(bid, r) for bid, r in acc.items() if r[5]]
         received = min(
             (acc[bid][0] / per_kit[bid] if bid in acc else 0.0 for bid in per_kit),
@@ -262,6 +272,65 @@ class PurchaseOrderTracking(models.Model):
             po.x_trk_qc_pending_qty = pending
             po.x_trk_stock_qty = stock
             po.x_trk_stage = po._trk_stage(ordered, received, pending, failed)
+
+    # ------------------------------------------------------------------
+    # Part rows (the client's Excel lists each PO with its parts underneath)
+    # ------------------------------------------------------------------
+
+    def _trk_part_rows(self):
+        """One row per PART of this PO: the product of an ordinary line, and every
+        part of a kit line (a kit is received as its individual parts). Same
+        figures as the PO row, worked out by the same functions, but in the
+        PART's own unit. A kit part's ordered quantity is kits x quantity per kit."""
+        self.ensure_one()
+        gate_type = self._trk_gate_entry_type()
+        lines = self.order_line.filtered(
+            lambda l: not l.display_type and l.product_id and l.product_id.type != 'service'
+        )
+        confirmed = self.state in ('purchase', 'done')
+        kit_boms = self._trk_kit_boms(lines) if confirmed else {}
+        rows = []
+        for line in lines:
+            kit_bom = kit_boms.get(line.product_id) if confirmed else False
+            if kit_bom:
+                per_kit, acc = self._trk_kit_parts(line, gate_type, kit_bom)
+                for bom_line in kit_bom.bom_line_ids:
+                    r, p, f, q, s, _is_qc = acc.get(bom_line.id) or (0.0, 0.0, 0.0, 0.0, 0.0, False)
+                    rows.append(self._trk_part_row(
+                        bom_line.product_id, line.product_qty * per_kit[bom_line.id], r, p, f, q, s))
+                continue
+            if confirmed:
+                r, p, f, q, s = self._trk_line_figures(line, gate_type, False)
+            else:
+                r = p = f = q = s = 0.0
+            rows.append(self._trk_part_row(line.product_id, line.product_qty, r, p, f, q, s))
+        return rows
+
+    def _trk_part_row(self, product, ordered, received, passed, failed, qc_pending, stock):
+        self.ensure_one()
+        return {
+            'name': product.display_name,
+            'ordered': ordered,
+            'received': received,
+            'pending': 0.0 if self.state == 'cancel' else max(ordered - received, 0.0),
+            'qc_passed': passed,
+            'qc_rejected': failed,
+            'qc_pending': qc_pending,
+            'stock': stock,
+        }
+
+    def action_open_client_export(self):
+        """The "Download Excel" button of the report: opens the download window,
+        for the POs ticked in the list (or, with none ticked, for the filters in
+        the window)."""
+        return {
+            'type': 'ir.actions.act_window',
+            'name': 'Download PO Tracking (Excel)',
+            'res_model': 'elegomotors.po.tracking.export',
+            'view_mode': 'form',
+            'target': 'new',
+            'context': {'default_order_ids': [(6, 0, self.ids)]},
+        }
 
     def _trk_stage(self, ordered, received, qc_pending, qc_rejected=0.0):
         self.ensure_one()

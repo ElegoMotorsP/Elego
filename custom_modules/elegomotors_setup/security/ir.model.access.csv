@@ -75,3 +75,4 @@ access_bill_of_entry_line_purchase_manager,bill.of.entry.line.purchase.manager,m
 access_bill_of_entry_line_account,bill.of.entry.line.account,model_elegomotors_bill_of_entry_line,account.group_account_user,1,1,1,1
 access_bill_of_entry_line_admin,bill.of.entry.line.admin,model_elegomotors_bill_of_entry_line,base.group_erp_manager,1,1,1,1
 access_bill_of_entry_line_purchase_user,bill.of.entry.line.purchase.user,model_elegomotors_bill_of_entry_line,purchase.group_purchase_user,1,0,0,0
+access_po_tracking_export_all,po.tracking.export.all,model_elegomotors_po_tracking_export,base.group_user,1,1,1,1

@@ -1,6 +1,10 @@
 # -*- coding: utf-8 -*-
 """PO Tracking report: QC figures and the stage for real receipts (the warehouse's
 "GRN" operation type, not the module's own Gate Entry type)."""
+import base64
+import io
+import zipfile
+
 from odoo import Command
 from odoo.tests.common import TransactionCase, tagged
 
@@ -109,3 +113,98 @@ class TestPoTrackingReport(TransactionCase):
         picking.x_gate_entry_state = 'in_qc'
         figures = self._figures(po)
         self.assertAlmostEqual(figures['pending'], 4.0, msg='only the QC-required part counts')
+
+    # ------------------------------------------------------------- part rows / Excel
+
+    def _kit_po(self):
+        """A PO with an ordinary kit (5 kits = 5 chassis + 10 wheels) and a plain line (3),
+        received: chassis in full, only 6 of the 10 wheels, the plain part in full."""
+        env = self.env
+        chassis = env['product.product'].create({
+            'name': 'ZZ Test Kit Chassis', 'type': 'consu', 'is_storable': True, 'purchase_ok': True})
+        wheel = env['product.product'].create({
+            'name': 'ZZ Test Kit Wheel', 'type': 'consu', 'is_storable': True, 'purchase_ok': True})
+        kit = env['product.product'].create({
+            'name': 'ZZ Test Plain Kit', 'type': 'consu', 'is_storable': False, 'purchase_ok': True})
+        bom = env['mrp.bom'].create({
+            'product_tmpl_id': kit.product_tmpl_id.id, 'type': 'phantom', 'product_qty': 1.0,
+            'bom_line_ids': [
+                Command.create({'product_id': chassis.id, 'product_qty': 1.0}),
+                Command.create({'product_id': wheel.id, 'product_qty': 2.0}),
+            ],
+        })
+        po = env['purchase.order'].create({
+            'partner_id': self.vendor.id,
+            'order_line': [
+                Command.create({'product_id': kit.id, 'product_qty': 5, 'price_unit': 100.0, 'name': kit.name}),
+                Command.create({'product_id': self.plain.id, 'product_qty': 3, 'price_unit': 5.0,
+                                'name': self.plain.name}),
+            ],
+        })
+        po.button_confirm()
+        kit_line, plain_line = po.order_line
+        supplier = env.ref('stock.stock_location_suppliers')
+        stock = self.warehouse.lot_stock_id
+
+        def move(line, product, qty, bom_line=None):
+            vals = {
+                'name': product.name, 'product_id': product.id, 'product_uom': product.uom_id.id,
+                'product_uom_qty': qty, 'purchase_line_id': line.id,
+                'location_id': supplier.id, 'location_dest_id': stock.id,
+            }
+            if bom_line:
+                vals['bom_line_id'] = bom_line.id
+            return Command.create(vals)
+
+        picking = env['stock.picking'].create({
+            'picking_type_id': self.warehouse.in_type_id.id, 'partner_id': self.vendor.id,
+            'location_id': supplier.id, 'location_dest_id': stock.id, 'x_source_po_id': po.id,
+            'move_ids_without_package': [
+                move(kit_line, chassis, 5, bom.bom_line_ids[0]),
+                move(kit_line, wheel, 10, bom.bom_line_ids[1]),
+                move(plain_line, self.plain, 3),
+            ],
+        })
+        picking.action_confirm()
+        for m in picking.move_ids:
+            m.quantity = 6.0 if m.product_id == wheel else m.product_uom_qty
+            m.picked = True
+        picking.with_context(cancel_backorder=True)._action_done()
+        po.invalidate_recordset()
+        return po
+
+    def test_part_rows_list_the_parts_of_a_kit_and_the_ordinary_lines(self):
+        po = self._kit_po()
+        rows = {r['name']: r for r in po._trk_part_rows()}
+        self.assertEqual(len(rows), 3, 'two kit parts and one ordinary line')
+        chassis = next(r for n, r in rows.items() if 'Kit Chassis' in n)
+        wheel = next(r for n, r in rows.items() if 'Kit Wheel' in n)
+        plain = next(r for n, r in rows.items() if 'Plain Part' in n)
+        self.assertAlmostEqual(chassis['ordered'], 5.0)
+        self.assertAlmostEqual(chassis['received'], 5.0)
+        self.assertAlmostEqual(chassis['pending'], 0.0)
+        self.assertAlmostEqual(wheel['ordered'], 10.0, msg='5 kits x 2 wheels')
+        self.assertAlmostEqual(wheel['received'], 6.0)
+        self.assertAlmostEqual(wheel['pending'], 4.0)
+        self.assertAlmostEqual(plain['ordered'], 3.0)
+        self.assertAlmostEqual(plain['received'], 3.0)
+        self.assertAlmostEqual(plain['stock'], 3.0)
+
+    def test_client_excel_has_a_row_per_po_and_per_part(self):
+        po = self._kit_po()
+        wizard = self.env['elegomotors.po.tracking.export'].create({'order_ids': [Command.set(po.ids)]})
+        action = wizard.action_download()
+        self.assertEqual(action['type'], 'ir.actions.act_url')
+        attachment = self.env['ir.attachment'].browse(
+            int(action['url'].split('/web/content/')[1].split('?')[0]))
+        book = zipfile.ZipFile(io.BytesIO(base64.b64decode(attachment.datas)))
+        text = book.read('xl/sharedStrings.xml').decode()
+        for expected in ('Order Reference', 'Part Name', 'PO Value', 'Currency',
+                         'Elego Purchase Invoice', po.name, 'ZZ Test Kit Wheel'):
+            self.assertIn(expected, text)
+        # without the parts: one row per PO only
+        wizard.include_parts = False
+        plain = zipfile.ZipFile(io.BytesIO(base64.b64decode(
+            self.env['ir.attachment'].browse(int(
+                wizard.action_download()['url'].split('/web/content/')[1].split('?')[0])).datas)))
+        self.assertNotIn('ZZ Test Kit Wheel', plain.read('xl/sharedStrings.xml').decode())
