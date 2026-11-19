@@ -82,6 +82,10 @@ class PurchaseOrderTracking(models.Model):
         help='The GRN(s) that carry QC items, with their QC status.')
     x_trk_invoice_refs = fields.Char(
         string='Supplier Invoice No. / Date', compute='_compute_x_trk_refs')
+    x_trk_bill_refs = fields.Char(
+        string='Elego Purchase Invoice', compute='_compute_x_trk_refs',
+        help="Elego's own purchase invoice: the number of the vendor bill booked for "
+             "this PO (not the supplier's invoice number, which is the column before).")
 
     # ------------------------------------------------------------------
     # Domestic / Import
@@ -117,23 +121,33 @@ class PurchaseOrderTracking(models.Model):
 
     def _trk_move_figures(self, move, gate_type):
         """(received, passed, failed, pending, stock, is_qc) for one receipt
-        move, in the move's own unit."""
+        move, in the move's own unit.
+
+        Received is the gate's booked quantity on the module's own Gate Entry
+        type, and the VALIDATED quantity on any other receipt (see
+        _trk_kit_figures). QC, though, applies to every receipt: the GRNs people
+        really make are of the warehouse's "GRN" operation type, not Gate Entry,
+        and button_validate sends every incoming receipt through the same QC
+        steps. Looking for Gate Entry alone left QC Pass / Reject / Pending and
+        the QC No. empty for all real receipts."""
         picking = move.picking_id
         is_gate = bool(gate_type and picking and picking.picking_type_id == gate_type)
-        is_qc = is_gate and bool(move.product_id.x_qc_required)
-        if is_gate:
-            received = move.x_qty_received
-        else:
-            received = move.quantity if move.state == 'done' else 0.0
+        is_qc = bool(
+            picking and picking.picking_type_code == 'incoming' and move.product_id.x_qc_required
+        )
+        validated = move.quantity if move.state == 'done' else 0.0
+        received = move.x_qty_received if is_gate else validated
         if is_qc:
             decided = picking.x_gate_entry_state == 'ready'
             passed = move.x_qty_qc_passed if decided else 0.0
             failed = move.x_qty_qc_failed if decided else 0.0
-            pending = 0.0 if decided else move.x_qty_received
-            stock = move.x_qty_final if decided else 0.0
+            # Waiting for QC: on a Gate Entry once booked, on an ordinary receipt
+            # once Store has sent it to QC (not while the GRN is only a draft).
+            in_qc = is_gate or picking.x_gate_entry_state == 'in_qc'
+            pending = move.x_qty_received if (in_qc and not decided) else 0.0
+            stock = (move.x_qty_final if decided else 0.0) if is_gate else validated
             return received, passed, failed, pending, stock, True
-        stock = move.quantity if move.state == 'done' else 0.0
-        return received, 0.0, 0.0, 0.0, stock, False
+        return received, 0.0, 0.0, 0.0, validated, False
 
     def _trk_line_figures(self, line, gate_type, kit_bom):
         """Figures of one PO line, in the line's own unit (kits for a kit)."""
@@ -256,7 +270,8 @@ class PurchaseOrderTracking(models.Model):
         if self.state not in ('purchase', 'done'):
             return 'rfq'
         if float_is_zero(received, precision_digits=4):
-            return 'awaiting'
+            # Nothing validated yet. Material that is sitting in QC is already here.
+            return 'quality' if qc_pending > 0 else 'awaiting'
         fully = float_compare(received, ordered, precision_digits=4) >= 0
         if qc_pending > 0:
             return 'quality' if fully else 'partial_qc'
@@ -268,9 +283,9 @@ class PurchaseOrderTracking(models.Model):
     # Reference lists (shown in the report, built from the PO's own documents)
     # ------------------------------------------------------------------
 
-    @api.depends('picking_ids', 'invoice_ids', 'order_line.move_ids.picking_id')
+    @api.depends('picking_ids', 'invoice_ids', 'invoice_ids.name', 'invoice_ids.state',
+                 'order_line.move_ids.picking_id')
     def _compute_x_trk_refs(self):
-        gate_type = self._trk_gate_entry_type()
         Picking = self.env['stock.picking']
         by_source = defaultdict(lambda: Picking)
         for picking in Picking.search([('x_source_po_id', 'in', self.ids)]):
@@ -284,12 +299,17 @@ class PurchaseOrderTracking(models.Model):
             po.x_trk_grn_refs = ', '.join(pickings.mapped('name'))
             qc_refs = []
             for picking in pickings:
-                if gate_type and picking.picking_type_id == gate_type and any(
-                    m.product_id.x_qc_required for m in picking.move_ids
-                ):
+                # every receipt with QC items, whatever its operation type
+                if any(m.product_id.x_qc_required for m in picking.move_ids):
                     qc_refs.append('%s (%s)' % (
                         picking.name, state_labels.get(picking.x_gate_entry_state, '')))
             po.x_trk_qc_refs = ', '.join(qc_refs)
+            # Elego's own purchase invoice: the vendor bill(s) booked for this PO
+            # (a bill still in draft has no number yet).
+            bills = po.invoice_ids.filtered(
+                lambda b: b.move_type == 'in_invoice' and b.state != 'cancel').sorted('id')
+            po.x_trk_bill_refs = ', '.join(
+                b.name if b.name and b.name != '/' else 'Draft' for b in bills)
             seen, refs = set(), []
             candidates = [
                 (p.x_vendor_invoice_number, p.x_vendor_invoice_date) for p in pickings

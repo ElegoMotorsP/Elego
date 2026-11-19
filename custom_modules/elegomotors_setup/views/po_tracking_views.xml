@@ -17,11 +17,16 @@
                     <field name="partner_id" string="Supplier / Vendor"/>
                     <field name="date_order" string="PO Date" widget="date" optional="show"/>
                     <field name="x_trk_po_qty" sum="PO Qty"/>
-                    <field name="x_trk_invoice_refs" string="Supplier Invoice No. / Date"/>
                     <field name="x_trk_grn_refs"/>
+                    <field name="x_trk_invoice_refs" string="Supplier Invoice No. / Date"/>
+                    <field name="x_trk_bill_refs"/>
                     <field name="x_trk_received_qty" sum="Received"/>
                     <field name="x_trk_pending_qty" sum="Pending"/>
                     <field name="x_trk_qc_refs"/>
+                    <!-- PO value in the PO's own currency; no column total, as POs
+                         in USD, INR and CNY cannot be added together -->
+                    <field name="amount_total" string="PO Value" widget="monetary"/>
+                    <field name="currency_id" string="Currency"/>
                     <field name="x_trk_qc_passed_qty" sum="QC Pass"/>
                     <field name="x_trk_qc_rejected_qty" sum="QC Reject"/>
                     <field name="x_trk_qc_pending_qty" sum="QC Pending" optional="show"/>
@@ -44,6 +49,9 @@
                 <search string="PO Tracking">
                     <field name="name" string="PO No."/>
                     <field name="partner_id" string="Supplier"/>
+                    <field name="order_line" string="Part / Product"
+                           filter_domain="[('order_line.product_id', 'ilike', self)]"/>
+                    <field name="currency_id" string="Currency"/>
                     <filter string="PO Date" name="filter_po_date" date="date_order"/>
                     <separator/>
                     <filter string="Domestic" name="filter_domestic" domain="[('x_po_type', '=', 'domestic')]"/>
@@ -59,6 +67,7 @@
                     <group expand="0" string="Group By">
                         <filter string="Supplier" name="groupby_supplier" context="{'group_by': 'partner_id'}"/>
                         <filter string="Domestic / Import" name="groupby_type" context="{'group_by': 'x_po_type'}"/>
+                        <filter string="Currency" name="groupby_currency" context="{'group_by': 'currency_id'}"/>
                         <filter string="Current Stage" name="groupby_stage" context="{'group_by': 'x_trk_stage'}"/>
                         <filter string="PO Month" name="groupby_month" context="{'group_by': 'date_order:month'}"/>
                     </group>
