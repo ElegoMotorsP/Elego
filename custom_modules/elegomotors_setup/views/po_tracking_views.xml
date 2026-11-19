@@ -12,16 +12,28 @@
                       decoration-muted="x_trk_stage == 'cancelled'"
                       decoration-warning="x_trk_stage in ('quality', 'partial_qc')"
                       decoration-success="x_trk_stage == 'completed'">
+                    <!-- Always visible (not only with rows ticked): downloads the
+                         report as the client's Excel, for the ticked POs or for the
+                         filters of the window it opens -->
+                    <header>
+                        <button name="action_open_client_export" type="object" display="always"
+                                string="Download Excel" class="btn-primary"/>
+                    </header>
                     <field name="name" string="PO No."/>
                     <field name="x_po_type" string="Type"/>
                     <field name="partner_id" string="Supplier / Vendor"/>
                     <field name="date_order" string="PO Date" widget="date" optional="show"/>
                     <field name="x_trk_po_qty" sum="PO Qty"/>
-                    <field name="x_trk_invoice_refs" string="Supplier Invoice No. / Date"/>
                     <field name="x_trk_grn_refs"/>
+                    <field name="x_trk_invoice_refs" string="Supplier Invoice No. / Date"/>
+                    <field name="x_trk_bill_refs"/>
                     <field name="x_trk_received_qty" sum="Received"/>
                     <field name="x_trk_pending_qty" sum="Pending"/>
                     <field name="x_trk_qc_refs"/>
+                    <!-- PO value in the PO's own currency; no column total, as POs
+                         in USD, INR and CNY cannot be added together -->
+                    <field name="amount_total" string="PO Value" widget="monetary"/>
+                    <field name="currency_id" string="Currency"/>
                     <field name="x_trk_qc_passed_qty" sum="QC Pass"/>
                     <field name="x_trk_qc_rejected_qty" sum="QC Reject"/>
                     <field name="x_trk_qc_pending_qty" sum="QC Pending" optional="show"/>
@@ -44,6 +56,9 @@
                 <search string="PO Tracking">
                     <field name="name" string="PO No."/>
                     <field name="partner_id" string="Supplier"/>
+                    <field name="order_line" string="Part / Product"
+                           filter_domain="[('order_line.product_id', 'ilike', self)]"/>
+                    <field name="currency_id" string="Currency"/>
                     <filter string="PO Date" name="filter_po_date" date="date_order"/>
                     <separator/>
                     <filter string="Domestic" name="filter_domestic" domain="[('x_po_type', '=', 'domestic')]"/>
@@ -59,6 +74,7 @@
                     <group expand="0" string="Group By">
                         <filter string="Supplier" name="groupby_supplier" context="{'group_by': 'partner_id'}"/>
                         <filter string="Domestic / Import" name="groupby_type" context="{'group_by': 'x_po_type'}"/>
+                        <filter string="Currency" name="groupby_currency" context="{'group_by': 'currency_id'}"/>
                         <filter string="Current Stage" name="groupby_stage" context="{'group_by': 'x_trk_stage'}"/>
                         <filter string="PO Month" name="groupby_month" context="{'group_by': 'date_order:month'}"/>
                     </group>
@@ -85,6 +101,54 @@
                   action="action_po_tracking"
                   groups="purchase.group_purchase_user,purchase.group_purchase_manager,elegomotors_setup.group_purchase_viewer,account.group_account_user,stock.group_stock_manager,base.group_erp_manager"
                   sequence="45"/>
+
+        <!-- ───────── Download the report as the client's Excel ───────── -->
+        <record id="view_po_tracking_export_form" model="ir.ui.view">
+            <field name="name">elegomotors.po.tracking.export.form</field>
+            <field name="model">elegomotors.po.tracking.export</field>
+            <field name="arch" type="xml">
+                <form string="Download PO Tracking (Excel)">
+                    <field name="order_ids" invisible="1"/>
+                    <div class="alert alert-info" role="alert" invisible="not order_ids">
+                        Only the <field name="order_count" class="oe_inline"/> purchase order(s)
+                        ticked in the report are downloaded.
+                    </div>
+                    <group invisible="order_ids">
+                        <group>
+                            <field name="date_from"/>
+                            <field name="date_to"/>
+                            <field name="po_type"/>
+                        </group>
+                        <group>
+                            <field name="partner_id"/>
+                            <field name="include_cancelled"/>
+                        </group>
+                    </group>
+                    <group>
+                        <field name="include_parts"/>
+                    </group>
+                    <footer>
+                        <button name="action_download" type="object" string="Download Excel"
+                                class="btn-primary" data-hotkey="q"/>
+                        <button string="Cancel" special="cancel" data-hotkey="x"/>
+                    </footer>
+                </form>
+            </field>
+        </record>
+
+        <record id="action_po_tracking_export" model="ir.actions.act_window">
+            <field name="name">Download PO Tracking (Excel)</field>
+            <field name="res_model">elegomotors.po.tracking.export</field>
+            <field name="view_mode">form</field>
+            <field name="target">new</field>
+        </record>
+
+        <menuitem id="menu_po_tracking_export"
+                  name="PO Tracking Excel"
+                  parent="purchase.menu_purchase_root"
+                  action="action_po_tracking_export"
+                  groups="purchase.group_purchase_user,purchase.group_purchase_manager,elegomotors_setup.group_purchase_viewer,account.group_account_user,stock.group_stock_manager,base.group_erp_manager"
+                  sequence="46"/>
 
         <!-- Domestic / Import on the PO form -->
         <record id="purchase_order_form_po_type" model="ir.ui.view">
