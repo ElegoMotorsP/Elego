@@ -137,25 +137,47 @@ class PurchaseOrderTracking(models.Model):
 
     def _trk_line_figures(self, line, gate_type, kit_bom):
         """Figures of one PO line, in the line's own unit (kits for a kit)."""
+        if kit_bom:
+            figures = self._trk_kit_figures(line, gate_type, kit_bom)
+            if line._ckd_kit_bom():
+                # A CKD kit line's own Received (the PO form, and what a vendor bill
+                # is made from) is worked out from these very figures: see
+                # PurchaseOrderLineCkd._ckd_kit_qty_received. So the two can never
+                # differ, and the line's stored value must not be folded back in here.
+                return figures
+            received, passed, failed, pending, stock = figures
+            # Any other kit (e.g. a battery pack): Odoo's own kit quantity still counts
+            return max(received, line.qty_received), passed, failed, pending, stock
+
         moves = line.move_ids.filtered(
             lambda m: m.state != 'cancel' and m.location_id.usage == 'supplier'
         )
-        if not kit_bom:
-            received = passed = failed = pending = stock = 0.0
-            for move in moves:
-                r, p, f, q, s, _is_qc = self._trk_move_figures(move, gate_type)
-                received += r
-                passed += p
-                failed += f
-                pending += q
-                stock += s
-            # Odoo's own received quantity covers receipts booked without a Gate Entry
-            return max(received, line.qty_received), passed, failed, pending, stock
+        received = passed = failed = pending = stock = 0.0
+        for move in moves:
+            r, p, f, q, s, _is_qc = self._trk_move_figures(move, gate_type)
+            received += r
+            passed += p
+            failed += f
+            pending += q
+            stock += s
+        # Odoo's own received quantity covers receipts booked without a Gate Entry
+        return max(received, line.qty_received), passed, failed, pending, stock
 
-        # Kit line: the receipt is in individual parts. Convert every part to
-        # "kits worth" with its BoM quantity, then take the limiting part
-        # (min for what is good, max for what is bad / undecided) so the
-        # figures stay in kits and a half-received kit is not counted whole.
+    def _trk_kit_figures(self, line, gate_type, kit_bom):
+        """(received, passed, failed, pending, stock) of a kit line, in kits.
+
+        The receipt is in individual parts. Convert every part to "kits worth"
+        with its BoM quantity, then take the limiting part (min for what is good,
+        max for what is bad / undecided) so the figures stay in kits and a
+        half-received kit is not counted whole.
+
+        Received of a part is what _trk_move_figures says: the validated
+        quantity for an ordinary receipt (so a receipt that is only QC-approved
+        and still waiting for Store to validate it does not count yet), and the
+        gate's own Received figure for the module's Gate Entry type."""
+        moves = line.move_ids.filtered(
+            lambda m: m.state != 'cancel' and m.location_id.usage == 'supplier'
+        )
         per_kit = {}
         for bom_line in kit_bom.bom_line_ids:
             per_kit[bom_line.id] = (
@@ -185,12 +207,16 @@ class PurchaseOrderTracking(models.Model):
             (acc[bid][4] / per_kit[bid] if bid in acc else 0.0 for bid in per_kit),
             default=0.0,
         )
-        return max(received, line.qty_received), passed, failed, pending, stock
+        return received, passed, failed, pending, stock
 
+    # A CKD kit line's figures now come straight from its part moves, not from the
+    # line's stored Received, so the part moves' bom_line_id and source location
+    # are triggers too.
     @api.depends(
         'state',
         'order_line.display_type', 'order_line.product_id',
         'order_line.product_qty', 'order_line.qty_received',
+        'order_line.move_ids.bom_line_id', 'order_line.move_ids.location_id',
         'order_line.move_ids.state', 'order_line.move_ids.quantity',
         'order_line.move_ids.x_qty_received', 'order_line.move_ids.x_qty_qc_passed',
         'order_line.move_ids.x_qty_qc_failed', 'order_line.move_ids.x_qty_final',

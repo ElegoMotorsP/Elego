@@ -223,6 +223,69 @@ class TestCkdFlow(TransactionCase):
         self.assertAlmostEqual(po.x_trk_pending_qty, 4.0)
         self.assertEqual(po.x_trk_stage, 'partial')
 
+    def _kit_received(self, po):
+        """Received of the kit line as the PO form shows it, as PO Tracking works it
+        out for the same line, and the PO's own tracking total (one line on the PO)."""
+        po.invalidate_recordset()
+        line = po.order_line
+        tracking = po._trk_line_figures(line, po._trk_gate_entry_type(), line._ckd_kit_bom())[0]
+        return line.qty_received, tracking, po.x_trk_received_qty
+
+    def assertKitReceived(self, po, expected, stage):
+        form, tracking, total = self._kit_received(po)
+        self.assertAlmostEqual(form, expected, msg='PO form Received, %s' % stage)
+        self.assertAlmostEqual(tracking, form, msg='PO Tracking must equal the PO form, %s' % stage)
+        self.assertAlmostEqual(total, form, msg='PO Tracking total must equal the PO form, %s' % stage)
+
+    def test_kit_received_counts_only_validated_parts_and_matches_tracking_at_every_stage(self):
+        """A GRN that is QC-approved but still waiting for Store to validate it has
+        not received anything yet: the PO line must not read fully received (and
+        be billable) while nothing is in stock. At every stage the PO form and PO
+        Tracking show the same figure."""
+        self.kit.product_tmpl_id.purchase_method = 'receive'
+        po = self._approved_confirmed_po(kits=10, price=1000.0)
+        line = po.order_line
+        self.assertKitReceived(po, 0.0, 'PO confirmed')
+
+        picking = self._grn(po)
+        self.assertKitReceived(po, 0.0, 'GRN created')
+
+        picking.action_confirm()
+        self.assertKitReceived(po, 0.0, 'GRN confirmed')
+
+        # what "Approve QC" leaves behind: the quantity is on the move and it is
+        # picked, but the receipt is not validated
+        for move in picking.move_ids:
+            move.quantity = move.product_uom_qty
+            move.picked = True
+        self.assertKitReceived(po, 0.0, 'quantity picked, receipt not validated')
+        self.assertAlmostEqual(line.qty_to_invoice, 0.0, msg='nothing to bill before the GRN is validated')
+
+        picking.with_context(cancel_backorder=True)._action_done()
+        self.assertKitReceived(po, 10.0, 'GRN validated')
+        self.assertAlmostEqual(line.qty_to_invoice, 10.0)
+
+    def test_kit_received_short_receipt_and_second_grn_match_tracking(self):
+        po = self._approved_confirmed_po(kits=10, price=1000.0)
+        first = self._grn(po)
+        first.action_confirm()
+        quantities = {self.chassis: 4.0, self.motor: 6.0, self.suspension: 8.0}
+        for move in first.move_ids:
+            move.quantity = quantities[move.product_id]
+            move.picked = True
+        self.assertKitReceived(po, 0.0, 'short receipt typed, not validated')
+        first.with_context(cancel_backorder=True)._action_done()
+        # chassis 4 of 1/kit, motor 6 of 1/kit, suspension 8 of 2/kit: the scarcest part is 4 kits
+        self.assertKitReceived(po, 4.0, 'short receipt validated, remainder cancelled')
+
+        # the next GRN offers what is still to receive of each part and completes the order
+        second = self._grn(po)
+        offered = {m.product_id: m.product_uom_qty for m in second.move_ids}
+        self.assertEqual(offered, {self.chassis: 6.0, self.motor: 4.0, self.suspension: 12.0})
+        self.assertKitReceived(po, 4.0, 'second GRN created')
+        self._receive(second)
+        self.assertKitReceived(po, 10.0, 'second GRN validated')
+
     def test_import_flag_follows_the_vendor_country(self):
         home = self.company.account_fiscal_country_id or self.company.country_id
         other = self.env['res.country'].search([('id', '!=', home.id)], limit=1)
