@@ -2,7 +2,8 @@
 import re
 
 from odoo import api, fields, models
-from odoo.tools import float_compare
+
+from .ckd_part_allocation import choose_candidate
 
 
 class StockMove(models.Model):
@@ -195,9 +196,14 @@ class StockMove(models.Model):
         validating the receipt could not bill it. Linking here, on the server,
         does not depend on what the browser sends.
 
-        A move goes to the first line of its product that is still open, else
-        the first line of that product; a product that is not on the PO stays
-        unlinked.
+        When several lines of the PO could take the move (the same product on
+        two lines, or the same part in two CKD kits) it goes to the one that
+        still has room for exactly its quantity, else the first with room left
+        (see _ego_pick_candidate). Always taking "the first line of that
+        product" tied the second kit's parts to the first kit's line: Odoo then
+        merged the identical moves when the receipt was marked To Do (demand
+        summed, Received kept from the first move) and the second kit's line
+        never saw its parts. A product that is not on the PO stays unlinked.
         """
         if 'purchase_line_id' not in self._fields:
             return
@@ -216,38 +222,70 @@ class StockMove(models.Model):
             lines = po.order_line.filtered(
                 lambda l: not l.display_type and l.product_id == move.product_id
             )
-            open_lines = lines.filtered(
-                lambda l: float_compare(
-                    l.product_qty, l.qty_received, precision_rounding=l.product_uom.rounding,
-                ) > 0
-            )
-            line = (open_lines or lines)[:1]
-            if line:
-                move.purchase_line_id = line
+            if len(lines) == 1:
+                move.purchase_line_id = lines
+            elif lines:
+                # room = still to receive on the line, less what the other moves
+                # of this receipt already cover of it
+                move.purchase_line_id = move._ego_pick_candidate([
+                    (line, line.product_uom._compute_quantity(
+                        line.product_qty - line.qty_received, move.product_uom,
+                    ) - move._ego_sibling_qty(line))
+                    for line in lines
+                ])
             else:
                 move._ego_link_kit_component(po)
 
+    def _ego_sibling_qty(self, line, bom_line=None):
+        """What the OTHER moves of this move's receipt already cover of a PO line
+        (of one BoM line of it, for a kit part), in this move's unit."""
+        self.ensure_one()
+        total = 0.0
+        for other in self.picking_id.move_ids:
+            if other.id == self.id or other.state == 'cancel' or other.purchase_line_id != line:
+                continue
+            if bom_line and other.bom_line_id != bom_line:
+                continue
+            total += other.product_uom._compute_quantity(other.product_uom_qty, self.product_uom)
+        return total
+
+    def _ego_pick_candidate(self, candidates):
+        """Of (record, room) pairs, the record this move should be tied to; see
+        choose_candidate for the rule."""
+        self.ensure_one()
+        return choose_candidate(
+            candidates, self.product_uom_qty, rounding=self.product_uom.rounding or 0.01)
+
     def _ego_link_kit_component(self, po):
         """A part of a CKD kit that is on the PO as a kit line: tie the move to
-        that kit line (preferring one that still has kits to receive)."""
+        the kit line (and BoM line) it is for.
+
+        Two kit lines of one PO often share a part (Kit A x3 and Kit B x4 both
+        need the front fender). Each candidate is a (kit line, BoM line) pair
+        with the room it still has for the part: what that line has left to
+        receive, less what the other moves of this receipt already cover. The
+        move goes where its quantity fits exactly, else to the first with room
+        left, so the receipt keeps one separate move per kit and each kit line
+        counts its own parts."""
         self.ensure_one()
-        kit_lines = po.order_line.filtered(lambda l: l._ckd_kit_bom())
-        candidates = []
-        for line in kit_lines:
-            bom_line = line._ckd_kit_bom().bom_line_ids.filtered(
+        pairs = []
+        for line in po.order_line.filtered(lambda l: l._ckd_kit_bom()):
+            for bom_line in line._ckd_kit_bom().bom_line_ids.filtered(
                 lambda bl: bl.product_id == self.product_id
-            )[:1]
-            if bom_line:
-                candidates.append((line, bom_line))
-        if not candidates:
+            ):
+                pairs.append((line, bom_line))
+        if not pairs:
             return
-        open_ones = [
-            c for c in candidates
-            if float_compare(
-                c[0].product_qty, c[0].qty_received, precision_rounding=c[0].product_uom.rounding,
-            ) > 0
-        ]
-        line, bom_line = (open_ones or candidates)[0]
+        if len(pairs) == 1:
+            # a part only one kit needs: nothing to choose between
+            line, bom_line = pairs[0]
+        else:
+            line, bom_line = self._ego_pick_candidate([
+                ((line, bom_line), bom_line.product_uom_id._compute_quantity(
+                    line._ckd_part_to_receive(bom_line), self.product_uom,
+                ) - self._ego_sibling_qty(line, bom_line))
+                for line, bom_line in pairs
+            ])
         self.write({
             'purchase_line_id': line.id,
             'bom_line_id': bom_line.id,
@@ -276,6 +314,23 @@ class StockMove(models.Model):
             vals['cost_share'] = line._ckd_cost_share_for(bom_line, bom_line.cost_share) or 0.0
         if vals:
             self.write(vals)
+
+    def _merge_moves_fields(self):
+        """Odoo merges identical moves of a receipt when it is marked To Do (same
+        product, PO line and so on) and adds up only their demand: the merged
+        move kept the FIRST move's Received and QC Passed, so a part wanted
+        7 = 3 + 4 showed Demand 7 but Received 3, and only 3 was ever posted.
+        On a receipt they are quantities of the same product like the demand, so
+        add them up too."""
+        vals = super()._merge_moves_fields()
+        if (
+            len(self) > 1
+            and not self.env.context.get('merge_extra')
+            and all(move.picking_type_id.code == 'incoming' for move in self)
+        ):
+            vals['x_qty_received'] = sum(self.mapped('x_qty_received'))
+            vals['x_qty_qc_passed'] = sum(self.mapped('x_qty_qc_passed'))
+        return vals
 
     def _action_assign(self, force_qty=False):
         """Never re-reserve a receipt whose quantity QC has already approved.

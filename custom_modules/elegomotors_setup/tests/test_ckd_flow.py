@@ -190,6 +190,166 @@ class TestCkdFlow(TransactionCase):
         self.assertAlmostEqual(shares[self.motor], 30.0)
         self.assertAlmostEqual(shares[self.suspension], 20.0)
 
+    # ------------------------------------------- kits that share a part
+    # Two kits on one PO usually need some of the same parts. The receipt must
+    # keep a move per kit, each tied to its own kit line: tying them all to the
+    # first kit's line made Odoo merge them when the GRN was marked To Do (demand
+    # summed, Received kept from the first move) and the other kit never counted.
+
+    def _part(self, name):
+        return self.env['product.product'].create({
+            'name': name, 'type': 'consu', 'is_storable': True,
+            'categ_id': self.category.id, 'purchase_ok': True,
+        })
+
+    def _kit(self, name, parts):
+        """An approved CKD kit; `parts` is [(product, quantity per kit, cost share %)]."""
+        kit = self.env['product.product'].create({
+            'name': name, 'type': 'consu', 'is_storable': False, 'purchase_ok': True,
+        })
+        bom = self.env['mrp.bom'].create({
+            'product_tmpl_id': kit.product_tmpl_id.id, 'type': 'phantom', 'product_qty': 1.0,
+            'x_is_ckd_kit': True,
+            'bom_line_ids': [
+                Command.create({'product_id': p.id, 'product_qty': q, 'cost_share': s})
+                for p, q, s in parts
+            ],
+        })
+        bom.action_approve_cost_share()
+        return kit
+
+    def _po_of(self, kits_and_quantities, price=1000.0):
+        """A confirmed PO with one line per (kit product, quantity)."""
+        self.bom.action_approve_cost_share()
+        po = self.env['purchase.order'].create({
+            'partner_id': self.vendor.id,
+            'order_line': [
+                Command.create({
+                    'product_id': kit.id, 'product_qty': qty, 'price_unit': price, 'name': kit.name,
+                }) for kit, qty in kits_and_quantities
+            ],
+        })
+        po.button_confirm()
+        return po
+
+    def _moves_of(self, picking, product):
+        return picking.move_ids.filtered(lambda m: m.product_id == product).sorted(
+            lambda m: (m.product_uom_qty, m.id))
+
+    def _two_kits_sharing_the_chassis(self, kits_a=3, kits_b=4):
+        """Kit A (the class kit: chassis, motor, suspension) and a second kit that
+        also needs the chassis."""
+        lamp = self._part('ZZ Test Lamp')
+        kit_b = self._kit('ZZ Test CKD Kit Blue', [(self.chassis, 1.0, 60.0), (lamp, 2.0, 40.0)])
+        return kit_b, lamp, self._po_of([(self.kit, kits_a), (kit_b, kits_b)])
+
+    def test_two_kits_sharing_a_part_keep_one_move_per_kit_after_mark_to_do(self):
+        kit_b, lamp, po = self._two_kits_sharing_the_chassis(kits_a=3, kits_b=4)
+        line_a, line_b = po.order_line
+        picking = self._grn(po)          # the web client drops the link fields
+        picking.action_confirm()         # "Mark as Todo": Odoo merges identical moves here
+
+        chassis = self._moves_of(picking, self.chassis)
+        self.assertEqual(len(chassis), 2, 'One chassis move per kit, not merged into one')
+        move_a, move_b = chassis
+        self.assertEqual((move_a.product_uom_qty, move_b.product_uom_qty), (3.0, 4.0))
+        # Received is what was asked for on each move, so nothing is lost
+        self.assertEqual((move_a.x_qty_received, move_b.x_qty_received), (3.0, 4.0))
+        self.assertEqual(move_a.purchase_line_id, line_a)
+        self.assertEqual(move_b.purchase_line_id, line_b)
+        self.assertEqual(move_a.bom_line_id.bom_id.product_tmpl_id, self.kit.product_tmpl_id)
+        self.assertEqual(move_b.bom_line_id.bom_id.product_tmpl_id, kit_b.product_tmpl_id)
+        self.assertAlmostEqual(move_a.cost_share, 50.0)
+        self.assertAlmostEqual(move_b.cost_share, 60.0)
+        # parts that only one kit needs are unaffected
+        self.assertEqual(self._moves_of(picking, self.motor).purchase_line_id, line_a)
+        self.assertEqual(self._moves_of(picking, lamp).purchase_line_id, line_b)
+
+    def test_two_kits_sharing_a_part_are_both_received_and_counted(self):
+        kit_b, lamp, po = self._two_kits_sharing_the_chassis(kits_a=3, kits_b=4)
+        line_a, line_b = po.order_line
+        picking = self._grn(po)
+        self._receive(picking)
+
+        self.assertEqual(sum(self._moves_of(picking, self.chassis).mapped('quantity')), 7.0)
+        self.assertAlmostEqual(line_a.qty_received, 3.0, msg='Kit A is fully received')
+        self.assertAlmostEqual(line_b.qty_received, 4.0, msg='Kit B is fully received, not left pending')
+        po.invalidate_recordset()
+        self.assertAlmostEqual(po.x_trk_received_qty, 7.0)
+        self.assertAlmostEqual(po.x_trk_pending_qty, 0.0)
+
+    def test_three_kits_sharing_a_part_each_get_their_own_move(self):
+        lamp = self._part('ZZ Test Lamp')
+        kit_b = self._kit('ZZ Test CKD Kit Blue', [(self.chassis, 1.0, 60.0), (lamp, 2.0, 40.0)])
+        kit_c = self._kit('ZZ Test CKD Kit Green', [(self.chassis, 2.0, 70.0), (lamp, 1.0, 30.0)])
+        # chassis needed: 5 for A, 5 for B (the same quantity twice), 2 x 2 = 4 for C
+        po = self._po_of([(self.kit, 5), (kit_b, 5), (kit_c, 2)])
+        line_a, line_b, line_c = po.order_line
+        picking = self._grn(po)
+        picking.action_confirm()
+
+        chassis = picking.move_ids.filtered(lambda m: m.product_id == self.chassis).sorted('id')
+        self.assertEqual(len(chassis), 3)
+        self.assertEqual([m.purchase_line_id.id for m in chassis], [line_a.id, line_b.id, line_c.id])
+        self.assertEqual([m.product_uom_qty for m in chassis], [5.0, 5.0, 4.0])
+        self._receive(picking)
+        self.assertEqual(
+            [line_a.qty_received, line_b.qty_received, line_c.qty_received], [5.0, 5.0, 2.0])
+
+    def test_short_first_receipt_leaves_the_rest_to_the_kit_still_waiting(self):
+        kit_b, lamp, po = self._two_kits_sharing_the_chassis(kits_a=3, kits_b=4)
+        line_a, line_b = po.order_line
+        first = self._grn(po)
+        # only 2 chassis arrive for each kit
+        self._receive(first, {self.chassis: 2.0}, cancel_remainder=True)
+
+        second = self._grn(po)
+        chassis = self._moves_of(second, self.chassis)
+        self.assertEqual([m.product_uom_qty for m in chassis], [1.0, 2.0],
+                         'The next GRN asks for what is still to come: 3-2 for A, 4-2 for B')
+        self.assertEqual(chassis[0].purchase_line_id, line_a)
+        self.assertEqual(chassis[1].purchase_line_id, line_b)
+        self._receive(second)
+        self.assertAlmostEqual(line_a.qty_received, 3.0)
+        self.assertAlmostEqual(line_b.qty_received, 4.0)
+
+    def test_moves_merged_on_a_receipt_add_up_received_and_qc_passed(self):
+        """Safety net: when Odoo does merge two moves of one receipt, Received and
+        QC Passed are added up like the demand, not kept from the first move."""
+        po = self._approved_confirmed_po(kits=3)
+        picking = self._grn(po)                      # chassis x3 for the kit
+        self.env['stock.move'].create({              # one more chassis line, x4
+            'name': self.chassis.display_name, 'product_id': self.chassis.id,
+            'product_uom': self.chassis.uom_id.id, 'product_uom_qty': 4.0,
+            'picking_id': picking.id, 'picking_type_id': picking.picking_type_id.id,
+            'location_id': picking.location_id.id, 'location_dest_id': picking.location_dest_id.id,
+        })
+        picking.action_confirm()
+        chassis = self._moves_of(picking, self.chassis)
+        self.assertEqual(len(chassis), 1, 'Identical moves are merged by Odoo')
+        self.assertEqual(chassis.product_uom_qty, 7.0)
+        self.assertEqual(chassis.x_qty_received, 7.0, 'Received follows the demand, not the first move')
+
+    def test_the_same_product_on_two_po_lines_keeps_a_move_per_line(self):
+        po = self.env['purchase.order'].create({
+            'partner_id': self.vendor.id,
+            'order_line': [
+                Command.create({'product_id': self.chassis.id, 'product_qty': 3, 'price_unit': 10.0,
+                                'name': self.chassis.name}),
+                Command.create({'product_id': self.chassis.id, 'product_qty': 4, 'price_unit': 12.0,
+                                'name': self.chassis.name}),
+            ],
+        })
+        po.button_confirm()
+        line_1, line_2 = po.order_line
+        picking = self._grn(po)
+        picking.action_confirm()
+        moves = self._moves_of(picking, self.chassis)
+        self.assertEqual([m.product_uom_qty for m in moves], [3.0, 4.0])
+        self.assertEqual([m.purchase_line_id.id for m in moves], [line_1.id, line_2.id])
+        self._receive(picking)
+        self.assertEqual([line_1.qty_received, line_2.qty_received], [3.0, 4.0])
+
     def test_full_receipt_values_parts_by_share_and_po_tracking(self):
         po = self._approved_confirmed_po(kits=10, price=1000.0)
         picking = self._grn(po)
