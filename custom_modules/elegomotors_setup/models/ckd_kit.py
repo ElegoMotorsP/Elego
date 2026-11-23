@@ -244,6 +244,26 @@ class PurchaseOrderLineCkd(models.Model):
         self.ensure_one()
         return self.x_ckd_allocation_ids[:1]
 
+    def _ckd_part_to_receive(self, bom_line):
+        """What is still to receive of one part (a line of the kit's BoM) for THIS
+        kit line, in the BoM line's own unit: kits ordered x parts per kit, less
+        what validated receipts have already brought in for that BoM line.
+
+        It is what the GRN picker offers for the part (see
+        StockPicking._ego_kit_component_commands) and what tells two kit lines of
+        one PO apart when they share the part."""
+        self.ensure_one()
+        bom = bom_line.bom_id
+        kits = self.product_uom._compute_quantity(self.product_qty, bom.product_uom_id)
+        ordered = kits / (bom.product_qty or 1.0) * bom_line.product_qty
+        received = sum(
+            move.product_uom._compute_quantity(move.quantity, bom_line.product_uom_id)
+            for move in self.move_ids
+            if move.state == 'done' and move.bom_line_id == bom_line
+            and move.location_id.usage == 'supplier'
+        )
+        return ordered - received
+
     def _ckd_cost_share_for(self, bom_line, explode_share=None):
         """Cost share (%) for a component of this line: the frozen figure when
         the line has one, else the figure Odoo worked out from the live BoM."""
