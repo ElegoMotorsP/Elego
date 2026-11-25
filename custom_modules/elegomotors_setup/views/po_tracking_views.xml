@@ -95,9 +95,14 @@
                 (0, 0, {'view_mode': 'form', 'view_id': ref('purchase.purchase_order_form')})]"/>
         </record>
 
+        <!-- Under Purchase > Reporting (alongside the standard "Purchase" analysis
+             report), not top-level — purchase.purchase_report_main itself is
+             widened below so Amit/Rajshri/stock managers (who hold these groups
+             but not purchase.group_purchase_manager) still see the Reporting
+             menu at all, matching what they could already see as a top-level item. -->
         <menuitem id="menu_po_tracking"
                   name="PO Tracking"
-                  parent="purchase.menu_purchase_root"
+                  parent="purchase.purchase_report_main"
                   action="action_po_tracking"
                   groups="purchase.group_purchase_user,purchase.group_purchase_manager,elegomotors_setup.group_purchase_viewer,account.group_account_user,stock.group_stock_manager,base.group_erp_manager"
                   sequence="45"/>
@@ -145,10 +150,25 @@
 
         <menuitem id="menu_po_tracking_export"
                   name="PO Tracking Excel"
-                  parent="purchase.menu_purchase_root"
+                  parent="purchase.purchase_report_main"
                   action="action_po_tracking_export"
                   groups="purchase.group_purchase_user,purchase.group_purchase_manager,elegomotors_setup.group_purchase_viewer,account.group_account_user,stock.group_stock_manager,base.group_erp_manager"
                   sequence="46"/>
+
+        <!-- Widen the standard Reporting menu's own visibility (default:
+             purchase.group_purchase_manager only) so it still shows for every
+             group PO Tracking / PO Tracking Excel above allow — otherwise those
+             groups would lose the menu entirely, since ir.ui.menu visibility
+             requires every ancestor's own groups check to pass too. -->
+        <record id="purchase.purchase_report_main" model="ir.ui.menu">
+            <field name="groups_id" eval="[
+                (4, ref('purchase.group_purchase_user')),
+                (4, ref('elegomotors_setup.group_purchase_viewer')),
+                (4, ref('account.group_account_user')),
+                (4, ref('stock.group_stock_manager')),
+                (4, ref('base.group_erp_manager')),
+            ]"/>
+        </record>
 
         <!-- Domestic / Import on the PO form -->
         <record id="purchase_order_form_po_type" model="ir.ui.view">

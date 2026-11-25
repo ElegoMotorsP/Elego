@@ -1,0 +1,185 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+    <data>
+
+        <!-- ───────── All Sales Order Tracking Report ───────── -->
+        <record id="view_so_tracking_list" model="ir.ui.view">
+            <field name="name">sale.order.line.tracking.list</field>
+            <field name="model">sale.order.line</field>
+            <field name="priority">90</field>
+            <field name="arch" type="xml">
+                <list string="All Sales Order Tracking" create="0" delete="0"
+                      decoration-muted="x_trk_stage == 'cancelled'"
+                      decoration-danger="x_trk_stage == 'rejected'"
+                      decoration-warning="x_trk_stage in ('approval', 'invoice_pending', 'partial_invoice')"
+                      decoration-success="x_trk_stage == 'completed'">
+                    <header>
+                        <button name="action_open_so_tracking_export" type="object" display="always"
+                                string="Download Excel" class="btn-primary"/>
+                    </header>
+                    <field name="order_id" string="Order"/>
+                    <field name="x_trk_quotation_no" optional="hide"/>
+                    <field name="x_trk_quotation_date" widget="date" optional="show"/>
+                    <field name="x_trk_quotation_status"/>
+                    <field name="order_partner_id" string="Customer"/>
+                    <field name="x_report_salesperson" string="Salesperson"/>
+                    <field name="x_trk_approval_status"/>
+                    <field name="x_trk_so_no"/>
+                    <field name="x_trk_so_date" widget="date" optional="hide"/>
+                    <field name="x_trk_approved_by" optional="hide"/>
+                    <field name="x_trk_approval_date" optional="hide"/>
+                    <field name="x_trk_customer_po_ref" optional="hide"/>
+                    <field name="x_trk_product_code" optional="hide"/>
+                    <field name="product_id" string="Product"/>
+                    <field name="x_report_bike_tmpl_id" string="Model" optional="show"/>
+                    <field name="x_trk_colour" string="Colour" optional="show"/>
+                    <field name="product_uom_qty" string="Ordered" sum="Ordered"/>
+                    <field name="x_trk_gross_delivered_qty" string="Delivered" sum="Delivered" optional="hide"/>
+                    <field name="x_trk_return_qty" string="Return" sum="Return" optional="hide"/>
+                    <field name="qty_delivered" string="Net Delivered" sum="Net Delivered"/>
+                    <field name="x_trk_pending_dispatch_qty" string="Pending Dispatch" sum="Pending Dispatch"/>
+                    <field name="x_trk_do_refs" optional="hide"/>
+                    <field name="x_trk_dispatch_date" widget="date" optional="hide"/>
+                    <field name="x_trk_delivery_status"/>
+                    <field name="x_trk_invoice_refs" optional="hide"/>
+                    <field name="qty_invoiced" string="Invoiced" sum="Invoiced" optional="hide"/>
+                    <field name="qty_to_invoice" string="Pending Invoice" sum="Pending Invoice" optional="hide"/>
+                    <field name="price_unit" string="Unit Price" optional="hide"/>
+                    <field name="price_subtotal" string="Taxable Amount" sum="Taxable Amount" optional="hide"/>
+                    <field name="price_tax" string="GST Amount" sum="GST Amount" optional="hide"/>
+                    <field name="price_total" string="Invoice Total" sum="Invoice Total"/>
+                    <field name="invoice_status" optional="hide"/>
+                    <field name="x_trk_stage" widget="badge"
+                           decoration-success="x_trk_stage == 'completed'"
+                           decoration-warning="x_trk_stage in ('approval', 'invoice_pending', 'partial_invoice', 'partial_dispatch')"
+                           decoration-danger="x_trk_stage in ('cancelled', 'rejected')"
+                           decoration-info="x_trk_stage in ('quotation', 'dispatch_pending')"/>
+                </list>
+            </field>
+        </record>
+
+        <record id="view_so_tracking_search" model="ir.ui.view">
+            <field name="name">sale.order.line.tracking.search</field>
+            <field name="model">sale.order.line</field>
+            <field name="priority">90</field>
+            <field name="arch" type="xml">
+                <search string="SO Tracking">
+                    <field name="order_id" string="Quotation / SO No."/>
+                    <field name="order_partner_id" string="Customer"/>
+                    <field name="product_id" string="Product"/>
+                    <field name="x_report_bike_tmpl_id" string="Model"/>
+                    <field name="x_report_salesperson" string="Salesperson"/>
+                    <filter string="Order Date" name="filter_order_date" date="x_trk_quotation_date"/>
+                    <separator/>
+                    <filter string="Cancelled" name="filter_cancelled" domain="[('x_trk_stage', '=', 'cancelled')]"/>
+                    <filter string="Open (not completed / cancelled)" name="filter_open"
+                            domain="[('x_trk_stage', 'not in', ('completed', 'cancelled'))]"/>
+                    <filter string="Quotation Pending" name="filter_quotation" domain="[('x_trk_stage', '=', 'quotation')]"/>
+                    <filter string="Approval Pending" name="filter_approval" domain="[('x_trk_stage', '=', 'approval')]"/>
+                    <filter string="Dispatch Pending / Partial" name="filter_dispatch"
+                            domain="[('x_trk_stage', 'in', ('dispatch_pending', 'partial_dispatch'))]"/>
+                    <filter string="Invoice Pending / Partial" name="filter_invoice"
+                            domain="[('x_trk_stage', 'in', ('invoice_pending', 'partial_invoice'))]"/>
+                    <filter string="Fully Invoiced" name="filter_completed" domain="[('x_trk_stage', '=', 'completed')]"/>
+                    <filter string="Rejected" name="filter_rejected" domain="[('x_trk_stage', '=', 'rejected')]"/>
+                    <group expand="0" string="Group By">
+                        <filter string="Customer" name="groupby_customer" context="{'group_by': 'order_partner_id'}"/>
+                        <filter string="Salesperson" name="groupby_salesperson" context="{'group_by': 'x_report_salesperson'}"/>
+                        <filter string="Bike Model" name="groupby_model" context="{'group_by': 'x_report_bike_tmpl_id'}"/>
+                        <filter string="Current Stage" name="groupby_stage" context="{'group_by': 'x_trk_stage'}"/>
+                        <filter string="Order Month" name="groupby_month" context="{'group_by': 'x_trk_quotation_date:month'}"/>
+                    </group>
+                </search>
+            </field>
+        </record>
+
+        <!-- Cancelled / rejected orders are NOT hidden: no default filter. -->
+        <record id="action_so_tracking" model="ir.actions.act_window">
+            <field name="name">All Sales Order Tracking</field>
+            <field name="res_model">sale.order.line</field>
+            <!-- list only: a sale.order.line has no useful standalone form view
+                 (unlike PO Tracking, which is one row per purchase.order and can
+                 bind the real order form). The Order column (a many2one) is still
+                 a one-click link into the actual Sales Order form. -->
+            <field name="view_mode">list</field>
+            <field name="view_id" ref="view_so_tracking_list"/>
+            <field name="search_view_id" ref="view_so_tracking_search"/>
+            <field name="domain">[('display_type', '=', False), ('is_downpayment', '=', False), ('product_id', '!=', False)]</field>
+            <field name="context">{'create': False}</field>
+        </record>
+
+        <!-- Under Sales > Reporting (alongside Sales/Salespersons/Products/
+             Customers), not top-level — sale.menu_sale_report itself is widened
+             below so Priyanka/Srushti (salesperson group, not manager) and
+             Amit/Rajshri still see the Reporting menu at all, matching what
+             they could already see as a top-level item. -->
+        <menuitem id="menu_so_tracking"
+                  name="SO Tracking"
+                  parent="sale.menu_sale_report"
+                  action="action_so_tracking"
+                  groups="sales_team.group_sale_salesman,sales_team.group_sale_manager,elegomotors_setup.group_sale_viewer,elegomotors_setup.group_sale_approver,account.group_account_user,base.group_erp_manager"
+                  sequence="45"/>
+
+        <!-- ───────── Download the report as the client's Excel ───────── -->
+        <record id="view_so_tracking_export_form" model="ir.ui.view">
+            <field name="name">elegomotors.so.tracking.export.form</field>
+            <field name="model">elegomotors.so.tracking.export</field>
+            <field name="arch" type="xml">
+                <form string="Download SO Tracking (Excel)">
+                    <field name="line_ids" invisible="1"/>
+                    <div class="alert alert-info" role="alert" invisible="not line_ids">
+                        Only the <field name="line_count" class="oe_inline"/> line(s)
+                        ticked in the report are downloaded.
+                    </div>
+                    <group invisible="line_ids">
+                        <group>
+                            <field name="date_from"/>
+                            <field name="date_to"/>
+                            <field name="stage"/>
+                        </group>
+                        <group>
+                            <field name="partner_id"/>
+                            <field name="x_salesperson"/>
+                            <field name="include_cancelled"/>
+                        </group>
+                    </group>
+                    <footer>
+                        <button name="action_download" type="object" string="Download Excel"
+                                class="btn-primary" data-hotkey="q"/>
+                        <button string="Cancel" special="cancel" data-hotkey="x"/>
+                    </footer>
+                </form>
+            </field>
+        </record>
+
+        <record id="action_so_tracking_export" model="ir.actions.act_window">
+            <field name="name">Download SO Tracking (Excel)</field>
+            <field name="res_model">elegomotors.so.tracking.export</field>
+            <field name="view_mode">form</field>
+            <field name="target">new</field>
+        </record>
+
+        <menuitem id="menu_so_tracking_export"
+                  name="SO Tracking Excel"
+                  parent="sale.menu_sale_report"
+                  action="action_so_tracking_export"
+                  groups="sales_team.group_sale_salesman,sales_team.group_sale_manager,elegomotors_setup.group_sale_viewer,elegomotors_setup.group_sale_approver,account.group_account_user,base.group_erp_manager"
+                  sequence="46"/>
+
+        <!-- Widen the standard Reporting menu's own visibility (default:
+             sales_team.group_sale_manager only) so it still shows for every
+             group SO Tracking / SO Tracking Excel above allow — otherwise those
+             groups would lose the menu entirely, since ir.ui.menu visibility
+             requires every ancestor's own groups check to pass too. -->
+        <record id="sale.menu_sale_report" model="ir.ui.menu">
+            <field name="groups_id" eval="[
+                (4, ref('sales_team.group_sale_salesman')),
+                (4, ref('elegomotors_setup.group_sale_viewer')),
+                (4, ref('elegomotors_setup.group_sale_approver')),
+                (4, ref('account.group_account_user')),
+                (4, ref('base.group_erp_manager')),
+            ]"/>
+        </record>
+
+    </data>
+</odoo>

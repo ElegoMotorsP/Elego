@@ -281,7 +281,11 @@ class PurchaseOrderTracking(models.Model):
         """One row per PART of this PO: the product of an ordinary line, and every
         part of a kit line (a kit is received as its individual parts). Same
         figures as the PO row, worked out by the same functions, but in the
-        PART's own unit. A kit part's ordered quantity is kits x quantity per kit."""
+        PART's own unit. A kit part's ordered quantity is kits x quantity per kit.
+
+        A part common to more than one kit line on the same PO (e.g. a Red CKD
+        kit and a Black CKD kit sharing a wiring harness) is still just ONE row
+        here, its figures summed across every line that uses it — see _trk_merge_part."""
         self.ensure_one()
         gate_type = self._trk_gate_entry_type()
         lines = self.order_line.filtered(
@@ -289,27 +293,60 @@ class PurchaseOrderTracking(models.Model):
         )
         confirmed = self.state in ('purchase', 'done')
         kit_boms = self._trk_kit_boms(lines) if confirmed else {}
-        rows = []
+        by_product = {}
+        product_order = []
         for line in lines:
             kit_bom = kit_boms.get(line.product_id) if confirmed else False
             if kit_bom:
                 per_kit, acc = self._trk_kit_parts(line, gate_type, kit_bom)
                 for bom_line in kit_bom.bom_line_ids:
                     r, p, f, q, s, _is_qc = acc.get(bom_line.id) or (0.0, 0.0, 0.0, 0.0, 0.0, False)
-                    rows.append(self._trk_part_row(
-                        bom_line.product_id, line.product_qty * per_kit[bom_line.id], r, p, f, q, s))
+                    self._trk_merge_part(
+                        by_product, product_order, bom_line.product_id, line.product_id.display_name,
+                        line.product_qty * per_kit[bom_line.id], r, p, f, q, s)
                 continue
             if confirmed:
                 r, p, f, q, s = self._trk_line_figures(line, gate_type, False)
             else:
                 r = p = f = q = s = 0.0
-            rows.append(self._trk_part_row(line.product_id, line.product_qty, r, p, f, q, s))
-        return rows
+            self._trk_merge_part(
+                by_product, product_order, line.product_id, line.product_id.display_name,
+                line.product_qty, r, p, f, q, s)
+        return [
+            self._trk_part_row(
+                entry['product'], entry['ordered'], entry['received'], entry['passed'],
+                entry['failed'], entry['qc_pending'], entry['stock'],
+                used_in=', '.join(entry['sources']) if len(entry['sources']) > 1 else '')
+            for entry in (by_product[pid] for pid in product_order)
+        ]
 
-    def _trk_part_row(self, product, ordered, received, passed, failed, qc_pending, stock):
+    def _trk_merge_part(self, by_product, product_order, product, source_name,
+                         ordered, received, passed, failed, qc_pending, stock):
+        """Accumulate one part's figures into by_product[product.id], tracking
+        which line(s) (kit or ordinary) it came from, so two kits sharing the
+        same part sum into a single entry instead of two separate rows."""
+        entry = by_product.get(product.id)
+        if entry is None:
+            entry = {
+                'product': product, 'ordered': 0.0, 'received': 0.0, 'passed': 0.0,
+                'failed': 0.0, 'qc_pending': 0.0, 'stock': 0.0, 'sources': [],
+            }
+            by_product[product.id] = entry
+            product_order.append(product.id)
+        entry['ordered'] += ordered
+        entry['received'] += received
+        entry['passed'] += passed
+        entry['failed'] += failed
+        entry['qc_pending'] += qc_pending
+        entry['stock'] += stock
+        if source_name not in entry['sources']:
+            entry['sources'].append(source_name)
+
+    def _trk_part_row(self, product, ordered, received, passed, failed, qc_pending, stock, used_in=''):
         self.ensure_one()
         return {
             'name': product.display_name,
+            'used_in': used_in,
             'ordered': ordered,
             'received': received,
             'pending': 0.0 if self.state == 'cancel' else max(ordered - received, 0.0),

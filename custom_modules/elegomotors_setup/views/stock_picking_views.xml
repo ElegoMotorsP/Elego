@@ -235,6 +235,26 @@
     </record>
 
     <!-- ================================================================
+         CKD Parts Summary — combined count per part (across every CKD kit
+         on this receipt that needs it), shown ABOVE the move list so Store
+         counts against one number per part instead of scrolling through a
+         separate row per kit for every shared part. The move list itself is
+         untouched: each move stays its own row so Received/QC can still be
+         entered per kit exactly as before.
+         ================================================================ -->
+    <record id="stock_picking_form_grn_ckd_part_summary" model="ir.ui.view">
+        <field name="name">stock.picking.form.grn.ckd.part.summary</field>
+        <field name="model">stock.picking</field>
+        <field name="inherit_id" ref="stock.view_picking_form"/>
+        <field name="arch" type="xml">
+            <xpath expr="//field[@name='move_ids_without_package']" position="before">
+                <field name="x_grn_ckd_part_summary" widget="html" nolabel="1"
+                       invisible="not x_grn_ckd_part_summary"/>
+            </xpath>
+        </field>
+    </record>
+
+    <!-- ================================================================
          QC Inspection tab — parameter checklist filled by Pratik
          Visible only when the picking has check result rows (i.e. after
          state → in_qc and product has parameters defined).

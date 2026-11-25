@@ -1,6 +1,6 @@
 {
     'name': 'ElegoMotors Workflow Setup',
-    'version': '18.0.152.0.0',
+    'version': '18.0.155.0.0',
     'category': 'Manufacturing',
     'summary': 'ElegoMotors EV 2-wheeler end-to-end manufacturing workflow configuration',
     'description': """
@@ -138,6 +138,7 @@
         'views/warranty_menu.xml',                   # Warranty menu (Registrations, Claims, Policy Rules, API)
         'views/new_bike_model_wizard_views.xml',    # New Bike Model wizard (product + BOM, no developer needed)
         'views/po_tracking_views.xml',              # All Purchase Order Tracking Report (+ Domestic/Import on the PO)
+        'views/so_tracking_views.xml',               # All Sales Order Tracking Report (item-wise) + Excel download
         'views/ckd_kit_views.xml',                  # CKD kits: BoM approval, New CKD Kit wizard, PO reconciliation button
         'views/bill_of_entry_views.xml',            # Bill of Entry: customs duty + landed cost + Import IGST
         'views/ckd_reconciliation_views.xml',       # CKD cost and quantity reconciliation screen

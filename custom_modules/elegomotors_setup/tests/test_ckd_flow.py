@@ -278,6 +278,79 @@ class TestCkdFlow(TransactionCase):
         self.assertAlmostEqual(po.x_trk_received_qty, 7.0)
         self.assertAlmostEqual(po.x_trk_pending_qty, 0.0)
 
+    def test_reconciliation_merges_a_part_shared_by_two_kits(self):
+        """The reconciliation screen (elegomotors.ckd.reconciliation) is one row
+        per PART, not per kit: the chassis shared by Kit A and Kit B must show
+        up ONCE, with ordered/received summed across both kits — not as two
+        separate rows the way the two kits' own moves correctly stay."""
+        kit_b, lamp, po = self._two_kits_sharing_the_chassis(kits_a=3, kits_b=4)
+        picking = self._grn(po)
+        self._receive(picking)
+
+        self.env['elegomotors.ckd.reconciliation'].open_for_order(po)
+        rec = self.env['elegomotors.ckd.reconciliation'].search(
+            [('order_id', '=', po.id)], order='id desc', limit=1)
+
+        chassis_lines = rec.line_ids.filtered(lambda l: l.product_id == self.chassis)
+        self.assertEqual(len(chassis_lines), 1, 'one row for the chassis, not one per kit')
+        self.assertAlmostEqual(chassis_lines.ordered_qty, 7.0, msg='3 (Kit A) + 4 (Kit B)')
+        self.assertAlmostEqual(chassis_lines.received_qty, 7.0)
+        self.assertIn(self.kit.name, chassis_lines.kit_names)
+        self.assertIn(kit_b.name, chassis_lines.kit_names)
+        self.assertEqual(chassis_lines.cost_share, 0.0, 'differs between the two kits (50% vs 60%), left blank')
+        self.assertEqual(chassis_lines.note, 'OK')
+
+        # parts only one kit needs are unaffected: still their own single row
+        motor_lines = rec.line_ids.filtered(lambda l: l.product_id == self.motor)
+        self.assertEqual(len(motor_lines), 1)
+        self.assertEqual(motor_lines.kit_names, self.kit.name)
+        lamp_lines = rec.line_ids.filtered(lambda l: l.product_id == lamp)
+        self.assertEqual(len(lamp_lines), 1)
+        self.assertEqual(lamp_lines.kit_names, kit_b.name)
+        # total rows: chassis + motor + suspension (Kit A) + lamp (Kit B) = 4, not 5
+        self.assertEqual(len(rec.line_ids), 4)
+
+    def test_grn_part_summary_combines_a_part_shared_by_two_kits(self):
+        """The GRN's new Parts Summary table (above the real move list) rolls a
+        part shared by two kits into one row — combined demand/received, and
+        "Used In" naming both kits — while the move list underneath keeps one
+        move per kit untouched (test_two_kits_sharing_a_part_keep_one_move_per_
+        kit_after_mark_to_do already covers that it still does)."""
+        kit_b, lamp, po = self._two_kits_sharing_the_chassis(kits_a=3, kits_b=4)
+        picking = self._grn(po)
+
+        html = picking.x_grn_ckd_part_summary
+        self.assertIn(
+            '<td>%s</td><td style="text-align:right;">7</td>'
+            '<td style="text-align:right;">7</td><td>%s, %s</td>'
+            % (self.chassis.display_name, self.kit.name, kit_b.name),
+            html,
+            'one row for the chassis, demand/received summed (3 + 4), both kits named',
+        )
+        self.assertEqual(html.count('<td>%s</td>' % self.chassis.display_name), 1)
+        # a part only one kit needs still gets its own (single) row
+        self.assertIn(
+            '<td>%s</td><td style="text-align:right;">4</td>'
+            '<td style="text-align:right;">4</td><td>%s</td>'
+            % (lamp.display_name, kit_b.name),
+            html,
+        )
+
+    def test_grn_part_summary_blank_on_a_plain_non_kit_receipt(self):
+        """No CKD kit on the PO at all: the summary table has nothing to add
+        over the move list (one part, one row either way), so stays blank."""
+        plain_part = self.env['product.product'].create({
+            'name': 'ZZ Test Non-Kit Part', 'type': 'consu', 'is_storable': True, 'purchase_ok': True})
+        po = self.env['purchase.order'].create({
+            'partner_id': self.vendor.id,
+            'order_line': [Command.create({
+                'product_id': plain_part.id, 'product_qty': 5, 'price_unit': 10.0,
+                'name': plain_part.name})],
+        })
+        po.button_confirm()
+        picking = self._grn(po)
+        self.assertFalse(picking.x_grn_ckd_part_summary, 'no CKD kit part on this receipt')
+
     def test_three_kits_sharing_a_part_each_get_their_own_move(self):
         lamp = self._part('ZZ Test Lamp')
         kit_b = self._kit('ZZ Test CKD Kit Blue', [(self.chassis, 1.0, 60.0), (lamp, 2.0, 40.0)])
