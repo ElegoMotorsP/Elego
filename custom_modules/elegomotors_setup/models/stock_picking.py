@@ -284,64 +284,6 @@ class StockPicking(models.Model):
         compute='_compute_battery_summary',
     )
 
-    # CKD parts summary — a GRN for two CKD kits that share a part (e.g. a Red
-    # kit and a Black kit both needing the front fender) lists that part as a
-    # separate move per kit (each needs its own Received/QC Passed figures and
-    # its own bom_line_id for kit costing — see StockMove._ego_link_kit_component
-    # for why those moves must stay apart). That makes the part hard to count
-    # physically: the same name shows up twice, three times, scattered among
-    # 200+ other rows. This rolls them into one reference row per part, with
-    # the combined quantity and which kit(s) it belongs to — same idea as the
-    # CKD Reconciliation screen's "Used In" column — sitting above the real
-    # move list so Store can tally against ONE number per part, then still
-    # enter Received/QC per kit in the rows below exactly as before.
-    x_grn_ckd_part_summary = fields.Html(
-        string='Parts to Receive (combined across kits)',
-        compute='_compute_grn_ckd_part_summary',
-    )
-
-    @api.depends('move_ids.product_id', 'move_ids.product_uom_qty', 'move_ids.state',
-                 'move_ids.x_qty_received', 'move_ids.bom_line_id',
-                 'move_ids.purchase_line_id.product_id')
-    def _compute_grn_ckd_part_summary(self):
-        for picking in self:
-            if picking.picking_type_code != 'incoming':
-                picking.x_grn_ckd_part_summary = False
-                continue
-            totals = {}
-            order = []
-            moves = picking.move_ids.filtered(
-                lambda m: m.state != 'cancel' and m.bom_line_id and m.bom_line_id.bom_id.x_is_ckd_kit
-            )
-            for move in moves:
-                key = move.product_id.id
-                kit_name = move.purchase_line_id.product_id.display_name or ''
-                entry = totals.get(key)
-                if entry is None:
-                    entry = {'name': move.product_id.display_name, 'demand': 0.0,
-                             'received': 0.0, 'kits': []}
-                    totals[key] = entry
-                    order.append(key)
-                entry['demand'] += move.product_uom_qty
-                entry['received'] += move.x_qty_received
-                if kit_name and kit_name not in entry['kits']:
-                    entry['kits'].append(kit_name)
-            if not totals:
-                picking.x_grn_ckd_part_summary = False
-                continue
-            rows = ''.join(
-                '<tr><td>%s</td><td style="text-align:right;">%s</td>'
-                '<td style="text-align:right;">%s</td><td>%s</td></tr>'
-                % (totals[key]['name'], '%g' % totals[key]['demand'],
-                   '%g' % totals[key]['received'], ', '.join(totals[key]['kits']))
-                for key in order
-            )
-            picking.x_grn_ckd_part_summary = Markup(
-                '<table class="table table-sm table-bordered" style="max-width:700px;">'
-                '<thead><tr><th>Part</th><th>Demand</th><th>Received</th><th>Used In</th></tr></thead>'
-                '<tbody>%s</tbody></table>' % rows
-            )
-
     @api.depends('move_ids.product_id', 'move_ids.product_uom_qty',
                  'move_ids.state', 'move_ids.x_kit_pack_name',
                  'move_ids.x_battery_cell_hint')
