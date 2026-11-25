@@ -61,7 +61,10 @@ class TestSoTrackingReport(TransactionCase):
         self.assertTrue(line.x_trk_approval_date)
         self.assertTrue(line.x_trk_so_date)
         self.assertEqual(line.x_trk_stage, 'dispatch_pending', 'approved, nothing delivered yet')
-        self.assertEqual(line.x_trk_delivery_status, 'Not Created')
+        # Confirming the SO already created the outgoing delivery picking (standard
+        # Odoo behaviour) — it just isn't validated yet, so this reads "Pending",
+        # not "Not Created" (that status is for a line with no delivery at all).
+        self.assertEqual(line.x_trk_delivery_status, 'Pending')
 
     def test_rejection_shows_as_rejected_until_resubmitted(self):
         order = self._quotation()
