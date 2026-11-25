@@ -21,7 +21,7 @@ except ImportError:  # pragma: no cover - xlsxwriter ships with Odoo
 # (heading, width) in the client's column order
 COLUMNS = [
     ('Order Reference', 16), ('Domestic / Import', 12), ('Vendor', 28), ('Order Deadline', 17),
-    ('Part Name', 34), ('PO Qty', 11), ('GRN No.', 24), ('Supplier Invoice No. / Date', 26),
+    ('Part Name', 34), ('Used In', 28), ('PO Qty', 11), ('GRN No.', 24), ('Supplier Invoice No. / Date', 26),
     ('Elego Purchase Invoice', 24), ('Received', 11), ('Pending', 11), ('QC No.', 24),
     ('PO Value', 14), ('Currency', 9), ('QC Pass', 10), ('QC Reject', 10),
     ('QC Pending', 11), ('Stock', 11), ('Current Stage', 20),
@@ -110,20 +110,21 @@ class PoTrackingExport(models.TransientModel):
             else:
                 sheet.write(row, 3, '', po_text)
             sheet.write(row, 4, '', po_text)
-            sheet.write_number(row, 5, po.x_trk_po_qty, po_num)
-            sheet.write(row, 6, po.x_trk_grn_refs or '', po_text)
-            sheet.write(row, 7, po.x_trk_invoice_refs or '', po_text)
-            sheet.write(row, 8, po.x_trk_bill_refs or '', po_text)
-            sheet.write_number(row, 9, po.x_trk_received_qty, po_num)
-            sheet.write_number(row, 10, po.x_trk_pending_qty, po_num)
-            sheet.write(row, 11, po.x_trk_qc_refs or '', po_text)
-            sheet.write_number(row, 12, po.amount_total, po_num)
-            sheet.write(row, 13, po.currency_id.name or '', po_text)
-            sheet.write_number(row, 14, po.x_trk_qc_passed_qty, po_num)
-            sheet.write_number(row, 15, po.x_trk_qc_rejected_qty, po_num)
-            sheet.write_number(row, 16, po.x_trk_qc_pending_qty, po_num)
-            sheet.write_number(row, 17, po.x_trk_stock_qty, po_num)
-            sheet.write(row, 18, stage_labels.get(po.x_trk_stage, ''), po_text)
+            sheet.write(row, 5, '', po_text)
+            sheet.write_number(row, 6, po.x_trk_po_qty, po_num)
+            sheet.write(row, 7, po.x_trk_grn_refs or '', po_text)
+            sheet.write(row, 8, po.x_trk_invoice_refs or '', po_text)
+            sheet.write(row, 9, po.x_trk_bill_refs or '', po_text)
+            sheet.write_number(row, 10, po.x_trk_received_qty, po_num)
+            sheet.write_number(row, 11, po.x_trk_pending_qty, po_num)
+            sheet.write(row, 12, po.x_trk_qc_refs or '', po_text)
+            sheet.write_number(row, 13, po.amount_total, po_num)
+            sheet.write(row, 14, po.currency_id.name or '', po_text)
+            sheet.write_number(row, 15, po.x_trk_qc_passed_qty, po_num)
+            sheet.write_number(row, 16, po.x_trk_qc_rejected_qty, po_num)
+            sheet.write_number(row, 17, po.x_trk_qc_pending_qty, po_num)
+            sheet.write_number(row, 18, po.x_trk_stock_qty, po_num)
+            sheet.write(row, 19, stage_labels.get(po.x_trk_stage, ''), po_text)
             row += 1
             if not self.include_parts:
                 continue
@@ -131,13 +132,14 @@ class PoTrackingExport(models.TransientModel):
                 for col in range(len(COLUMNS)):
                     sheet.write_blank(row, col, None, blank_part)
                 sheet.write(row, 4, part['name'], part_text)
-                sheet.write_number(row, 5, part['ordered'], part_num)
-                sheet.write_number(row, 9, part['received'], part_num)
-                sheet.write_number(row, 10, part['pending'], part_num)
-                sheet.write_number(row, 14, part['qc_passed'], part_num)
-                sheet.write_number(row, 15, part['qc_rejected'], part_num)
-                sheet.write_number(row, 16, part['qc_pending'], part_num)
-                sheet.write_number(row, 17, part['stock'], part_num)
+                sheet.write(row, 5, part['used_in'], part_text)
+                sheet.write_number(row, 6, part['ordered'], part_num)
+                sheet.write_number(row, 10, part['received'], part_num)
+                sheet.write_number(row, 11, part['pending'], part_num)
+                sheet.write_number(row, 15, part['qc_passed'], part_num)
+                sheet.write_number(row, 16, part['qc_rejected'], part_num)
+                sheet.write_number(row, 17, part['qc_pending'], part_num)
+                sheet.write_number(row, 18, part['stock'], part_num)
                 row += 1
         book.close()
         return output.getvalue()

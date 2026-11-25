@@ -190,6 +190,84 @@ class TestPoTrackingReport(TransactionCase):
         self.assertAlmostEqual(plain['received'], 3.0)
         self.assertAlmostEqual(plain['stock'], 3.0)
 
+    def _two_kit_po_sharing_a_part(self):
+        """Two kits on one PO (e.g. a Red CKD kit and a Black CKD kit) sharing one
+        part (a wiring harness): Red orders 5 kits (= 10 harnesses, 2/kit),
+        receives 6; Black orders 5 kits (= 15 harnesses, 3/kit), receives 9.
+        Combined the harness should read 25 ordered / 15 received, in ONE row."""
+        env = self.env
+        harness = env['product.product'].create({
+            'name': 'ZZ Test Shared Harness', 'type': 'consu', 'is_storable': True, 'purchase_ok': True})
+        red_only = env['product.product'].create({
+            'name': 'ZZ Test Red-Only Part', 'type': 'consu', 'is_storable': True, 'purchase_ok': True})
+        red_kit = env['product.product'].create({
+            'name': 'ZZ Test Red CKD Kit', 'type': 'consu', 'is_storable': False, 'purchase_ok': True})
+        black_kit = env['product.product'].create({
+            'name': 'ZZ Test Black CKD Kit', 'type': 'consu', 'is_storable': False, 'purchase_ok': True})
+        red_bom = env['mrp.bom'].create({
+            'product_tmpl_id': red_kit.product_tmpl_id.id, 'type': 'phantom', 'product_qty': 1.0,
+            'bom_line_ids': [
+                Command.create({'product_id': harness.id, 'product_qty': 2.0}),
+                Command.create({'product_id': red_only.id, 'product_qty': 1.0}),
+            ],
+        })
+        black_bom = env['mrp.bom'].create({
+            'product_tmpl_id': black_kit.product_tmpl_id.id, 'type': 'phantom', 'product_qty': 1.0,
+            'bom_line_ids': [
+                Command.create({'product_id': harness.id, 'product_qty': 3.0}),
+            ],
+        })
+        po = env['purchase.order'].create({
+            'partner_id': self.vendor.id,
+            'order_line': [
+                Command.create({'product_id': red_kit.id, 'product_qty': 5, 'price_unit': 100.0,
+                                'name': red_kit.name}),
+                Command.create({'product_id': black_kit.id, 'product_qty': 5, 'price_unit': 100.0,
+                                'name': black_kit.name}),
+            ],
+        })
+        po.button_confirm()
+        red_line, black_line = po.order_line
+        supplier = env.ref('stock.stock_location_suppliers')
+        stock = self.warehouse.lot_stock_id
+
+        def move(line, product, qty, bom_line):
+            return Command.create({
+                'name': product.name, 'product_id': product.id, 'product_uom': product.uom_id.id,
+                'product_uom_qty': qty, 'purchase_line_id': line.id, 'bom_line_id': bom_line.id,
+                'location_id': supplier.id, 'location_dest_id': stock.id,
+            })
+
+        picking = env['stock.picking'].create({
+            'picking_type_id': self.warehouse.in_type_id.id, 'partner_id': self.vendor.id,
+            'location_id': supplier.id, 'location_dest_id': stock.id, 'x_source_po_id': po.id,
+            'move_ids_without_package': [
+                move(red_line, harness, 6, red_bom.bom_line_ids[0]),
+                move(red_line, red_only, 5, red_bom.bom_line_ids[1]),
+                move(black_line, harness, 9, black_bom.bom_line_ids[0]),
+            ],
+        })
+        picking.action_confirm()
+        for m in picking.move_ids:
+            m.picked = True
+        picking.with_context(cancel_backorder=True)._action_done()
+        po.invalidate_recordset()
+        return po, red_kit, black_kit
+
+    def test_part_rows_merge_a_part_shared_by_two_kits(self):
+        po, red_kit, black_kit = self._two_kit_po_sharing_a_part()
+        rows = {r['name']: r for r in po._trk_part_rows()}
+        self.assertEqual(len(rows), 2, 'one row for the shared harness, one for the Red-only part')
+        harness = rows['ZZ Test Shared Harness']
+        self.assertAlmostEqual(harness['ordered'], 25.0, msg='5 kits x 2 (Red) + 5 kits x 3 (Black)')
+        self.assertAlmostEqual(harness['received'], 15.0, msg='6 (Red) + 9 (Black)')
+        self.assertIn(red_kit.name, harness['used_in'])
+        self.assertIn(black_kit.name, harness['used_in'])
+        red_only = rows['ZZ Test Red-Only Part']
+        self.assertEqual(red_only['used_in'], '', 'used by only one kit needs no "Used In" clutter')
+        self.assertAlmostEqual(red_only['ordered'], 5.0)
+        self.assertAlmostEqual(red_only['received'], 5.0)
+
     def test_client_excel_has_a_row_per_po_and_per_part(self):
         po = self._kit_po()
         wizard = self.env['elegomotors.po.tracking.export'].create({'order_ids': [Command.set(po.ids)]})

@@ -3,3 +3,4 @@ from . import test_ckd_flow
 from . import test_ckd_part_allocation
 from . import test_overseas_po
 from . import test_po_tracking_report
+from . import test_so_tracking_report

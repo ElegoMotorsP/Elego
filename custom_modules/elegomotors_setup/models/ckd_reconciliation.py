@@ -56,12 +56,19 @@ class CkdReconciliation(models.TransientModel):
         return base, landed
 
     def _compute_lines(self):
+        """One line per PART, not per kit: a part common to two kits on this PO
+        (e.g. a Red CKD kit and a Black CKD kit sharing a wiring harness) is
+        counted once, with its ordered/received/value figures summed across
+        every kit that uses it — "Used In" lists which. Before this, the same
+        part showed up once per kit it belonged to, which made the screen (and
+        the client's Excel) far longer than the PO actually needed."""
         self.ensure_one()
         order = self.order_id
         company = order.company_id
         Line = self.env['elegomotors.ckd.reconciliation.line']
-        vals_list = []
         totals = defaultdict(float)
+        by_product = {}
+        product_order = []
         for po_line in order._ckd_kit_lines():
             bom = po_line._ckd_kit_bom()
             alloc = po_line._ckd_allocation()
@@ -85,33 +92,63 @@ class CkdReconciliation(models.TransientModel):
                     day = move.date.date() if move.date else fields.Date.context_today(self)
                     expected += order.currency_id._convert(foreign, company.currency_id, company, day)
                 allocated, landed = self._layers_for(moves)
-                diff = allocated - expected
-                qty_diff = received - ordered
-                notes = []
-                rounding = company.currency_id.rounding
-                if float_compare(qty_diff, 0.0, precision_rounding=bom_line.product_uom_id.rounding) < 0:
-                    notes.append(_('Short by %s', abs(qty_diff)))
-                elif float_compare(qty_diff, 0.0, precision_rounding=bom_line.product_uom_id.rounding) > 0:
-                    notes.append(_('Over-received by %s', qty_diff))
-                if abs(diff) > max(rounding * max(len(moves), 1), 1.0):
-                    notes.append(_('Value differs from kit price × share'))
-                vals_list.append({
-                    'wizard_id': self.id,
-                    'kit_id': po_line.product_id.id,
-                    'product_id': bom_line.product_id.id,
-                    'qty_per_kit': bom_line.product_qty,
-                    'cost_share': share,
-                    'frozen': bool(alloc),
-                    'ordered_qty': ordered,
-                    'received_qty': received,
-                    'allocated_value': allocated,
-                    'expected_value': expected,
-                    'landed_value': landed,
-                    'note': '; '.join(notes) or 'OK',
-                })
+
+                pid = bom_line.product_id.id
+                entry = by_product.get(pid)
+                if entry is None:
+                    entry = {
+                        'qty_per_kit': per_kit, 'cost_share': share, 'frozen': True,
+                        'ordered_qty': 0.0, 'received_qty': 0.0, 'allocated_value': 0.0,
+                        'expected_value': 0.0, 'landed_value': 0.0, 'kits': [],
+                    }
+                    by_product[pid] = entry
+                    product_order.append(pid)
+                elif entry['qty_per_kit'] != per_kit or entry['cost_share'] != share:
+                    # Differs between the kits sharing this part — no single figure
+                    # describes it, so leave these two descriptive columns blank
+                    # rather than show a number that only applies to one of them.
+                    entry['qty_per_kit'] = 0.0
+                    entry['cost_share'] = 0.0
+                entry['kits'].append(po_line.product_id.display_name)
+                entry['frozen'] = entry['frozen'] and bool(alloc)
+                entry['ordered_qty'] += ordered
+                entry['received_qty'] += received
+                entry['allocated_value'] += allocated
+                entry['expected_value'] += expected
+                entry['landed_value'] += landed
+
                 totals['allocated'] += allocated
                 totals['expected'] += expected
                 totals['landed'] += landed
+
+        vals_list = []
+        rounding = company.currency_id.rounding
+        for pid in product_order:
+            entry = by_product[pid]
+            diff = entry['allocated_value'] - entry['expected_value']
+            qty_diff = entry['received_qty'] - entry['ordered_qty']
+            part_rounding = self.env['product.product'].browse(pid).uom_id.rounding
+            notes = []
+            if float_compare(qty_diff, 0.0, precision_rounding=part_rounding) < 0:
+                notes.append(_('Short by %s', abs(qty_diff)))
+            elif float_compare(qty_diff, 0.0, precision_rounding=part_rounding) > 0:
+                notes.append(_('Over-received by %s', qty_diff))
+            if abs(diff) > max(rounding * max(len(entry['kits']), 1), 1.0):
+                notes.append(_('Value differs from kit price × share'))
+            vals_list.append({
+                'wizard_id': self.id,
+                'kit_names': ', '.join(dict.fromkeys(entry['kits'])),
+                'product_id': pid,
+                'qty_per_kit': entry['qty_per_kit'],
+                'cost_share': entry['cost_share'],
+                'frozen': entry['frozen'],
+                'ordered_qty': entry['ordered_qty'],
+                'received_qty': entry['received_qty'],
+                'allocated_value': entry['allocated_value'],
+                'expected_value': entry['expected_value'],
+                'landed_value': entry['landed_value'],
+                'note': '; '.join(notes) or 'OK',
+            })
         Line.create(vals_list)
 
         boes = self.env['elegomotors.bill.of.entry'].search([
@@ -152,12 +189,15 @@ class CkdReconciliation(models.TransientModel):
 class CkdReconciliationLine(models.TransientModel):
     _name = 'elegomotors.ckd.reconciliation.line'
     _description = 'CKD Reconciliation Line'
-    _order = 'kit_id, id'
+    _order = 'id'
 
     wizard_id = fields.Many2one(
         'elegomotors.ckd.reconciliation', required=True, ondelete='cascade')
     currency_id = fields.Many2one('res.currency', related='wizard_id.currency_id')
-    kit_id = fields.Many2one('product.product', string='Kit')
+    kit_names = fields.Char(
+        string='Used In',
+        help='Every CKD kit on this PO that uses this part — the figures on '
+             'this row are the sum across all of them.')
     product_id = fields.Many2one('product.product', string='Part')
     qty_per_kit = fields.Float(string='Per Kit', digits='Product Unit of Measure')
     cost_share = fields.Float(string='Cost Share (%)', digits=(5, 2))

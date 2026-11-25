@@ -34,8 +34,8 @@
                         <field name="currency_id" invisible="1"/>
                         <field name="line_ids" nolabel="1">
                             <list decoration-warning="note != 'OK'" create="0" delete="0" edit="0">
-                                <field name="kit_id" optional="show"/>
                                 <field name="product_id"/>
+                                <field name="kit_names" optional="show"/>
                                 <field name="qty_per_kit" optional="show"/>
                                 <field name="cost_share"/>
                                 <field name="frozen" optional="show"/>
