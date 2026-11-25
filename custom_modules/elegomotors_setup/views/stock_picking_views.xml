@@ -182,12 +182,17 @@
                 <attribute name="readonly">parent.picking_type_code == 'incoming'</attribute>
             </xpath>
 
-            <!-- PO Demand Quantity: force the ordered/demand quantity (from the
-                 source Purchase Order) to always display on the Operations tab
-                 during the inward process, so staff can compare demand vs received
-                 at a glance instead of needing to open the column selector. -->
+            <!-- PO Demand Quantity: show the combined demand across every CKD
+                 kit sharing this part (StockMove._compute_ckd_merge_display)
+                 instead of this move's own demand alone — equal to the move's
+                 own demand whenever the part isn't shared, so nothing changes
+                 for an ordinary line. Always on, so staff can compare demand
+                 vs received at a glance instead of needing the column picker. -->
             <xpath expr="//field[@name='move_ids_without_package']//list//field[@name='product_uom_qty']" position="attributes">
-                <attribute name="optional">show</attribute>
+                <attribute name="column_invisible">1</attribute>
+            </xpath>
+            <xpath expr="//field[@name='move_ids_without_package']//list//field[@name='product_uom_qty']" position="after">
+                <field name="x_ckd_merge_total_demand" string="Demand" optional="show"/>
             </xpath>
 
             <!-- Show lot/serial column on incoming receipts only during QC phase —
@@ -230,26 +235,6 @@
             <xpath expr="//field[@name='move_ids_without_package']" position="after">
                 <field name="x_battery_summary" widget="html" nolabel="1"
                        invisible="not x_battery_summary"/>
-            </xpath>
-        </field>
-    </record>
-
-    <!-- ================================================================
-         CKD Parts Summary — combined count per part (across every CKD kit
-         on this receipt that needs it), shown ABOVE the move list so Store
-         counts against one number per part instead of scrolling through a
-         separate row per kit for every shared part. The move list itself is
-         untouched: each move stays its own row so Received/QC can still be
-         entered per kit exactly as before.
-         ================================================================ -->
-    <record id="stock_picking_form_grn_ckd_part_summary" model="ir.ui.view">
-        <field name="name">stock.picking.form.grn.ckd.part.summary</field>
-        <field name="model">stock.picking</field>
-        <field name="inherit_id" ref="stock.view_picking_form"/>
-        <field name="arch" type="xml">
-            <xpath expr="//field[@name='move_ids_without_package']" position="before">
-                <field name="x_grn_ckd_part_summary" widget="html" nolabel="1"
-                       invisible="not x_grn_ckd_part_summary"/>
             </xpath>
         </field>
     </record>
@@ -310,12 +295,17 @@
         <field name="model">stock.picking</field>
         <field name="inherit_id" ref="stock.view_picking_form"/>
         <field name="arch" type="xml">
+            <!-- Received / QC Passed go through the CKD-merge-aware proxy
+                 fields: on an ordinary row these just mirror x_qty_received /
+                 x_qty_qc_passed; on the one visible row of a part shared by
+                 several kits, entering a number here distributes it across
+                 each kit's own move underneath (StockMove._ckd_distribute). -->
             <xpath expr="//field[@name='move_ids_without_package']//list//field[@name='quantity']" position="after">
-                <field name="x_qty_received"
+                <field name="x_ckd_merge_received_input"
                        string="Received"
                        column_invisible="parent.picking_type_code != 'incoming'"
                        readonly="parent.x_gate_entry_state not in ('pending_qc',) or parent.state == 'done'"/>
-                <field name="x_qty_qc_passed"
+                <field name="x_ckd_merge_qc_passed_input"
                        string="QC Passed"
                        column_invisible="parent.picking_type_code != 'incoming'"
                        readonly="parent.x_gate_entry_state not in ('in_qc',) or parent.state == 'done'"/>
@@ -325,6 +315,36 @@
                 <field name="x_qty_final"
                        string="Final Quantities"
                        column_invisible="parent.picking_type_code != 'incoming'"/>
+            </xpath>
+        </field>
+    </record>
+
+    <!-- ================================================================
+         CKD part merge: a part common to several CKD kits on the same
+         receipt (e.g. a Red kit and a Black kit both needing the front
+         fender) collapses into ONE row here — the "Kit" column lists every
+         kit it belongs to, Demand/Received/QC Passed/QC Failed/Final above
+         show the combined total, and every OTHER kit's own move for that
+         part is hidden (not removed: still its own move underneath, still
+         counted individually — see StockMove._ckd_merge_group). Received and
+         QC Passed are entered ONCE on the visible row and distributed to
+         each kit's own move automatically, in the order the kits were
+         ordered in, so a shortfall or an over-receipt lands on the last kit
+         in line (StockMove._ckd_distribute).
+         ================================================================ -->
+    <record id="stock_picking_form_ckd_merge" model="ir.ui.view">
+        <field name="name">stock.picking.form.ckd.merge</field>
+        <field name="model">stock.picking</field>
+        <field name="inherit_id" ref="stock.view_picking_form"/>
+        <field name="arch" type="xml">
+            <xpath expr="//field[@name='move_ids_without_package']//list" position="attributes">
+                <attribute name="decoration-muted">x_ckd_merge_hidden</attribute>
+            </xpath>
+            <xpath expr="//field[@name='move_ids_without_package']//list//field[@name='product_id']" position="before">
+                <field name="x_ckd_merge_hidden" column_invisible="1"/>
+            </xpath>
+            <xpath expr="//field[@name='move_ids_without_package']//list//field[@name='description_bom_line']" position="replace">
+                <field name="x_ckd_merge_used_in" string="Kit" optional="show"/>
             </xpath>
         </field>
     </record>

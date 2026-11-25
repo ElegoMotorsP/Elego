@@ -310,46 +310,89 @@ class TestCkdFlow(TransactionCase):
         # total rows: chassis + motor + suspension (Kit A) + lamp (Kit B) = 4, not 5
         self.assertEqual(len(rec.line_ids), 4)
 
-    def test_grn_part_summary_combines_a_part_shared_by_two_kits(self):
-        """The GRN's new Parts Summary table (above the real move list) rolls a
-        part shared by two kits into one row — combined demand/received, and
-        "Used In" naming both kits — while the move list underneath keeps one
-        move per kit untouched (test_two_kits_sharing_a_part_keep_one_move_per_
-        kit_after_mark_to_do already covers that it still does)."""
+    def test_ckd_merge_group_and_representative(self):
+        """A part shared by two kits groups both moves together; the
+        representative is the FIRST kit's move (by its line's own order on
+        the PO). A part only one kit needs is its own trivial group of one,
+        and isn't hidden."""
         kit_b, lamp, po = self._two_kits_sharing_the_chassis(kits_a=3, kits_b=4)
         picking = self._grn(po)
+        chassis_moves = self._moves_of(picking, self.chassis)
+        move_a, move_b = chassis_moves
 
-        html = picking.x_grn_ckd_part_summary
-        self.assertIn(
-            '<td>%s</td><td style="text-align:right;">7</td>'
-            '<td style="text-align:right;">7</td><td>%s, %s</td>'
-            % (self.chassis.display_name, self.kit.name, kit_b.name),
-            html,
-            'one row for the chassis, demand/received summed (3 + 4), both kits named',
-        )
-        self.assertEqual(html.count('<td>%s</td>' % self.chassis.display_name), 1)
-        # a part only one kit needs still gets its own (single) row
-        self.assertIn(
-            '<td>%s</td><td style="text-align:right;">4</td>'
-            '<td style="text-align:right;">4</td><td>%s</td>'
-            % (lamp.display_name, kit_b.name),
-            html,
-        )
+        group = move_a._ckd_merge_group()
+        self.assertEqual(len(group), 2)
+        self.assertEqual(move_a._ckd_merge_representative(), move_a, 'first kit by PO line order')
+        self.assertEqual(move_b._ckd_merge_representative(), move_a)
+        self.assertFalse(move_a.x_ckd_merge_hidden)
+        self.assertTrue(move_b.x_ckd_merge_hidden)
+        self.assertEqual(move_a.x_ckd_merge_used_in, '%s, %s' % (self.kit.name, kit_b.name))
+        self.assertAlmostEqual(move_a.x_ckd_merge_total_demand, 7.0, msg='3 (Kit A) + 4 (Kit B)')
+        # hidden row still reports its own plain figures, unaffected
+        self.assertAlmostEqual(move_b.x_ckd_merge_total_demand, 4.0)
 
-    def test_grn_part_summary_blank_on_a_plain_non_kit_receipt(self):
-        """No CKD kit on the PO at all: the summary table has nothing to add
-        over the move list (one part, one row either way), so stays blank."""
-        plain_part = self.env['product.product'].create({
-            'name': 'ZZ Test Non-Kit Part', 'type': 'consu', 'is_storable': True, 'purchase_ok': True})
-        po = self.env['purchase.order'].create({
-            'partner_id': self.vendor.id,
-            'order_line': [Command.create({
-                'product_id': plain_part.id, 'product_qty': 5, 'price_unit': 10.0,
-                'name': plain_part.name})],
-        })
-        po.button_confirm()
+        lamp_move = self._moves_of(picking, lamp)
+        self.assertEqual(len(lamp_move._ckd_merge_group()), 1, 'only Kit B needs the lamp')
+        self.assertFalse(lamp_move.x_ckd_merge_hidden)
+        self.assertEqual(lamp_move.x_ckd_merge_used_in, lamp_move.description_bom_line)
+
+    def test_ckd_merge_received_distributes_in_kit_order_shortfall_on_last(self):
+        """Entering a combined Received on the representative row fills each
+        kit's own move in PO-line order — a shortfall lands on the LAST kit
+        in line, an over-receipt is absorbed there too."""
+        kit_b, lamp, po = self._two_kits_sharing_the_chassis(kits_a=3, kits_b=4)
         picking = self._grn(po)
-        self.assertFalse(picking.x_grn_ckd_part_summary, 'no CKD kit part on this receipt')
+        move_a, move_b = self._moves_of(picking, self.chassis)
+
+        move_a.x_ckd_merge_received_input = 5.0  # less than the 7 demanded
+        self.assertAlmostEqual(move_a.x_qty_received, 3.0, msg='Kit A (first in line) filled in full')
+        self.assertAlmostEqual(move_b.x_qty_received, 2.0, msg='Kit B gets what is left: 5 - 3')
+        self.assertAlmostEqual(move_a.x_ckd_merge_received_input, 5.0, msg='still reads back what was typed')
+
+        move_a.x_ckd_merge_received_input = 9.0  # more than the 7 demanded
+        self.assertAlmostEqual(move_a.x_qty_received, 3.0, msg='Kit A never gets more than its own demand')
+        self.assertAlmostEqual(move_b.x_qty_received, 6.0, msg='Kit B (last in line) absorbs the extra 2')
+
+    def test_ckd_merge_qc_passed_capped_per_kit_by_its_own_received(self):
+        kit_b, lamp, po = self._two_kits_sharing_the_chassis(kits_a=3, kits_b=4)
+        picking = self._grn(po)
+        move_a, move_b = self._moves_of(picking, self.chassis)
+        move_a.x_ckd_merge_received_input = 7.0
+        move_a.x_ckd_merge_qc_passed_input = 5.0
+        self.assertAlmostEqual(move_a.x_qty_qc_passed, 3.0, msg='Kit A fully passed (its own received is 3)')
+        self.assertAlmostEqual(move_b.x_qty_qc_passed, 2.0, msg='Kit B gets the remaining 2 of the 5 passed')
+
+    def test_ckd_merge_qc_failed_and_final_are_group_totals_on_the_representative(self):
+        kit_b, lamp, po = self._two_kits_sharing_the_chassis(kits_a=3, kits_b=4)
+        picking = self._grn(po)
+        move_a, move_b = self._moves_of(picking, self.chassis)
+        move_a.x_ckd_merge_received_input = 7.0
+        move_a.x_ckd_merge_qc_passed_input = 5.0
+        picking.x_gate_entry_state = 'ready'
+        self.assertAlmostEqual(move_a.x_qty_qc_failed, 2.0, msg='group received 7 - group passed 5')
+        self.assertAlmostEqual(move_a.x_qty_final, 5.0)
+        # the hidden row still carries its own share, not the group total
+        self.assertAlmostEqual(move_b.x_qty_qc_failed, move_b.x_qty_received - move_b.x_qty_qc_passed)
+        self.assertAlmostEqual(move_b.x_qty_final, move_b.x_qty_qc_passed)
+
+    def test_ckd_merge_excludes_lot_tracked_products(self):
+        """A CKD part that itself needs a serial/lot is never grouped, even
+        when a kit shares it with another — merging it would get in the way
+        of assigning each physical unit its own serial."""
+        tracked = self._part('ZZ Test Tracked Part')
+        tracked.tracking = 'serial'
+        kit_b = self._kit('ZZ Test CKD Kit Blue', [(tracked, 1.0, 60.0), (self.motor, 1.0, 40.0)])
+        self.bom.bom_line_ids.filtered(lambda l: l.product_id == self.chassis).product_id = tracked
+        self.bom.bom_line_ids.filtered(lambda l: l.product_id == tracked).cost_share = 50.0
+        self.bom.bom_line_ids.filtered(lambda l: l.product_id == self.motor).cost_share = 30.0
+        self.bom.action_approve_cost_share()
+        po = self._po_of([(self.kit, 3), (kit_b, 4)])
+        picking = self._grn(po)
+        moves = self._moves_of(picking, tracked)
+        self.assertEqual(len(moves), 2, 'still one move per kit, shared part or not')
+        for move in moves:
+            self.assertEqual(len(move._ckd_merge_group()), 0, 'lot-tracked product is never merged')
+            self.assertFalse(move.x_ckd_merge_hidden)
 
     def test_three_kits_sharing_a_part_each_get_their_own_move(self):
         lamp = self._part('ZZ Test Lamp')

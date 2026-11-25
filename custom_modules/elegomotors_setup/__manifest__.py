@@ -1,6 +1,6 @@
 {
     'name': 'ElegoMotors Workflow Setup',
-    'version': '18.0.155.0.0',
+    'version': '18.0.156.0.0',
     'category': 'Manufacturing',
     'summary': 'ElegoMotors EV 2-wheeler end-to-end manufacturing workflow configuration',
     'description': """
@@ -155,6 +155,7 @@
             'elegomotors_setup/static/src/js/barcode_scan_bike_serials.js',
             'elegomotors_setup/static/src/xml/barcode_scan_bike_serials.xml',
             'elegomotors_setup/static/src/css/product_configurator.css',
+            'elegomotors_setup/static/src/css/ckd_merged_moves.css',
         ],
     },
     'installable': True,

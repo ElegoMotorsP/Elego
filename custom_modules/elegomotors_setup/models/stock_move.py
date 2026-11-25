@@ -109,26 +109,189 @@ class StockMove(models.Model):
                 if bom and bom.type == 'phantom' else ''
             )
 
-    @api.depends('x_qty_received', 'x_qty_qc_passed', 'picking_id.x_gate_entry_state')
+    @api.depends('x_qty_received', 'x_qty_qc_passed', 'picking_id.x_gate_entry_state',
+                 'picking_id.move_ids.x_qty_received', 'picking_id.move_ids.x_qty_qc_passed')
     def _compute_qc_failed(self):
         for move in self:
             # Only meaningful once QC has been decided (approved); show 0 while
             # inspection is still in progress, otherwise the formula reads as
             # "received - 0" and every move looks fully failed before anyone
             # has actually inspected it.
-            if move.picking_id.x_gate_entry_state == 'ready':
-                move.x_qty_qc_failed = move.x_qty_received - move.x_qty_qc_passed
-            else:
+            if move.picking_id.x_gate_entry_state != 'ready':
                 move.x_qty_qc_failed = 0.0
+                continue
+            group = move._ckd_merge_group()
+            if len(group) > 1 and move.id == move._ckd_merge_representative().id:
+                # The merged row shows the group's combined failed count —
+                # each kit's own move still carries its own share underneath.
+                move.x_qty_qc_failed = sum(group.mapped('x_qty_received')) - sum(group.mapped('x_qty_qc_passed'))
+            else:
+                move.x_qty_qc_failed = move.x_qty_received - move.x_qty_qc_passed
 
-    @api.depends('x_qty_qc_passed', 'picking_id.x_gate_entry_state')
+    @api.depends('x_qty_qc_passed', 'picking_id.x_gate_entry_state',
+                 'picking_id.move_ids.x_qty_qc_passed')
     def _compute_qty_final(self):
         for move in self:
             # Mirror x_qty_qc_passed only once QC has been decided (approved)
-            if move.picking_id.x_gate_entry_state == 'ready':
-                move.x_qty_final = move.x_qty_qc_passed
-            else:
+            if move.picking_id.x_gate_entry_state != 'ready':
                 move.x_qty_final = 0.0
+                continue
+            group = move._ckd_merge_group()
+            if len(group) > 1 and move.id == move._ckd_merge_representative().id:
+                move.x_qty_final = sum(group.mapped('x_qty_qc_passed'))
+            else:
+                move.x_qty_final = move.x_qty_qc_passed
+
+    # ------------------------------------------------------------------
+    # CKD part merge: a part common to two or more CKD kits on the same
+    # receipt (e.g. a Red kit and a Black kit both needing the front fender)
+    # keeps one move per kit underneath — each needs its own Received/QC
+    # figures and its own bom_line_id for kit costing (see
+    # _ego_link_kit_component above) — but the Operations tab shows ONE row
+    # for the part: the FIRST kit's move (by the kit's own line order on the
+    # PO) stays visible, its Received/QC Passed cells repurposed to mean the
+    # combined total, and every other sibling move is hidden (not removed —
+    # still there, still counted individually, just not a separate row to
+    # scroll past). Products that are individually lot/serial-tracked are
+    # never merged: each physical unit still needs its own row to take a
+    # serial number.
+    # ------------------------------------------------------------------
+
+    def _ckd_merge_group(self):
+        """This move's CKD-merge siblings on the same receipt, itself
+        included — every live move of the same product, on the same
+        picking, tied to a CKD kit's bom_line, for a product that isn't
+        individually lot/serial tracked. Empty when this move isn't part of
+        a mergeable CKD group at all (plain part, not a CKD kit, or a
+        serial/lot-tracked product)."""
+        self.ensure_one()
+        if not self.bom_line_id or not self.bom_line_id.bom_id.x_is_ckd_kit:
+            return self.browse()
+        if self.product_id.tracking != 'none':
+            return self.browse()
+        return self.picking_id.move_ids.filtered(
+            lambda m: m.state != 'cancel' and m.product_id == self.product_id
+            and m.bom_line_id and m.bom_line_id.bom_id.x_is_ckd_kit
+        )
+
+    def _ckd_merge_representative(self):
+        """The one move of this CKD-merge group whose row stays visible and
+        whose Received/QC Passed cells drive the whole group — first by the
+        kit line's own position on the PO, so a shortfall or an over-receipt
+        always lands on the LAST kit in line, matching the order the kits
+        were ordered in. A group of one (no merge needed) is its own
+        representative."""
+        self.ensure_one()
+        group = self._ckd_merge_group()
+        if not group:
+            return self
+        return group.sorted(lambda m: (m.purchase_line_id.sequence or 0, m.purchase_line_id.id, m.id))[0]
+
+    x_ckd_merge_hidden = fields.Boolean(
+        compute='_compute_ckd_merge_display', store=False,
+        help='True for every move of a merged CKD part except the one '
+             'representing the whole group on screen.')
+    x_ckd_merge_used_in = fields.Char(
+        string='Kit', compute='_compute_ckd_merge_display', store=False,
+        help='Which kit(s) this part belongs to — every kit on the group '
+             'row, just this one\'s own kit line everywhere else.')
+    x_ckd_merge_total_demand = fields.Float(
+        string='Demand', compute='_compute_ckd_merge_display', store=False,
+        digits='Product Unit of Measure',
+        help='Combined demand across every kit sharing this part on the '
+             'group row; this move\'s own demand everywhere else.')
+
+    @api.depends('product_id', 'picking_id', 'bom_line_id', 'state', 'product_uom_qty',
+                 'purchase_line_id', 'description_bom_line')
+    def _compute_ckd_merge_display(self):
+        for move in self:
+            group = move._ckd_merge_group()
+            if len(group) <= 1:
+                move.x_ckd_merge_hidden = False
+                move.x_ckd_merge_used_in = move.description_bom_line or ''
+                move.x_ckd_merge_total_demand = move.product_uom_qty
+                continue
+            ordered = group.sorted(lambda m: (m.purchase_line_id.sequence or 0, m.purchase_line_id.id, m.id))
+            rep = ordered[0]
+            move.x_ckd_merge_hidden = move.id != rep.id
+            if move.id == rep.id:
+                kits = []
+                for m in ordered:
+                    name = m.purchase_line_id.product_id.display_name
+                    if name and name not in kits:
+                        kits.append(name)
+                move.x_ckd_merge_used_in = ', '.join(kits)
+                move.x_ckd_merge_total_demand = sum(group.mapped('product_uom_qty'))
+            else:
+                move.x_ckd_merge_used_in = move.description_bom_line or ''
+                move.x_ckd_merge_total_demand = move.product_uom_qty
+
+    x_ckd_merge_received_input = fields.Float(
+        string='Received', digits='Product Unit of Measure',
+        compute='_compute_ckd_merge_inputs', inverse='_inverse_ckd_merge_received',
+        help='Received quantity. On a part shared by several kits, this is '
+             'the combined total — enter it once here and it fills each '
+             "kit's own figure underneath, in the order the kits were "
+             'ordered in, kit by kit until the number runs out.')
+    x_ckd_merge_qc_passed_input = fields.Float(
+        string='QC Passed', digits='Product Unit of Measure',
+        compute='_compute_ckd_merge_inputs', inverse='_inverse_ckd_merge_qc_passed',
+        help='Same idea as Received above, for the quantity that passed QC '
+             "— capped per kit at what that kit's own move actually received.")
+
+    @api.depends('x_qty_received', 'x_qty_qc_passed', 'product_id', 'picking_id', 'bom_line_id',
+                 'picking_id.move_ids.x_qty_received', 'picking_id.move_ids.x_qty_qc_passed')
+    def _compute_ckd_merge_inputs(self):
+        for move in self:
+            group = move._ckd_merge_group()
+            if len(group) <= 1 or move.id != move._ckd_merge_representative().id:
+                move.x_ckd_merge_received_input = move.x_qty_received
+                move.x_ckd_merge_qc_passed_input = move.x_qty_qc_passed
+            else:
+                move.x_ckd_merge_received_input = sum(group.mapped('x_qty_received'))
+                move.x_ckd_merge_qc_passed_input = sum(group.mapped('x_qty_qc_passed'))
+
+    def _inverse_ckd_merge_received(self):
+        for move in self:
+            group = move._ckd_merge_group()
+            if len(group) <= 1:
+                move.x_qty_received = move.x_ckd_merge_received_input
+            else:
+                move._ckd_distribute(group, received=move.x_ckd_merge_received_input)
+
+    def _inverse_ckd_merge_qc_passed(self):
+        for move in self:
+            group = move._ckd_merge_group()
+            if len(group) <= 1:
+                move.x_qty_qc_passed = move.x_ckd_merge_qc_passed_input
+            else:
+                move._ckd_distribute(group, qc_passed=move.x_ckd_merge_qc_passed_input)
+
+    def _ckd_distribute(self, group, received=None, qc_passed=None):
+        """Spread a merged Received and/or QC Passed total across every move
+        in the group, in kit order (by the kit line's own sequence on the
+        PO): each kit's own demand is filled before the next kit gets
+        anything, so a shortfall lands on the LAST kit in line and an
+        over-receipt is absorbed there too. QC Passed is always capped per
+        move at that move's own Received — never more than what actually
+        arrived for that kit. Passing None for one of the two leaves it
+        untouched, so editing Received alone doesn't reset QC Passed."""
+        self.ensure_one()
+        ordered = group.sorted(lambda m: (m.purchase_line_id.sequence or 0, m.purchase_line_id.id, m.id))
+        last = ordered[-1]
+        if received is not None:
+            remaining = received
+            for move in ordered:
+                share = max(remaining, 0.0) if move.id == last.id else min(
+                    move.product_uom_qty, max(remaining, 0.0))
+                remaining -= share
+                move.x_qty_received = share
+        if qc_passed is not None:
+            remaining = qc_passed
+            for move in ordered:
+                share = min(move.x_qty_received, max(remaining, 0.0))
+                remaining -= share
+                move.x_qty_qc_passed = share
 
     # Barcode wizard: show the scanned component serial next to the relevant BOM row
     x_component_serial = fields.Char(

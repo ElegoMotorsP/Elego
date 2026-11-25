@@ -1,0 +1,10 @@
+/* ElegoMotors — CKD part merge on the GRN Operations list.
+   A part shared by several CKD kits keeps one move per kit underneath
+   (see StockMove._ckd_merge_group in stock_move.py), but only ONE of those
+   rows is meant to be seen — decoration-muted="x_ckd_merge_hidden" marks
+   every other sibling with Odoo's own `text-muted` row class
+   (getClassNameFromDecoration in web/static/src/views/utils.js), and this
+   rule turns that into an actual hide, scoped to this one field only. */
+.o_field_widget[name="move_ids_without_package"] .o_data_row.text-muted {
+    display: none !important;
+}
