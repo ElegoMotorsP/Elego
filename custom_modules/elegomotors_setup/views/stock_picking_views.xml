@@ -301,6 +301,13 @@
                  several kits, entering a number here distributes it across
                  each kit's own move underneath (StockMove._ckd_distribute). -->
             <xpath expr="//field[@name='move_ids_without_package']//list//field[@name='quantity']" position="after">
+                <!-- Kept in the view (invisible) so the "Received defaults to
+                     Demand on a brand-new line" onchange — which writes to
+                     x_qty_received — is part of the view's field spec and the
+                     proxy field below picks up that default live, before the
+                     receipt is even saved. -->
+                <field name="x_qty_received" column_invisible="1"/>
+                <field name="x_qty_qc_passed" column_invisible="1"/>
                 <field name="x_ckd_merge_received_input"
                        string="Received"
                        column_invisible="parent.picking_type_code != 'incoming'"
