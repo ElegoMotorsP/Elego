@@ -1,0 +1,65 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+    <!--
+        Delivery-estimate settings (doc/delivery-estimate-api-plan.md §3).
+        A dedicated, minimal res.company form opened on the main company —
+        deliberately not an xpath into the stock Settings screen, so it cannot
+        break when that view changes. priority 99 keeps it from replacing the
+        normal company form anywhere else.
+    -->
+    <record id="view_company_delivery_estimate_form" model="ir.ui.view">
+        <field name="name">res.company.delivery.estimate.form</field>
+        <field name="model">res.company</field>
+        <field name="priority">99</field>
+        <field name="arch" type="xml">
+            <form string="Delivery Estimate Settings">
+                <sheet>
+                    <div class="oe_title">
+                        <h1>Delivery Estimates</h1>
+                        <field name="name" readonly="1"/>
+                    </div>
+                    <group>
+                        <group string="Production rate">
+                            <field name="x_de_rate_mode" widget="radio"/>
+                            <field name="x_de_fixed_daily_rate"/>
+                            <field name="x_de_rate_window_days" invisible="x_de_rate_mode == 'fixed'"/>
+                            <field name="x_de_max_idle_days" invisible="x_de_rate_mode == 'fixed'"/>
+                            <field name="x_de_anomaly_low_pct" invisible="x_de_rate_mode == 'fixed'"/>
+                            <field name="x_de_anomaly_high_pct" invisible="x_de_rate_mode == 'fixed'"/>
+                        </group>
+                        <group string="Lead-time buffers">
+                            <field name="x_de_qc_pdi_buffer_days"/>
+                            <field name="x_de_dispatch_buffer_days"/>
+                            <field name="x_de_transit_days"/>
+                        </group>
+                        <group string="Material">
+                            <field name="x_de_overdue_slip_days"/>
+                            <field name="x_de_procurement_buffer_days"/>
+                            <field name="x_de_incoming_yield_pct"/>
+                        </group>
+                    </group>
+                    <div class="text-muted">
+                        Debug trace for the API: set the system parameter
+                        <code>elego_connect.delivery_estimate_debug</code> to 1 on
+                        dev / staging only. Never on production.
+                    </div>
+                </sheet>
+            </form>
+        </field>
+    </record>
+
+    <record id="action_delivery_estimate_settings" model="ir.actions.act_window">
+        <field name="name">Delivery Estimate Settings</field>
+        <field name="res_model">res.company</field>
+        <field name="view_mode">form</field>
+        <field name="view_id" ref="view_company_delivery_estimate_form"/>
+        <field name="res_id" ref="base.main_company"/>
+        <field name="target">current</field>
+    </record>
+
+    <menuitem id="menu_delivery_estimate_settings"
+              name="Delivery Estimate Settings"
+              parent="menu_connect_root"
+              action="action_delivery_estimate_settings"
+              sequence="30"/>
+</odoo>
