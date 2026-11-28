@@ -1,6 +1,6 @@
 {
     'name': 'Elego Connect',
-    'version': '18.0.1.0.0',
+    'version': '18.0.1.1.0',
     'category': 'Manufacturing',
     'summary': 'API integration layer for the Elego Connect app (Dealer/Customer/HQ)',
     'description': """
@@ -37,6 +37,12 @@
           "ElegoMotors Tax Invoice" QWeb report (elegomotors_setup) for a
           posted invoice, same pattern as the existing warranty
           certificate download.
+        - GET /elegomotors/connect/delivery-estimates and
+          POST /elegomotors/connect/delivery-estimates/quote — estimated
+          delivery date per bike model for the dealer PO builder, from FG
+          stock, approved backlog, open MOs, trailing production rate, BoM
+          material and open PO receipt dates (doc/delivery-estimate-api-plan.md
+          in the ERP repo). Optional debug trace behind a system parameter.
     """,
     'author': 'ElegoMotors',
     'depends': ['elegomotors_setup'],
@@ -44,6 +50,7 @@
         'security/ir.model.access.csv',
         'views/connect_api_client_views.xml',
         'views/connect_menu.xml',
+        'views/delivery_estimate_views.xml',
     ],
     'installable': True,
     'application': False,

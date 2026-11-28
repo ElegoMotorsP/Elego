@@ -24,6 +24,19 @@ class SaleOrderConnectExtension(models.Model):
         ondelete={'elego_connect': 'set default'},
     )
 
+    # When Accounts / MD approval completed. The delivery estimator queues
+    # approved orders by this (doc/delivery-estimate-api-plan.md §1); orders
+    # approved before this field existed fall back to date_order there.
+    x_approved_at = fields.Datetime(string='Approved On', copy=False, readonly=True)
+
+    def _on_approval_recorded(self):
+        result = super()._on_approval_recorded()
+        for order in self:
+            if (order.state == 'sale' and not order.pending_approval
+                    and not order.x_approved_at):
+                order.x_approved_at = fields.Datetime.now()
+        return result
+
     @api.model
     def create_from_connect_po(self, vals):
         """vals: {poNumber, odooPartnerId, deliveryAddress, remarks,
