@@ -1,8 +1,19 @@
 # Dealer PO Delivery-Estimate API — Plan
 
-> **Status:** first implementation in place (elego_connect v18.0.1.1.0). The engine is
-> verified with 32 plain-pytest tests. The Odoo collector, controller and Odoo tests
-> have **not yet run against a database**, because there is no local Odoo checkout.
+> **Status:** implemented (elego_connect v18.0.1.1.0) and verified locally on
+> 2026-11-28 against a fresh Odoo 18 Community DB with `elegomotors_setup` installed.
+> `quality` and `stock_barcode` (Enterprise) were stubbed from `C:\tmp\elego_test_addons`.
+> - Engine: 32/32 plain-pytest tests pass (`python -m pytest tests/unit`).
+> - Odoo: 10/10 tests pass (`-u elego_connect --test-enable --test-tags /elego_connect`;
+>   run it from PowerShell, because Git Bash rewrites `/elego_connect` into a Windows path).
+> - Live smoke run on the real Elego 1.1 BoM (118 lines): fixed-rate fallback, the
+>   approved backlog taking FG, a short part waiting for its PO, and a part with no
+>   PO or vendor coming back undated, all behaved as specified.
+> - Not yet run on odoo.sh or against production-like data.
+>
+> **Data warning seen in the smoke run:** a BoM part with no open PO **and no vendor
+> on the product** makes every build that needs more of it undated (`unavailable`).
+> Before go-live, check that every BoM component has a vendor with a lead time.
 > **Module:** `custom_modules/elego_connect` (extends the existing Elego Connect API)
 
 ### Implementation map

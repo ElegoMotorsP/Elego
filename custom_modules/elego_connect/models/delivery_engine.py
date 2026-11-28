@@ -478,9 +478,17 @@ def _allocate(inputs, state, pid, demand_ref, tracer, detail=False):
             covers.append((cpid, need, c[0], c[1], c[2]))
     if missing:
         if detail and tracer.enabled:
-            names = ', '.join(state.supply[m].name if m in state.supply else f'product {m}'
-                              for m in missing)
-            tracer.line(f'  BUILD short with no PO and no vendor: {names} -> cannot date')
+            parts = []
+            for m in missing:
+                sup = state.supply.get(m)
+                if sup is None:
+                    parts.append(f'product {m} (not in snapshot)')
+                    continue
+                total = sum(q for _d, q, _r, _k in sup.events)
+                parts.append(f'{sup.name} need {_fmt(var.bom[m])} | on hand + all POs '
+                             f'{_fmt(total)}, already used {_fmt(sup.consumed)}')
+            tracer.line('  BUILD short with no PO and no vendor: ' + '; '.join(parts)
+                        + ' -> cannot date')
         return _result(inputs, BASIS_BUILD, None, None, None, reason=REASON_UNAVAILABLE,
                        extra={'missingComponents': missing} if tracer.enabled else None)
 
