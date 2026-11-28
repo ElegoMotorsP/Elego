@@ -395,6 +395,8 @@ class _State:
         # Trace bookkeeping.
         self.backlog_by_variant = defaultdict(list)   # pid -> [(so, qty)]
         self.wip_taken = defaultdict(list)            # pid -> [(mo, so)]
+        # so -> [(BacklogLine, [unit results])], for estimate_order().
+        self.backlog_results = defaultdict(list)
 
 
 # ----------------------------------------------------------------------
@@ -599,11 +601,14 @@ def _run_backlog(inputs, state, tracer):
         state.backlog_by_variant[b.pid].append((b.so, n))
         if b.so not in sos:
             sos.append(b.so)
+        results = []
         for _ in range(n):
             units += 1
             r = _allocate(inputs, state, b.pid, b.so, tracer)
+            results.append(r)
             if r['readyDate'] is None:
                 unplaced += 1
+        state.backlog_results[b.so].append((b, results))
     if tracer.enabled:
         oldest = lines[0] if lines else None
         msg = f'QUEUE approved backlog ahead: {units} units across {len(sos)} SOs'
@@ -719,51 +724,42 @@ def estimate_catalogue(inputs, tracer=None):
     return {'rate': rate, 'items': items}
 
 
-def estimate_cart(inputs, lines, tracer=None):
-    """lines: [(pid, qty)] in cart order. Unknown pids → 'errors'.
-    Returns {'rate', 'models': [...], 'orderCompleteDate', 'errors'}."""
-    tracer = tracer or NullTracer()
-    _rate, state = _prepare(inputs, tracer)
-    errors = []
+def _line_summary(pid, qty, results):
+    """Per cart / SO line (Connect ask #1): no component or supplier detail."""
+    dated = [r['deliveryDate'] for r in results if r['deliveryDate']]
+    undated = [r for r in results if not r['deliveryDate']]
+    out = {
+        'odooProductId': pid, 'quantity': qty,
+        'fromStock': sum(1 for r in results if r['basis'] == BASIS_FG and r['readyDate']),
+        'firstUnitDate': min(dated) if dated else None,
+        'lastUnitDate': None if undated or not dated else max(dated),
+    }
+    out['fromProduction'] = qty - out['fromStock']
+    if undated:
+        out['reason'] = undated[0]['reason']
+    return out
+
+
+def _summarise(inputs, per_line):
+    """per_line: [(pid, [unit results])] in order → (models, lines, orderCompleteDate)."""
     agg = {}
     order = []
-    var_values = {}
-    for pid, qty in lines:
-        if pid not in inputs.variants:
-            errors.append({'odooProductId': pid, 'error': 'unknown_product'})
-            continue
-        n = int(round(qty or 0))
-        if n <= 0:
-            errors.append({'odooProductId': pid, 'error': 'invalid_quantity'})
-            continue
+    lines_out = []
+    for pid, results in per_line:
         v = inputs.variants[pid]
-        _trace_variant_header(inputs, state, pid, tracer)
-        if tracer.enabled:
-            tracer.line(f'  CART  {n} unit(s) requested')
+        lines_out.append(_line_summary(pid, len(results), results))
         if v.tmpl_id not in agg:
             agg[v.tmpl_id] = {'odooTemplateId': v.tmpl_id, 'model': v.model, 'quantity': 0,
                               'fromStock': 0, 'fromProduction': 0, '_results': []}
             order.append(v.tmpl_id)
         a = agg[v.tmpl_id]
-        line_results = []
-        for i in range(n):
-            if tracer.enabled:
-                tracer.line(f'  unit {i + 1}/{n}:')
-            res = _allocate(inputs, state, pid, 'cart', tracer, detail=True)
-            _trace_dates(inputs, tracer, res)
+        for res in results:
             a['quantity'] += 1
             if res['basis'] == BASIS_FG and res['readyDate']:
                 a['fromStock'] += 1
             else:
                 a['fromProduction'] += 1
             a['_results'].append(res)
-            if tracer.enabled:
-                unit_vals = _strip(res)
-                unit_vals.update(res.get('_debug') or {})
-                line_results.append(unit_vals)
-        if tracer.enabled:
-            var_values.setdefault(str(pid), _variant_values(inputs, state, pid, None))
-            var_values[str(pid)].setdefault('cartUnits', []).extend(line_results)
 
     models = []
     complete = []
@@ -773,7 +769,6 @@ def estimate_cart(inputs, lines, tracer=None):
         results = a.pop('_results')
         dated = [r for r in results if r['deliveryDate']]
         undated = [r for r in results if not r['deliveryDate']]
-        last = max(dated, key=lambda r: r['deliveryDate']) if dated else None
         a['firstUnitDate'] = min(r['deliveryDate'] for r in dated) if dated else None
         if undated:
             all_dated = False
@@ -781,16 +776,89 @@ def estimate_cart(inputs, lines, tracer=None):
             a['reason'] = undated[0]['reason']
             setter = undated[0]
         else:
-            a['lastUnitDate'] = last['deliveryDate']
-            complete.append(last['deliveryDate'])
-            setter = last
+            setter = max(dated, key=lambda r: r['deliveryDate'])
+            a['lastUnitDate'] = setter['deliveryDate']
+            complete.append(setter['deliveryDate'])
         a['basis'] = setter['basis']
         a['limitingFactor'] = setter['limitingFactor']
         a['confidence'] = setter['confidence']
         models.append(a)
+    order_complete = max(complete) if complete and all_dated else None
+    return models, lines_out, order_complete
+
+
+def _run_extra_lines(inputs, state, lines, tracer, label):
+    """Allocate extra demand (a cart, or a not-yet-approved SO) after the
+    backlog. → (per_line, errors)."""
+    errors = []
+    per_line = []
+    var_values = {}
+    for pid, qty in lines:
+        if pid not in inputs.variants:
+            errors.append({'odooProductId': pid, 'error': 'unknown_product'})
+            continue
+        n = int(round(qty or 0))
+        if n <= 0:
+            errors.append({'odooProductId': pid, 'error': 'invalid_quantity'})
+            continue
+        _trace_variant_header(inputs, state, pid, tracer)
+        if tracer.enabled:
+            tracer.line(f'  {label}  {n} unit(s) requested')
+        results = []
+        unit_vals = []
+        for i in range(n):
+            if tracer.enabled:
+                tracer.line(f'  unit {i + 1}/{n}:')
+            res = _allocate(inputs, state, pid, label.lower(), tracer, detail=True)
+            _trace_dates(inputs, tracer, res)
+            results.append(res)
+            if tracer.enabled:
+                uv = _strip(res)
+                uv.update(res.get('_debug') or {})
+                unit_vals.append(uv)
+        per_line.append((pid, results))
+        if tracer.enabled:
+            var_values.setdefault(str(pid), _variant_values(inputs, state, pid, None))
+            var_values[str(pid)].setdefault('cartUnits', []).extend(unit_vals)
     if tracer.enabled:
         tracer.values['variants'] = var_values
-    return {
-        'rate': _rate, 'models': models, 'errors': errors,
-        'orderCompleteDate': (max(complete) if complete and all_dated else None),
-    }
+    return per_line, errors
+
+
+def estimate_cart(inputs, lines, tracer=None):
+    """lines: [(pid, qty)] in cart order. Unknown pids → 'errors'.
+    Returns {'rate', 'models', 'lines', 'orderCompleteDate', 'errors'}."""
+    tracer = tracer or NullTracer()
+    rate, state = _prepare(inputs, tracer)
+    per_line, errors = _run_extra_lines(inputs, state, lines, tracer, 'CART')
+    models, lines_out, complete = _summarise(inputs, per_line)
+    return {'rate': rate, 'models': models, 'lines': lines_out, 'errors': errors,
+            'orderCompleteDate': complete}
+
+
+def estimate_order(inputs, so_name, own_lines, tracer=None):
+    """Estimate for an existing SO (Connect ask #4).
+
+    Approved SO: it is already in the backlog, so its dates are the ones its
+    own units got there — its place in the queue is real (inQueue True).
+    Not approved yet: its undelivered lines (`own_lines`, [(pid, qty)]) are
+    quoted at the back of the queue, like a cart (inQueue False)."""
+    tracer = tracer or NullTracer()
+    rate, state = _prepare(inputs, tracer)
+    in_queue = so_name in state.backlog_results
+    if in_queue:
+        per_line = [(b.pid, results) for b, results in state.backlog_results[so_name]]
+        errors = []
+        if tracer.enabled:
+            tracer.line(f'ORDER {so_name} is approved: dates are its own place in the queue')
+            tracer.values['order'] = {
+                'so': so_name, 'inQueue': True,
+                'units': [dict(_strip(r), **(r.get('_debug') or {}), odooProductId=b.pid)
+                          for b, results in state.backlog_results[so_name] for r in results]}
+    else:
+        if tracer.enabled:
+            tracer.line(f'ORDER {so_name} is not approved: quoted at the back of the queue')
+        per_line, errors = _run_extra_lines(inputs, state, own_lines, tracer, 'ORDER')
+    models, lines_out, complete = _summarise(inputs, per_line)
+    return {'rate': rate, 'inQueue': in_queue, 'models': models, 'lines': lines_out,
+            'errors': errors, 'orderCompleteDate': complete}

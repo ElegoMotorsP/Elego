@@ -30,6 +30,7 @@ Where each engine input comes from:
   daily_output  done bike MOs per local day (qty_produced by date_finished).
 """
 import logging
+import time
 from collections import defaultdict
 from datetime import datetime, timedelta
 
@@ -42,6 +43,12 @@ from . import delivery_engine as E
 _logger = logging.getLogger(__name__)
 
 DEBUG_PARAM = 'elego_connect.delivery_estimate_debug'
+
+# Per-worker cache of exploded BoMs (see _de_explode). Not shared state:
+# each worker keeps its own copy and rebuilds it on any miss.
+_EXPLODE_CACHE = {}
+_EXPLODE_TTL = 600          # seconds
+_EXPLODE_MAX = 5000         # entries; cleared wholesale beyond this
 OPEN_MO_STATES = ('confirmed', 'progress', 'to_close')
 DEFAULT_TZ = 'Asia/Kolkata'
 
@@ -71,6 +78,30 @@ class DeliveryEstimator(models.AbstractModel):
         """lines: [(product_id, qty)] → (result dict, tracer or None)."""
         tracer = E.Tracer() if debug else None
         result = E.estimate_cart(self._de_snapshot(), lines, tracer)
+        return result, tracer
+
+    @api.model
+    def estimate_order(self, order, debug=False):
+        """Estimate for an existing SO → (result dict, tracer or None).
+        result also carries 'outstanding': False when no bike is left to
+        deliver on it."""
+        order = order.sudo()
+        snapshot = self._de_snapshot()
+        own_lines = []
+        for line in order.order_line:
+            if line.display_type or line.product_id.id not in snapshot.variants:
+                continue
+            remaining = line.product_uom._compute_quantity(
+                line.product_uom_qty - line.qty_delivered, line.product_id.uom_id)
+            if remaining > 1e-6:
+                own_lines.append((line.product_id.id, remaining))
+        tracer = E.Tracer() if debug else None
+        if not own_lines:
+            result = {'rate': {}, 'inQueue': False, 'models': [], 'lines': [],
+                      'errors': [], 'orderCompleteDate': None}
+        else:
+            result = E.estimate_order(snapshot, order.name, own_lines, tracer)
+        result['outstanding'] = bool(own_lines)
         return result, tracer
 
     @api.model
@@ -194,17 +225,34 @@ class DeliveryEstimator(models.AbstractModel):
 
     def _de_explode(self, bom, product, qty):
         """{component product id: qty in its own UoM} for `qty` units of
-        `product` (in the BoM's UoM). Phantom kits are flattened by explode()."""
-        factor = qty / (bom.product_qty or 1.0)
-        _boms, lines = bom.explode(product, factor)
-        out = defaultdict(float)
-        for bom_line, line_data in lines:
-            comp = bom_line.product_id
-            if not comp.is_storable:
-                continue
-            q = bom_line.product_uom_id._compute_quantity(line_data['qty'], comp.uom_id)
-            out[comp.id] += q
-        return dict(out)
+        `product` (in the BoM's UoM). Phantom kits are flattened by explode().
+
+        explode() is ~90% of a snapshot's cost (118-line BoMs x ~45 variants),
+        so the per-unit result is cached per worker. The key carries the
+        write_date of the BoM, its lines and the variant, so any edit to them
+        misses the cache; entries also expire after _EXPLODE_TTL to catch
+        edits to nested kit BoMs. Pure derived data: a stale or missing entry
+        only costs a recompute."""
+        line_stamp = max(bom.bom_line_ids.mapped('write_date') or [None], default=None)
+        key = (self.env.cr.dbname, bom.id, product.id,
+               str(bom.write_date), str(line_stamp), str(product.write_date))
+        now = time.monotonic()
+        hit = _EXPLODE_CACHE.get(key)
+        if hit and now - hit[0] < _EXPLODE_TTL:
+            per_unit = hit[1]
+        else:
+            _boms, lines = bom.explode(product, 1.0 / (bom.product_qty or 1.0))
+            acc = defaultdict(float)
+            for bom_line, line_data in lines:
+                comp = bom_line.product_id
+                if not comp.is_storable:
+                    continue
+                acc[comp.id] += bom_line.product_uom_id._compute_quantity(line_data['qty'], comp.uom_id)
+            per_unit = dict(acc)
+            if len(_EXPLODE_CACHE) > _EXPLODE_MAX:
+                _EXPLODE_CACHE.clear()
+            _EXPLODE_CACHE[key] = (now, per_unit)
+        return {cid: q * qty for cid, q in per_unit.items()}
 
     def _de_fg_stock(self, variants, variants_rs):
         fg_loc = self.env.ref('elegomotors_setup.location_ego_fg', raise_if_not_found=False)

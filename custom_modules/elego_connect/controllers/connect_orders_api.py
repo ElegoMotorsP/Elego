@@ -5,6 +5,8 @@ OrdersService once an HQ-approved PO needs to land in Odoo
 design repo). Reuses the existing elegomotors.connect.api.client
 credential — no new credential needed for this.
 """
+from datetime import date
+
 from odoo import http
 from odoo.http import request
 
@@ -37,6 +39,17 @@ class ConnectOrdersApiController(http.Controller):
             log_connect_call(client.client_id, 'orders/confirm', po_number, 'missing_fields')
             return _json_response({'error': 'missing_fields', 'fields': missing}, status=400)
 
+        promised_date = None
+        raw_promised = body.get('promisedDate')
+        if raw_promised:
+            try:
+                # 'YYYY-MM-DD'; a full ISO datetime is accepted and cut to its date.
+                promised_date = date.fromisoformat(str(raw_promised)[:10])
+            except ValueError:
+                log_connect_call(client.client_id, 'orders/confirm', po_number, 'invalid_promised_date')
+                return _json_response({'error': 'invalid_promised_date',
+                                       'message': 'promisedDate must be YYYY-MM-DD'}, status=400)
+
         partner = request.env['res.partner'].sudo().browse(int(odoo_partner_id))
         if not partner.exists():
             log_connect_call(client.client_id, 'orders/confirm', po_number, 'odoo_partner_not_found')
@@ -48,6 +61,7 @@ class ConnectOrdersApiController(http.Controller):
                 'odooPartnerId': int(odoo_partner_id),
                 'deliveryAddress': body.get('deliveryAddress'),
                 'remarks': body.get('remarks'),
+                'promisedDate': promised_date,
                 'lines': lines,
             })
         except Exception as e:  # noqa: BLE001 — surfaced to the caller, not swallowed

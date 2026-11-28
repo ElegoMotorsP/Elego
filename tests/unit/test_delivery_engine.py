@@ -350,3 +350,63 @@ def test_trace_truncates():
     t = E.Tracer(max_lines=5)
     E.estimate_catalogue(make(), t)
     assert len(t.lines) == 6 and t.lines[-1] == '... truncated' and t.truncated
+
+
+# ---------------------------------------------------------------- Connect asks
+
+def test_quote_per_line_breakdown_multi_colour():
+    """Ask #1: exact per-line split when a model has several colours in the cart."""
+    variants = {1: E.Variant(1, 10, 'Elego 1.1', 'Red', fg_usable=3, bom={100: 1}),
+                2: E.Variant(2, 10, 'Elego 1.1', 'White', fg_usable=0, bom={100: 1})}
+    res = cart(make(variants=variants), [(1, 5), (2, 2)])
+    red, white = res['lines']
+    assert (red['odooProductId'], red['quantity'], red['fromStock'], red['fromProduction']) == (1, 5, 3, 2)
+    assert (white['fromStock'], white['fromProduction']) == (0, 2)
+    assert red['firstUnitDate'] == '2026-12-05' and red['lastUnitDate'] >= red['firstUnitDate']
+    m = first_model(res)
+    assert m['quantity'] == 7 and m['fromStock'] == 3
+    assert m['lastUnitDate'] == max(red['lastUnitDate'], white['lastUnitDate'])
+    # no internal detail on lines
+    assert set(red) <= {'odooProductId', 'quantity', 'fromStock', 'fromProduction',
+                        'firstUnitDate', 'lastUnitDate', 'reason'}
+
+
+def test_quote_line_undated_has_reason():
+    comps = {100: E.Component(100, 'Controller', on_hand=1)}
+    res = cart(make(components=comps), [(1, 2)])
+    line = res['lines'][0]
+    assert line['firstUnitDate'] and line['lastUnitDate'] is None
+    assert line['reason'] == E.REASON_UNAVAILABLE
+
+
+def test_order_estimate_approved_uses_its_own_queue_place():
+    """Ask #4: an approved SO keeps the dates its units got in the backlog —
+    a later order does not push it back."""
+    inp_args = dict(
+        variants={1: E.Variant(1, 10, 'M', 'Red', fg_usable=1, bom={100: 1})},
+        backlog=[E.BacklogLine('SO-OLD', 1, 1, '2026-11-01'),
+                 E.BacklogLine('SO-MINE', 1, 3, '2026-11-05'),
+                 E.BacklogLine('SO-NEW', 1, 20, '2026-11-20')])
+    res = E.estimate_order(make(**inp_args), 'SO-MINE', [])
+    assert res['inQueue'] is True and res['errors'] == []
+    line = res['lines'][0]
+    # SO-OLD took the only FG unit; SO-MINE builds 3 at 5/day from today
+    assert (line['quantity'], line['fromStock'], line['fromProduction']) == (3, 0, 3)
+    # same answer whatever is queued behind it
+    without_new = E.estimate_order(make(**dict(inp_args, backlog=inp_args['backlog'][:2])), 'SO-MINE', [])
+    assert without_new['lines'] == res['lines']
+
+
+def test_order_estimate_not_approved_is_quoted_at_back():
+    inp = make(variants={1: E.Variant(1, 10, 'M', 'Red', fg_usable=1, bom={100: 1})},
+               backlog=[E.BacklogLine('SO-OLD', 1, 1, '2026-11-01')])
+    res = E.estimate_order(inp, 'SO-PENDING', [(1, 2)])
+    assert res['inQueue'] is False
+    assert res['lines'][0]['fromStock'] == 0          # SO-OLD has the FG unit
+    assert res['orderCompleteDate'] == res['lines'][0]['lastUnitDate']
+
+
+def test_order_estimate_traced_same_result():
+    args = dict(backlog=[E.BacklogLine('SO-MINE', 1, 3, '2026-11-05')])
+    assert (E.estimate_order(make(**args), 'SO-MINE', [])
+            == E.estimate_order(make(**args), 'SO-MINE', [], E.Tracer()))
