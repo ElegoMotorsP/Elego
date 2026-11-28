@@ -10,6 +10,10 @@ including for orders confirmed via the API, and this does not bypass or
 extend it. Invoicing stays exactly as gated as it already is for retail
 sales (named-accountant group + delivery-scan requirement).
 """
+from datetime import datetime, time
+
+import pytz
+
 from odoo import api, fields, models
 
 
@@ -40,11 +44,17 @@ class SaleOrderConnectExtension(models.Model):
     @api.model
     def create_from_connect_po(self, vals):
         """vals: {poNumber, odooPartnerId, deliveryAddress, remarks,
+        promisedDate (datetime.date or None),
         lines: [{odooProductId, quantity, unitPrice}]}. Returns
         (order, created) — idempotent on client_order_ref (= our
         poNumber): a retried call returns the existing order untouched
         rather than creating a duplicate, matching this app's idempotency
-        convention (docs/02.5 in the app's design repo)."""
+        convention (docs/02.5 in the app's design repo).
+
+        promisedDate is the delivery date Connect quoted when it created
+        the SO (doc/delivery-estimate-api-plan.md §4.4). It goes to the
+        standard commitment_date, which Odoo also uses as the deadline
+        on the delivery transfer."""
         existing = self.sudo().search([('client_order_ref', '=', vals['poNumber'])], limit=1)
         if existing:
             return existing, False
@@ -55,7 +65,12 @@ class SaleOrderConnectExtension(models.Model):
         if vals.get('remarks'):
             note_parts.append(f"Remarks: {vals['remarks']}")
 
+        extra = {}
+        if vals.get('promisedDate'):
+            extra['commitment_date'] = self._connect_date_to_datetime(vals['promisedDate'])
+
         order = self.sudo().create({
+            **extra,
             'partner_id': vals['odooPartnerId'],
             'client_order_ref': vals['poNumber'],
             'x_actual_salesperson': 'elego_connect',
@@ -71,6 +86,14 @@ class SaleOrderConnectExtension(models.Model):
         })
         order.action_confirm()
         return order, True
+
+    @api.model
+    def _connect_date_to_datetime(self, day):
+        """A calendar date → naive-UTC datetime at 12:00 local time, so it
+        shows as that same date for users in any Indian timezone (midnight
+        local would display as the previous day in UTC-based views)."""
+        tz = pytz.timezone(self.env.user.tz or self.env.company.partner_id.tz or 'Asia/Kolkata')
+        return tz.localize(datetime.combine(day, time(12, 0))).astimezone(pytz.utc).replace(tzinfo=None)
 
     def connect_record_decision(self, decision, approver=None, reason=None, actor_label=None):
         """Accounts / MD approval, or a rejection, requested from the Elego
@@ -107,6 +130,8 @@ class SaleOrderConnectExtension(models.Model):
             'approvalAccounts': self.approval_accounts,
             'approvalManohar': self.approval_manohar,
             'rejectionReason': self.rejection_reason or None,
+            'commitmentDate': (fields.Datetime.context_timestamp(self, self.commitment_date).date().isoformat()
+                               if self.commitment_date else None),
             'invoices': [
                 {
                     'id': inv.id,

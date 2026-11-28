@@ -420,12 +420,39 @@ Rules:
 - Debug calls are logged with `debug=1` in the log summary, so it is easy to
   check they stopped once development ends.
 
-### 4.4 Recording the promise
+### 4.4 Recording the promise (built, v18.0.1.2.0)
 
-When the PO is later submitted through `POST /elegomotors/connect/orders/confirm`,
-accept an optional `promisedDate` and write it to the standard
-`sale.order.commitment_date`. That gives HQ promise-vs-actual tracking. The
-queue stays ordered by approval time (§1), so a promise can't jump the queue.
+`POST /elegomotors/connect/orders/confirm` accepts an optional
+`"promisedDate": "YYYY-MM-DD"`. A full ISO datetime is also accepted and cut to
+its date. The date is written to the standard `sale.order.commitment_date` at
+12:00 local time, so it shows as the same date everywhere. Odoo also uses it as
+the deadline on the delivery transfer.
+- A malformed date → HTTP 400 `invalid_promised_date`, and no SO is created.
+- A retried call for an existing PO number returns the order untouched (the
+  existing idempotency rule), so a re-sent date does not overwrite the first one.
+- The order status payload (confirm and `orders/<id>/status`) now includes
+  `commitmentDate`.
+
+The queue stays ordered by approval time (§1), so a promise can't jump the queue.
+
+### 4.5 Asks from the Connect integration (elego repo `docs/36-delivery-estimates-integration.md` §7)
+
+| # | Ask | Status (v18.0.1.2.0) |
+|---|---|---|
+| 1 | Per-line breakdown in the quote | Built. `lines: [{odooProductId, quantity, fromStock, fromProduction, firstUnitDate, lastUnitDate, reason?}]`, one entry per request line, in request order. No component or supplier detail. |
+| 2 | `odooTemplateId` in the catalogue | Built. Added to every `GET /elegomotors/connect/catalogue` item. |
+| 3 | `promisedDate` → `commitment_date` | Built, see §4.4. |
+| 4 | Estimate for an existing SO | Built: `GET /elegomotors/connect/orders/<id>/delivery-estimate`. Returns `inQueue`, `outstanding`, `commitmentDate`, `models`, `lines`, `orderCompleteDate`; `?debug=1` works as in §4.3. |
+| 5 | Response time | BoM explosion was ~90% of the cost and is now cached per worker (§5). Every call logs its compute time in the request log. |
+
+**Existing-SO semantics:**
+- **Approved SO** (`inQueue: true`): the dates are the ones its own undelivered
+  units got in the backlog simulation. Orders approved later queue behind it
+  and never move it.
+- **Not yet approved** (`inQueue: false`): its undelivered bike lines are quoted
+  at the back of the queue, like a cart.
+- **Nothing left to deliver**: `outstanding: false`, with empty `models` and `lines`.
+- Errors: `order_not_found` and `order_cancelled`, both at HTTP 200.
 
 ---
 
@@ -440,6 +467,20 @@ exploded BoMs once, then simulate in plain Python.
 If profiling shows more than about 500 ms, add a snapshot model refreshed by a
 cron every 15 minutes. Cache in the database, not in process memory, because
 odoo.sh runs several workers. Hold this until it is shown to be needed.
+
+**Measured (2026-11-28, local, 44 bike variants, 118-line BoMs):** a snapshot took
+~480 ms, and `bom.explode()` was 0.86 s of a profiled 0.96 s. The exploded
+per-unit BoM is now cached **per worker** (`_EXPLODE_CACHE` in
+`delivery_estimator.py`). This is derived data, so each worker keeps its own
+copy and a stale or missing entry only costs a recompute:
+- The key includes the `write_date` of the BoM, its lines and the variant, so
+  any edit misses the cache. Checked: a BoM-line qty change is picked up on the
+  next call.
+- A 10-minute TTL catches edits to nested kit BoMs.
+
+After caching: catalogue ~220 ms (of which ~125 ms is the simulation), quote
+~70 ms. Each call logs `… N ms` in its request-log summary. The DB snapshot model
+above is still not needed.
 
 ---
 

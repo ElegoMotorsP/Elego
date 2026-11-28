@@ -42,6 +42,9 @@ class ConnectCatalogueApiController(http.Controller):
             ) or None
             items.append({
                 'odooProductId': v.id,
+                # Delivery estimates answer per model (template); this lets
+                # Connect map its variant rows to them without matching names.
+                'odooTemplateId': v.product_tmpl_id.id,
                 'model': v.product_tmpl_id.name,
                 'variant': colour,
                 'sku': v.default_code or str(v.id),

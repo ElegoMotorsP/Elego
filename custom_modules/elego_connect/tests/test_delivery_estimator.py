@@ -153,3 +153,81 @@ class TestDeliveryApiHttp(HttpCase):
         self.assertEqual(m['odooTemplateId'], self.variant.product_tmpl_id.id)
         self.assertEqual(m['quantity'], 2)
         self.assertIn('orderCompleteDate', body)
+
+
+@tagged('post_install', '-at_install')
+class TestConnectAsksHttp(HttpCase):
+    """Connect integration asks (elego repo docs/36 §7): per-line quote
+    breakdown, odooTemplateId in the catalogue, promisedDate on confirm,
+    estimate for an existing SO."""
+
+    def setUp(self):
+        super().setUp()
+        Client = self.env['elegomotors.connect.api.client']
+        client = Client.create({'name': 'DE asks client'})
+        client.action_generate_credentials()
+        token, _ttl = Client.issue_token(client.client_id)
+        self.headers = {'Authorization': f'Bearer {token}', 'Content-Type': 'application/json'}
+        self.variant = _bike_variant(self.env)
+        if not self.variant:
+            self.skipTest('no bike variant in this database')
+        self.dealer = self.env['res.partner'].create({'name': 'DE Asks Dealer'})
+
+    def _post(self, path, body):
+        return self.url_open(path, data=json.dumps(body), headers=self.headers)
+
+    def _confirm(self, po_number, **extra):
+        body = {'poNumber': po_number, 'odooPartnerId': self.dealer.id,
+                'lines': [{'odooProductId': self.variant.id, 'quantity': 2, 'unitPrice': 1000}]}
+        body.update(extra)
+        return self._post('/elegomotors/connect/orders/confirm', body)
+
+    def test_catalogue_has_template_id(self):
+        items = self.url_open('/elegomotors/connect/catalogue', headers=self.headers).json()['items']
+        row = next(i for i in items if i['odooProductId'] == self.variant.id)
+        self.assertEqual(row['odooTemplateId'], self.variant.product_tmpl_id.id)
+
+    def test_quote_has_per_line_breakdown(self):
+        body = self._post('/elegomotors/connect/delivery-estimates/quote',
+                          {'lines': [{'odooProductId': self.variant.id, 'quantity': 3}]}).json()
+        line = body['lines'][0]
+        self.assertEqual(line['odooProductId'], self.variant.id)
+        self.assertEqual(line['quantity'], 3)
+        self.assertEqual(line['fromStock'] + line['fromProduction'], 3)
+        self.assertLessEqual(set(line), {'odooProductId', 'quantity', 'fromStock', 'fromProduction',
+                                         'firstUnitDate', 'lastUnitDate', 'reason'})
+
+    def test_promised_date_sets_commitment_date(self):
+        res = self._confirm('DE-ASK-PO-1', promisedDate='2026-12-23').json()
+        self.assertEqual(res['commitmentDate'], '2026-12-23')
+        order = self.env['sale.order'].browse(res['odooSaleOrderId'])
+        self.assertTrue(order.commitment_date)
+
+    def test_promised_date_invalid(self):
+        res = self._confirm('DE-ASK-PO-2', promisedDate='23/12/2026')
+        self.assertEqual(res.status_code, 400)
+        self.assertEqual(res.json()['error'], 'invalid_promised_date')
+        self.assertFalse(self.env['sale.order'].search([('client_order_ref', '=', 'DE-ASK-PO-2')]))
+
+    def test_promised_date_optional(self):
+        res = self._confirm('DE-ASK-PO-3').json()
+        self.assertIsNone(res['commitmentDate'])
+
+    def test_existing_order_estimate(self):
+        so_id = self._confirm('DE-ASK-PO-4').json()['odooSaleOrderId']
+        path = f'/elegomotors/connect/orders/{so_id}/delivery-estimate'
+        pending = self.url_open(path, headers=self.headers).json()
+        self.assertFalse(pending['inQueue'])
+        self.assertTrue(pending['outstanding'])
+        self.assertEqual(pending['lines'][0]['quantity'], 2)
+
+        self.env['sale.order'].browse(so_id).connect_record_decision('approve', approver='accounts')
+        approved = self.url_open(path, headers=self.headers).json()
+        self.assertTrue(approved['inQueue'])
+        self.assertEqual(approved['lines'][0]['quantity'], 2)
+
+    def test_existing_order_estimate_errors(self):
+        self.assertEqual(self.url_open('/elegomotors/connect/orders/1/delivery-estimate').status_code, 401)
+        body = self.url_open('/elegomotors/connect/orders/999999999/delivery-estimate',
+                             headers=self.headers).json()
+        self.assertEqual(body['error'], 'order_not_found')
